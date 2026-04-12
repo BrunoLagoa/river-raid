@@ -55,7 +55,7 @@
 
 > Bloqueio de maior impacto para jogabilidade real. PRD menciona mobile como "future goal".
 
-#### A1 — Controles touch (D-pad virtual + botão de tiro)
+#### A1 — Controles touch (D-pad virtual + botão de tiro) (concluído)
 
 - Overlay de controles em canvas ou div React
 - D-pad no canto inferior esquerdo, botão de tiro no canto inferior direito

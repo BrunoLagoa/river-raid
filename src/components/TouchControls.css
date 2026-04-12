@@ -1,0 +1,129 @@
+.mobile-controls-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none; /* Let clicks pass through empty areas */
+  z-index: 100;
+  touch-action: none;   /* Prevent zooming/scrolling on mobile */
+  display: none;        /* Hidden by default, shown on touch devices */
+}
+
+/* Only show on devices with coarse pointers (touch screens) */
+@media (pointer: coarse), (hover: none) {
+  .mobile-controls-container {
+    display: block;
+  }
+}
+
+.mobile-controls-container button {
+  pointer-events: auto; /* Enable clicks on buttons */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  border: none;
+  cursor: pointer;
+}
+
+.sys-buttons {
+  position: absolute;
+  top: 20px;
+}
+
+.sys-buttons.top-left {
+  left: 20px;
+}
+
+.sys-buttons.top-right {
+  right: 20px;
+}
+
+.btn-sys {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+  font-weight: bold;
+  font-size: 16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.btn-sys:active {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.d-pad {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.6;
+}
+
+.d-pad-row {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.btn-dir {
+  background: rgba(68, 170, 255, 0.3);
+  border: 1px solid rgba(68, 170, 255, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-dir:active {
+  background: rgba(68, 170, 255, 0.6);
+}
+
+.d-pad-center {
+  width: 50px;
+  height: 50px;
+}
+
+.action-buttons {
+  position: absolute;
+  bottom: 40px;
+  right: 40px;
+  opacity: 0.6;
+}
+
+.btn-action {
+  background: rgba(255, 68, 68, 0.3);
+  border: 2px solid rgba(255, 68, 68, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  color: #ffcccc;
+  font-family: var(--font-retro);
+  font-size: 18px;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.btn-action:active {
+  background: rgba(255, 68, 68, 0.6);
+}

@@ -57,15 +57,7 @@ export class Game {
 
   private globalKeyHandler = (e: KeyboardEvent): void => {
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
-      if (this.running && !this.gameOverTriggered) {
-        this.paused = !this.paused
-        if (this.paused) {
-          this.sound.stopMusic()
-        } else {
-          this.lastTime = performance.now()
-          this.sound.startMusic()
-        }
-      }
+      this.togglePause()
     }
     if (e.key === 'm' || e.key === 'M') {
       this.sound.toggleMute()
@@ -102,6 +94,25 @@ export class Game {
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId)
       this.rafId = null
+    }
+  }
+
+  public togglePause(): void {
+    if (!this.running || this.gameOverTriggered) return
+    this.paused = !this.paused
+    if (this.paused) {
+      this.sound.stopMusic()
+    } else {
+      this.lastTime = performance.now()
+      this.sound.startMusic()
+    }
+  }
+
+  public simulateKey(key: string, isDown: boolean): void {
+    if (isDown) {
+      this.player.keys.add(key)
+    } else {
+      this.player.keys.delete(key)
     }
   }
 

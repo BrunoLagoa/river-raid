@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { Game } from '@/game/Game'
+import TouchControls from './TouchControls'
 
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
@@ -8,6 +9,18 @@ interface GameCanvasProps {
 export default function GameCanvas({ onGameOver }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
+
+  const handleKey = useCallback((key: string, isDown: boolean) => {
+    gameRef.current?.simulateKey(key, isDown)
+  }, [])
+
+  const handlePause = useCallback(() => {
+    gameRef.current?.togglePause()
+  }, [])
+
+  const handleMute = useCallback(() => {
+    gameRef.current?.sound.toggleMute()
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -40,9 +53,16 @@ export default function GameCanvas({ onGameOver }: GameCanvasProps) {
   }, [onGameOver])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ display: 'block', width: '100%', height: '100%' }}
-    />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <canvas
+        ref={canvasRef}
+        style={{ display: 'block', width: '100%', height: '100%' }}
+      />
+      <TouchControls
+        onKey={handleKey}
+        onPause={handlePause}
+        onMute={handleMute}
+      />
+    </div>
   )
 }

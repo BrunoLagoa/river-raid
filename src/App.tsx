@@ -40,28 +40,40 @@ export default function App() {
     setNeedsRankingName(false)
   }, [finalScore, playerName])
 
+  const handleAction = useCallback(() => {
+    if (screen === 'menu') {
+      setScreen('playing')
+    } else if (screen === 'gameover') {
+      if (needsRankingName && !rankingSaved) {
+        saveRanking()
+      } else {
+        setScreen('playing')
+      }
+    }
+  }, [screen, needsRankingName, rankingSaved, saveRanking])
+
   useEffect(() => {
     if (screen === 'playing') return
     const handler = (e: KeyboardEvent) => {
       if (screen === 'gameover' && needsRankingName && !rankingSaved) {
         if (e.key === 'Enter') {
           e.preventDefault()
-          saveRanking()
+          handleAction()
         }
         return
       }
       if (e.key === 'Enter') {
-        setScreen('playing')
+        handleAction()
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [needsRankingName, rankingSaved, saveRanking, screen])
+  }, [screen, needsRankingName, rankingSaved, handleAction])
 
   return (
     <div className="app-container">
       {screen === 'menu' && (
-        <div className="screen-wrapper menu">
+        <div className="screen-wrapper menu" onClick={handleAction} style={{ cursor: 'pointer' }}>
           <div className="panel menu-panel">
             <h1 className="title">RIVER RAID</h1>
             <div className="divider menu-divider" />
@@ -69,7 +81,7 @@ export default function App() {
             <div className="controls-row">
               <div className="control-item">
                 <div className="control-label">MOVE</div>
-                <div className="control-key">{'<'} {'>'}</div>
+                <div className="control-key">{'<'} {'>'} / A D</div>
               </div>
               <div className="control-item">
                 <div className="control-label">FIRE</div>
@@ -78,7 +90,7 @@ export default function App() {
             </div>
             
             <p className="start-text">
-              {'>'} PRESS ENTER TO START {'<'}
+              {'>'} TAP OR PRESS ENTER TO START {'<'}
             </p>
           </div>
         </div>
@@ -160,8 +172,8 @@ export default function App() {
               </div>
             )}
 
-            <p className="restart-hint">
-              {'>'} PRESS ENTER TO RETRY {'<'}
+            <p className="restart-hint" onClick={handleAction} style={{ cursor: 'pointer' }}>
+              {'>'} TAP OR PRESS ENTER TO RETRY {'<'}
             </p>
           </div>
         </div>
