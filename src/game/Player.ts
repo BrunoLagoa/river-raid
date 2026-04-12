@@ -53,10 +53,10 @@ export class Player {
 
   update(dt: number, leftBound: number, rightBound: number): void {
     if (this.state === 'alive') {
-      if (this.keys.has('ArrowLeft')) {
+      if (this.keys.has('ArrowLeft') || this.keys.has('a')) {
         this.x -= this.speed * dt
       }
-      if (this.keys.has('ArrowRight')) {
+      if (this.keys.has('ArrowRight') || this.keys.has('d')) {
         this.x += this.speed * dt
       }
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
@@ -216,7 +216,7 @@ export class Player {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     this.keys.add(e.key)
-    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'a' || e.key === 'd') {
       e.preventDefault()
     }
   }
