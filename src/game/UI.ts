@@ -245,8 +245,8 @@ export class UI {
     ctx.restore()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   resize(_width: number): void {
-    // UI adaptation to width if needed in future
   }
 
   private drawMiniPlane(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {

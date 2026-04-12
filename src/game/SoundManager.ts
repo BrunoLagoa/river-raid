@@ -73,7 +73,7 @@ export class SoundManager {
     if (!ctx || !this.masterGain) return
 
     const start = ctx.currentTime + 0.02
-    
+
     // Switch variation every 4 measures (32 steps)
     if (this.musicStep > 0 && this.musicStep % 32 === 0) {
       this.currentMusicVariation = (this.currentMusicVariation + 1) % 2
@@ -198,7 +198,7 @@ export class SoundManager {
     osc.frequency.setValueAtTime(880, ctx.currentTime) // High pitch
     gain.gain.setValueAtTime(0.1, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1)
-    
+
     osc.connect(gain)
     gain.connect(this.masterGain)
     osc.start(ctx.currentTime)

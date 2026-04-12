@@ -11,38 +11,52 @@
 
 | Módulo | Arquivo | Responsabilidade |
 |--------|---------|------------------|
-| Game | `src/game/Game.ts` | Loop principal (RAF), orquestra sistemas, pause/mute/high-score |
-| Player | `src/game/Player.ts` | Aeronave: posição, movimento, tiro, estados (alive/exploding/dead) |
+| Game | `src/game/Game.ts` | Loop principal (RAF), orquestra sistemas, pause/mute/high-score, combo, vidas |
+| Player | `src/game/Player.ts` | Aeronave: posição, movimento, tiro, touch target, estados (alive/exploding/dead) |
 | EnemyManager | `src/game/EnemyManager.ts` | Spawn, 4 tipos de inimigos, balas inimigas, dificuldade progressiva |
 | World | `src/game/World.ts` | Rio procedural: segmentos, curvas, variação de largura, colisão com margens |
 | FuelSystem | `src/game/FuelSystem.ts` | Dreno de combustível, pickups, fuel drop de pontes |
-| CollisionSystem | `src/game/CollisionSystem.ts` | Detecção AABB |
-| Fx | `src/game/Fx.ts` | Pool de partículas, score popups, flash de tela |
+| CollisionSystem | `src/game/CollisionSystem.ts` | Detecção AABB completa |
+| Fx | `src/game/Fx.ts` | Pool de partículas, score popups, flash de tela, screen shake, smoke trail |
 | Scenery | `src/game/Scenery.ts` | Objetos decorativos nas margens (palmeiras, árvores, casas, arbustos, rochas, tanques) |
-| SoundManager | `src/game/SoundManager.ts` | Sons procedurais via Web Audio API (tiro, explosão, fuel, enemy hit, game over) |
-| UI | `src/game/UI.ts` | HUD in-canvas: score, fuel bar, ícone mute, overlay pause |
+| SoundManager | `src/game/SoundManager.ts` | Sons procedurais via Web Audio API (tiro, explosão, fuel, enemy hit, game over, música) |
+| UI | `src/game/UI.ts` | HUD in-canvas: score, fuel bar, ícone mute, overlay pause, minimap, combo, vidas |
+| Atmosphere | `src/game/Atmosphere.ts` | Ciclo dia/noite, paletas de cor, nuvens parallax, CRT scanlines |
+| PowerUpSystem | `src/game/PowerUpSystem.ts` | Power-ups: tiro duplo, escudo, slow-motion |
+| RankingService | `src/game/RankingService.ts` | Ranking top 10 no localStorage |
+| StorageService | `src/game/StorageService.ts` | Abstração de localStorage para high score e ranking |
 
 ### React shell
 
 | Arquivo | Responsabilidade |
 |---------|------------------|
-| `src/App.tsx` | Telas: menu, playing, gameover (com high score + NEW BEST!) |
-| `src/components/GameCanvas.tsx` | Monta canvas, lifecycle do engine |
+| `src/App.tsx` | Telas: menu, playing, gameover (com high score + NEW BEST!, ranking top 10) |
+| `src/components/GameCanvas.tsx` | Monta canvas, lifecycle do engine, bridge React↔Game |
+| `src/components/TouchControls.tsx` | D-pad virtual + botão FIRE (A1) — ativo em touch devices |
+| `src/components/SwipeControls.tsx` | Swipe/drag + tap-to-shoot (A2) — ativo em touch devices |
 
 ### Features já funcionais
 
 - Movimento horizontal + tiro (arrow keys + space)
-- Auto-scroll com velocidade dinâmica (120→200)
+- Controles touch: D-pad virtual (A1) e swipe + tap (A2)
+- Auto-scroll com velocidade dinâmica (120→200), input vertical modula velocidade
 - 4 tipos de inimigos com IA distinta (helicóptero, avião, barco, ponte)
 - Inimigos atiram (helicópteros 50%, aviões 60%)
+- Sistema de 3 vidas com invincibility frames (2s)
 - Combustível com dreno + pickups + fuel drop de pontes
 - Rio procedural com curvas graduais
 - Colisão AABB completa (player↔enemy, player↔bank, bullet↔enemy, player↔fuel, player↔enemy bullets)
 - Score em tempo real + high score (localStorage)
+- Combo multiplier (x1→x4) com decay dinâmico
+- Power-ups: tiro duplo, escudo, slow-motion
 - Pause (P/ESC) + Mute (M)
-- Efeitos visuais: explosões com partículas, score popups, flash de tela
+- Efeitos visuais: explosões, screen shake, smoke trail, score popups, flash
 - Cenário nas margens: 6 tipos de objetos decorativos
-- Sons procedurais (tiro, explosão, fuel, enemy hit, game over)
+- Ciclo dia/noite (12 min: dia → entardecer → noite → amanhecer)
+- CRT scanlines + nuvens parallax
+- Sons procedurais (tiro, explosão, fuel, enemy hit, game over, música)
+- Minimap no canto superior direito
+- Ranking top 10 com input de nome inline
 - Dificuldade progressiva (mais inimigos ao longo do tempo)
 
 ---
@@ -106,24 +120,7 @@
 **Arquivos afetados:** `Player.ts` (estado de vida), `Game.ts` (triggerGameOver só quando vidas=0), `UI.ts` (ícones de vida)
 **Risco:** Baixo — lógica simples, poucos arquivos
 
-#### B2 — Vidas + continues limitados
 
-- 3 vidas + 2 continues
-- Continue: reseta vidas para 3 mas score é multiplicado por 0.5
-- Tela de "CONTINUE?" com countdown de 5s
-
-**Complexidade:** Média
-**Arquivos afetados:** Mesmos de B1 + `App.tsx` (nova tela de continue)
-**Risco:** Médio — UX flow mais complexo
-
-#### B3 — Apenas vidas, sem continues
-
-- Igual B1 mas sem continues
-- Mais próximo do original Atari
-
-**Complexidade:** Baixa
-**Arquivos afetados:** Mesmos de B1
-**Risco:** Baixo
 
 ---
 
@@ -197,7 +194,7 @@
 **Arquivos afetados:** Novo módulo `PowerUpSystem.ts`, `Game.ts`, `Player.ts`, `CollisionSystem.ts`, `UI.ts`, `EnemyManager.ts`
 **Risco:** Médio — balanceamento necessário
 
-#### D3 — Ranking top 10 no localStorage
+#### D3 — Ranking top 10 no localStorage (concluído)
 
 - Estrutura: array de `{ name: string, score: number, date: string }`
 - Tela de game over mostra top 10
@@ -205,7 +202,7 @@
 - Armazenado em `localStorage('river-raid-ranking')`
 
 **Complexidade:** Baixa
-**Arquivos afetados:** `Game.ts` (get/save ranking), `App.tsx` (tela de ranking), novo tipo `RankingEntry`
+**Arquivos afetados:** `RankingService.ts`, `StorageService.ts`, `App.tsx` (tela de ranking), `RankingEntry`
 **Risco:** Baixo
 
 ---

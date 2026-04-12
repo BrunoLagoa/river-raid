@@ -73,8 +73,6 @@ export default function SwipeControls({ onSetPosition, onFire, onPause, onMute }
         <button className="btn-sys" onClick={onPause}>
           II
         </button>
-      </div>
-      <div className="sys-buttons top-right">
         <button className="btn-sys" onClick={onMute}>
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
