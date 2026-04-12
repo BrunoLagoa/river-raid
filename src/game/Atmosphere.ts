@@ -199,7 +199,6 @@ export class Atmosphere {
   private currentPaletteRaw: PaletteRaw = PALETTES[0]
   private phaseIndex = 0
   private clouds: Cloud[] = []
-  private scanlinePattern: CanvasPattern | null = null
   private canvasWidth: number
   private canvasHeight: number
 
@@ -207,7 +206,6 @@ export class Atmosphere {
     this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
     this.initClouds()
-    this.buildScanlinePattern(canvasWidth)
   }
 
   // ── Initialisation ───────────────────────────────────────────────────────────
@@ -217,25 +215,6 @@ export class Atmosphere {
     for (let i = 0; i < NUM_CLOUDS; i++) {
       this.clouds.push(makeCloud(this.canvasWidth, this.canvasHeight, true))
     }
-  }
-
-  private buildScanlinePattern(canvasWidth: number): void {
-    // 1×4 offscreen canvas: rows 0-1 slightly dark, rows 2-3 transparent
-    const off = document.createElement('canvas')
-    off.width = Math.max(1, canvasWidth)
-    off.height = 4
-    const offCtx = off.getContext('2d')
-    if (!offCtx) return
-
-    offCtx.clearRect(0, 0, off.width, 4)
-    offCtx.fillStyle = 'rgba(0, 0, 0, 0.04)'
-    offCtx.fillRect(0, 0, off.width, 2)
-    // rows 2-3 remain transparent — creates the scanline gap
-
-    const ctx2d = document.createElement('canvas').getContext('2d')
-    if (!ctx2d) return
-    const pattern = ctx2d.createPattern(off, 'repeat-y')
-    this.scanlinePattern = pattern
   }
 
   // ── Update ───────────────────────────────────────────────────────────────────
@@ -347,12 +326,16 @@ export class Atmosphere {
   }
 
   // ── Render: Scanlines ────────────────────────────────────────────────────────
+  // Draw horizontal dark lines every 4px to simulate a CRT TV effect.
+  // Using direct fillRect loop instead of CanvasPattern to avoid
+  // InvalidStateError when patterns cross canvas contexts.
 
   renderScanlines(ctx: CanvasRenderingContext2D, width: number, height: number): void {
-    if (!this.scanlinePattern) return
     ctx.save()
-    ctx.fillStyle = this.scanlinePattern
-    ctx.fillRect(0, 0, width, height)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.04)'
+    for (let y = 0; y < height; y += 4) {
+      ctx.fillRect(0, y, width, 2)
+    }
     ctx.restore()
   }
 
@@ -361,8 +344,6 @@ export class Atmosphere {
   resize(canvasWidth: number, canvasHeight: number): void {
     this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
-    // Rebuild scanline pattern at new width for crisp rendering
-    this.buildScanlinePattern(canvasWidth)
   }
 
   reset(canvasWidth: number, canvasHeight: number): void {
@@ -372,6 +353,5 @@ export class Atmosphere {
     this.phaseIndex = 0
     this.currentPaletteRaw = PALETTES[0]
     this.initClouds()
-    this.buildScanlinePattern(canvasWidth)
   }
 }
