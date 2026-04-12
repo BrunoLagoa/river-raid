@@ -220,6 +220,7 @@ export class Atmosphere {
   // ── Update ───────────────────────────────────────────────────────────────────
 
   update(dt: number, scrollSpeed: number): void {
+    if (!Number.isFinite(dt)) return
     this.cycleTime = (this.cycleTime + dt) % CYCLE_DURATION
     if (this.cycleTime < 0) this.cycleTime += CYCLE_DURATION
 
