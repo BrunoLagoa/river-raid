@@ -7,9 +7,12 @@ import { FuelSystem } from './FuelSystem'
 import { SoundManager } from './SoundManager'
 import { Fx } from './Fx'
 import { Scenery } from './Scenery'
+import { readSecureNumber, writeSecureNumber } from './StorageService'
 export type GameCallback = (score: number, highScore: number) => void
 
 export class Game {
+  private static readonly HIGH_SCORE_KEY = 'river-raid-highscore'
+
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
   private rafId: number | null = null
@@ -264,18 +267,14 @@ export class Game {
   }
 
   getHighScore(): number {
-    try {
-      return parseInt(localStorage.getItem('river-raid-highscore') || '0', 10)
-    } catch {
-      return 0
-    }
+    return readSecureNumber(Game.HIGH_SCORE_KEY, 0)
   }
 
   private saveHighScore(): void {
     try {
       const current = this.getHighScore()
       if (this.score > current) {
-        localStorage.setItem('river-raid-highscore', this.score.toString())
+        writeSecureNumber(Game.HIGH_SCORE_KEY, this.score)
       }
     } catch {
       // ignore

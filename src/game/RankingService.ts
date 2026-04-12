@@ -1,3 +1,5 @@
+import { readSecureJSON, writeSecureJSON } from './StorageService'
+
 export interface RankingEntry {
   id?: string
   name: string
@@ -8,15 +10,11 @@ export interface RankingEntry {
 const RANKING_KEY = 'river-raid-ranking'
 
 export function getStoredRanking(): RankingEntry[] {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(RANKING_KEY) || '[]') as RankingEntry[]
-    return parsed
-      .filter((entry) => entry && typeof entry.name === 'string' && typeof entry.score === 'number')
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10)
-  } catch {
-    return []
-  }
+  const parsed = readSecureJSON<RankingEntry[]>(RANKING_KEY, [])
+  return parsed
+    .filter((entry) => entry && typeof entry.name === 'string' && typeof entry.score === 'number')
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10)
 }
 
 export function qualifiesForRanking(score: number): boolean {
@@ -28,6 +26,6 @@ export function saveStoredRankingEntry(entry: RankingEntry): RankingEntry[] {
   const ranking = [...getStoredRanking(), entry]
     .sort((a, b) => b.score - a.score)
     .slice(0, 10)
-  localStorage.setItem(RANKING_KEY, JSON.stringify(ranking))
+  writeSecureJSON(RANKING_KEY, ranking)
   return ranking
 }
