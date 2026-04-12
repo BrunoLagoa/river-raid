@@ -226,10 +226,10 @@ export class Game {
         return
       }
 
-      const enemyRects = this.enemyManager.getEnemyRects()
-      for (let i = 0; i < enemyRects.length; i++) {
-        if (CollisionSystem.checkAABB(playerRect, enemyRects[i])) {
-          const enemy = this.enemyManager.enemies[i]
+      for (const enemy of this.enemyManager.enemies) {
+        if (!enemy.active) continue
+        const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
+        if (CollisionSystem.checkAABB(playerRect, enemyRect)) {
           this.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
           this.player.explode()
           this.fx.flash('#ff0000', 0.4)
@@ -240,13 +240,14 @@ export class Game {
         }
       }
 
-      const enemyBulletRects = this.enemyManager.getBulletRects()
-      for (let i = 0; i < enemyBulletRects.length; i++) {
-        if (CollisionSystem.checkAABB(playerRect, enemyBulletRects[i])) {
+      for (const bullet of this.enemyManager.bullets) {
+        if (!bullet.active) continue
+        const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
+        if (CollisionSystem.checkAABB(playerRect, bulletRect)) {
           this.player.explode()
           this.fx.explosion(this.player.x, this.player.y, '#ff4400')
           this.fx.flash('#ff0000', 0.4)
-          this.enemyManager.bullets[i].active = false
+          bullet.active = false
           this.sound.explosion()
           this.triggerGameOver()
           return

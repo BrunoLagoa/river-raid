@@ -211,9 +211,13 @@ export class World {
       seg.y += speed * dt
     }
 
-    // Remove segments that have scrolled off the bottom
-    while (this.segments.length > 0 && this.segments[0].y > this.canvasHeight + 10) {
-      this.segments.shift()
+    // Remove segments that have scrolled off the bottom (single splice instead of N shifts)
+    let removeCount = 0
+    while (removeCount < this.segments.length && this.segments[removeCount].y > this.canvasHeight + 10) {
+      removeCount++
+    }
+    if (removeCount > 0) {
+      this.segments.splice(0, removeCount)
     }
 
     // Generate new segments at the top as they are needed

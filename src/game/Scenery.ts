@@ -1,3 +1,5 @@
+import { compactArray } from './utils'
+
 type SceneryType = 'palm' | 'tree' | 'house' | 'bush' | 'rock' | 'fueltank'
 
 interface SceneryObject {
@@ -64,7 +66,7 @@ export class Scenery {
       this.spawnProgress = Math.random() * 50 // small variance for next spawn
     }
 
-    this.objects = this.objects.filter((o) => o.y < this.canvasHeight + 100 && o.active)
+    compactArray(this.objects, (o) => o.y < this.canvasHeight + 100 && o.active)
   }
 
   private spawn(

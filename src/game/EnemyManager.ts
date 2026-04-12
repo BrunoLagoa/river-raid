@@ -1,4 +1,4 @@
-import type { Rect } from './CollisionSystem'
+import { compactArray } from './utils'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge'
 
@@ -121,8 +121,8 @@ export class EnemyManager {
       }
     }
 
-    this.enemies = this.enemies.filter((e) => e.active)
-    this.bullets = this.bullets.filter((b) => b.active)
+    compactArray(this.enemies, (e) => e.active)
+    compactArray(this.bullets, (b) => b.active)
   }
 
   private spawn(riverSegments: { centerX: number; width: number; y: number }[], yOffset = 0): void {
@@ -316,28 +316,6 @@ export class EnemyManager {
     ctx.fillStyle = '#9a7a5a'
     ctx.fillRect(left, top, e.width, 3)
     ctx.fillRect(left, top + e.height - 3, e.width, 3)
-  }
-
-  getEnemyRects(): Rect[] {
-    return this.enemies
-      .filter((e) => e.active)
-      .map((e) => ({
-        x: e.x,
-        y: e.y,
-        width: e.width,
-        height: e.height,
-      }))
-  }
-
-  getBulletRects(): Rect[] {
-    return this.bullets
-      .filter((b) => b.active)
-      .map((b) => ({
-        x: b.x,
-        y: b.y,
-        width: b.width,
-        height: b.height,
-      }))
   }
 
   reset(_canvasWidth: number, canvasHeight: number): void {

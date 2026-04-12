@@ -1,3 +1,5 @@
+import { compactArray } from './utils'
+
 export type GameState = 'alive' | 'exploding' | 'dead'
 
 export interface Bullet {
@@ -87,7 +89,7 @@ export class Player {
         bullet.active = false
       }
     }
-    this.bullets = this.bullets.filter((b) => b.active)
+    compactArray(this.bullets, (b) => b.active)
   }
 
   render(ctx: CanvasRenderingContext2D): void {

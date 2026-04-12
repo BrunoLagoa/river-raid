@@ -24,6 +24,7 @@ const POPUP_POOL_SIZE = 20
 
 export class Fx {
   private particles: Particle[] = []
+  private freeStack: number[] = []
   private popups: ScorePopup[] = []
   private flashColor = ''
   private flashAlpha = 0
@@ -37,6 +38,7 @@ export class Fx {
         life: 0, maxLife: 1, size: 2,
         color: '#ffffff', active: false,
       })
+      this.freeStack.push(i)
     }
     for (let i = 0; i < POPUP_POOL_SIZE; i++) {
       this.popups.push({
@@ -84,14 +86,18 @@ export class Fx {
   }
 
   update(dt: number): void {
-    for (const p of this.particles) {
+    for (let i = 0; i < this.particles.length; i++) {
+      const p = this.particles[i]
       if (!p.active) continue
       p.x += p.vx * dt
       p.y += p.vy * dt
       p.vx *= 0.96
       p.vy *= 0.96
       p.life -= dt
-      if (p.life <= 0) p.active = false
+      if (p.life <= 0) {
+        p.active = false
+        this.freeStack.push(i)
+      }
     }
 
     for (const popup of this.popups) {
@@ -145,11 +151,16 @@ export class Fx {
   }
 
   private getNextParticle(): Particle | null {
-    return this.particles.find((p) => !p.active) || null
+    if (this.freeStack.length === 0) return null
+    return this.particles[this.freeStack.pop()!]
   }
 
   reset(): void {
-    for (const p of this.particles) p.active = false
+    this.freeStack.length = 0
+    for (let i = 0; i < this.particles.length; i++) {
+      this.particles[i].active = false
+      this.freeStack.push(i)
+    }
     for (const p of this.popups) p.active = false
     this.flashTimer = 0
     this.flashAlpha = 0

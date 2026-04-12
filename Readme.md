@@ -8,6 +8,10 @@ O projeto usa uma arquitetura com shell React e engine modular em TypeScript pur
 
 ![Preview do jogo](./public/preview.png)
 
+## Jogue online
+
+- GitHub Pages: https://brunolagoa.github.io/river-raid/
+
 ## Demo do jogo
 
 - Scroll vertical contínuo

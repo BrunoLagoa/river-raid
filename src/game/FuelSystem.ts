@@ -1,5 +1,6 @@
 import { CollisionSystem } from './CollisionSystem'
 import type { Rect } from './CollisionSystem'
+import { compactArray } from './utils'
 
 export interface FuelTank {
   x: number
@@ -47,7 +48,7 @@ export class FuelSystem {
       tank.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, tank.x))
     }
 
-    this.tanks = this.tanks.filter((t) => t.active)
+    compactArray(this.tanks, (t) => t.active)
   }
 
   private spawn(riverSegments: { centerX: number; width: number; y: number }[]): void {
@@ -88,7 +89,7 @@ export class FuelSystem {
         collected = true
       }
     }
-    if (collected) this.tanks = this.tanks.filter((t) => t.active)
+    if (collected) compactArray(this.tanks, (t) => t.active)
     return collected
   }
 
