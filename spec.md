@@ -181,7 +181,7 @@
 **Arquivos afetados:** `Game.ts` (estado de combo), `UI.ts` (render combo), `Player.ts` (detectar miss)
 **Risco:** Baixo — estado simples
 
-#### D2 — Power-ups
+#### D2 — Power-ups (concluído)
 
 - Inimigos especiais (marcados visualmente) dropam power-ups ao morrer
 - Tipos de power-up:
