@@ -1,6 +1,10 @@
 import { CollisionSystem } from './CollisionSystem'
 import type { Rect } from './CollisionSystem'
 import { compactArray } from './utils'
+import {
+  FUEL_INITIAL, FUEL_DRAIN_RATE, FUEL_DRAIN_SPEED_FACTOR,
+  FUEL_SPAWN_INTERVAL, FUEL_TANK_W, FUEL_TANK_H, FUEL_PICKUP_AMOUNT, FUEL_MAX,
+} from './constants'
 
 export interface FuelTank {
   x: number
@@ -12,10 +16,10 @@ export interface FuelTank {
 
 export class FuelSystem {
   tanks: FuelTank[] = []
-  fuel = 100
-  drainRate = 5
+  fuel = FUEL_INITIAL
+  drainRate = FUEL_DRAIN_RATE
   private spawnTimer = 0
-  private spawnInterval = 6.0
+  private spawnInterval = FUEL_SPAWN_INTERVAL
   private canvasHeight: number
 
   constructor(_canvasWidth: number, canvasHeight: number) {
@@ -28,7 +32,7 @@ export class FuelSystem {
 
   update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
     // Dynamic fuel drain: faster speed = more consumption
-    const dynamicDrain = this.drainRate + scrollSpeed * 0.012
+    const dynamicDrain = this.drainRate + scrollSpeed * FUEL_DRAIN_SPEED_FACTOR
     this.fuel = Math.max(0, this.fuel - dynamicDrain * dt)
 
     this.spawnTimer -= dt
@@ -62,8 +66,8 @@ export class FuelSystem {
     this.tanks.push({
       x,
       y: -40,
-      width: 28,
-      height: 52,
+      width: FUEL_TANK_W,
+      height: FUEL_TANK_H,
       active: true,
     })
   }
@@ -72,8 +76,8 @@ export class FuelSystem {
     this.tanks.push({
       x,
       y,
-      width: 28,
-      height: 52,
+      width: FUEL_TANK_W,
+      height: FUEL_TANK_H,
       active: true,
     })
   }
@@ -85,7 +89,7 @@ export class FuelSystem {
       const tankRect: Rect = { x: tank.x, y: tank.y, width: tank.width, height: tank.height }
       if (CollisionSystem.checkAABB(playerRect, tankRect)) {
         tank.active = false
-        this.fuel = Math.min(100, this.fuel + 30)
+        this.fuel = Math.min(FUEL_MAX, this.fuel + FUEL_PICKUP_AMOUNT)
         collected = true
       }
     }
@@ -157,7 +161,7 @@ export class FuelSystem {
 
   reset(_canvasWidth: number, canvasHeight: number): void {
     this.canvasHeight = canvasHeight
-    this.fuel = 100
+    this.fuel = FUEL_INITIAL
     this.tanks = []
     this.spawnTimer = 0
   }

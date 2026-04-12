@@ -1,4 +1,12 @@
-import { compactArray } from './utils'
+import { ObjectPool } from './ObjectPool'
+import {
+  PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
+  PLAYER_SHOOT_INTERVAL, PLAYER_MAX_BULLETS,
+  PLAYER_BULLET_SPEED, PLAYER_BULLET_W, PLAYER_BULLET_H,
+  PLAYER_EXPLODING_DURATION, PLAYER_RESPAWN_Y_OFFSET,
+  PLAYER_INVINCIBILITY_TIME, PLAYER_SHIELD_BREAK_INVINCIBILITY,
+  PLAYER_DOUBLE_SHOT_SPREAD,
+} from './constants'
 
 export type GameState = 'alive' | 'exploding' | 'dead'
 
@@ -14,24 +22,29 @@ export interface Bullet {
 export class Player {
   x: number
   y: number
-  width = 28
-  height = 32
-  speed = 300
+  width = PLAYER_WIDTH
+  height = PLAYER_HEIGHT
+  speed = PLAYER_SPEED
   state: GameState = 'alive'
-  bullets: Bullet[] = []
+  private bulletPool = new ObjectPool<Bullet>(
+    PLAYER_MAX_BULLETS,
+    () => ({ x: 0, y: 0, speed: PLAYER_BULLET_SPEED, width: PLAYER_BULLET_W, height: PLAYER_BULLET_H, active: false }),
+    (b) => { b.active = true },
+  )
+  get bullets(): Bullet[] { return this.bulletPool.activeItems }
   shootCooldown = 0
-  shootInterval = 0.18
+  shootInterval = PLAYER_SHOOT_INTERVAL
   justShot = false
   doubleShotTimer = 0
   shieldActive = false
   invincibilityTimer = 0
-  private readonly MAX_BULLETS = 20
+  private readonly MAX_BULLETS = PLAYER_MAX_BULLETS
   private animFrame = 0
   private animTimer = 0
 
   readonly keys: Set<string> = new Set()
   private explodingTimer = 0
-  private readonly explodingDuration = 1.2
+  private readonly explodingDuration = PLAYER_EXPLODING_DURATION
 
   setTouchTarget(x: number | null): void {
     this.touchTargetX = x
@@ -40,7 +53,7 @@ export class Player {
 
   constructor(canvasWidth: number, canvasHeight: number) {
     this.x = canvasWidth / 2
-    this.y = canvasHeight - 80
+    this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
   }
 
   attachInput(): void {
@@ -55,20 +68,20 @@ export class Player {
   }
 
   resize(_canvasWidth: number, canvasHeight: number, leftBound: number, rightBound: number): void {
-    this.y = canvasHeight - 80
+    this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
     this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
   }
 
   update(dt: number, leftBound: number, rightBound: number, onMiss?: () => void): void {
     if (this.state === 'alive') {
-      for (const b of this.bullets) {
-        if (!b.active) continue
+      for (const b of this.bulletPool.activeItems) {
         b.y -= b.speed * dt
         if (b.y < -50) {
           b.active = false
           if (onMiss) onMiss()
         }
       }
+
       if (this.touchTargetX !== null) {
         const dx = this.touchTargetX - this.x
         const maxMove = this.speed * dt
@@ -94,17 +107,16 @@ export class Player {
       const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
       if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         if (this.doubleShotTimer > 0) {
-          this.bullets.push({ x: this.x - 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })
-          this.bullets.push({ x: this.x + 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })
+          const b1 = this.bulletPool.acquire()
+          b1.x = this.x - PLAYER_DOUBLE_SHOT_SPREAD
+          b1.y = this.y - this.height / 2
+          const b2 = this.bulletPool.acquire()
+          b2.x = this.x + PLAYER_DOUBLE_SHOT_SPREAD
+          b2.y = this.y - this.height / 2
         } else {
-          this.bullets.push({
-            x: this.x,
-            y: this.y - this.height / 2,
-            speed: 500,
-            width: 3,
-            height: 12,
-            active: true,
-          })
+          const b = this.bulletPool.acquire()
+          b.x = this.x
+          b.y = this.y - this.height / 2
         }
         this.shootCooldown = this.shootInterval
         this.justShot = true
@@ -123,14 +135,6 @@ export class Player {
         this.state = 'dead'
       }
     }
-
-    for (const bullet of this.bullets) {
-      bullet.y -= bullet.speed * dt
-      if (bullet.y + bullet.height < 0) {
-        bullet.active = false
-      }
-    }
-    compactArray(this.bullets, (b) => b.active)
   }
 
   render(ctx: CanvasRenderingContext2D): void {
@@ -280,28 +284,28 @@ export class Player {
   /** Respawn mid-game after losing a life. Recenters the player and grants invincibility. */
   respawn(canvasWidth: number, canvasHeight: number): void {
     this.x = canvasWidth / 2
-    this.y = canvasHeight - 80
+    this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
     this.state = 'alive'
-    this.bullets = []
+    this.bulletPool.resetAll()
     this.shootCooldown = 0
     this.justShot = false
     this.shieldActive = false
     this.doubleShotTimer = 0
-    this.invincibilityTimer = 2.5
+    this.invincibilityTimer = PLAYER_INVINCIBILITY_TIME
     this.animFrame = 0
     this.animTimer = 0
   }
 
   breakShield(): void {
     this.shieldActive = false
-    this.invincibilityTimer = 1.5
+    this.invincibilityTimer = PLAYER_SHIELD_BREAK_INVINCIBILITY
   }
 
   reset(canvasWidth: number, canvasHeight: number): void {
     this.x = canvasWidth / 2
-    this.y = canvasHeight - 80
+    this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
     this.state = 'alive'
-    this.bullets = []
+    this.bulletPool.resetAll()
     this.shootCooldown = 0
     this.justShot = false
     this.doubleShotTimer = 0

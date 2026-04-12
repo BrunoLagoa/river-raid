@@ -5,6 +5,7 @@ import type { Fx } from './Fx'
 import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
+import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE } from './constants'
 
 export interface Rect {
   x: number
@@ -41,8 +42,6 @@ export class CollisionSystem {
 
   static resolveCollisions(ctx: CollisionContext): void {
     if (ctx.player.state !== 'alive') return
-    // Skip all damage while invincible (after respawn)
-    const isInvincible = ctx.player.invincibilityTimer > 0
 
     const playerRect: Rect = {
       x: ctx.player.x,
@@ -51,69 +50,88 @@ export class CollisionSystem {
       height: ctx.player.height,
     }
 
-    // Player vs Banks
-    if (ctx.world.isOutOfBounds(ctx.player.x, ctx.player.y, ctx.player.width / 2)) {
-      if (isInvincible) return
-      ctx.player.explode()
-      ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ff4400')
-      ctx.fx.flash('#ff0000', 0.4)
-      ctx.fx.addShake(12, 0.5)
-      ctx.sound.explosion()
-      ctx.handlePlayerDeath()
-      return
-    }
+    if (CollisionSystem.checkPlayerVsBanks(ctx)) return
+    if (CollisionSystem.checkPlayerVsEnemies(ctx, playerRect)) return
+    if (CollisionSystem.checkPlayerVsEnemyBullets(ctx, playerRect)) return
 
-    // Player vs Enemies
+    CollisionSystem.checkBulletsVsEnemies(ctx)
+    CollisionSystem.checkPlayerVsFuel(ctx, playerRect)
+    CollisionSystem.checkPlayerVsPowerUps(ctx, playerRect)
+  }
+
+  private static killPlayer(ctx: CollisionContext, px: number, py: number, color: string): void {
+    ctx.player.explode()
+    ctx.fx.explosion(px, py, color)
+    ctx.fx.flash('#ff0000', 0.4)
+    ctx.fx.addShake(12, 0.5)
+    ctx.sound.explosion()
+    ctx.handlePlayerDeath()
+  }
+
+  private static checkPlayerVsBanks(ctx: CollisionContext): boolean {
+    if (ctx.player.invincibilityTimer > 0) return false
+    if (ctx.world.isOutOfBounds(ctx.player.x, ctx.player.y, ctx.player.width / 2)) {
+      CollisionSystem.killPlayer(ctx, ctx.player.x, ctx.player.y, '#ff4400')
+      return true
+    }
+    return false
+  }
+
+  private static checkPlayerVsEnemies(ctx: CollisionContext, playerRect: Rect): boolean {
+    const isInvincible = ctx.player.invincibilityTimer > 0
+
     for (const enemy of ctx.enemyManager.enemies) {
       if (!enemy.active) continue
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
-      if (CollisionSystem.checkAABB(playerRect, enemyRect)) {
-        if (isInvincible) break
-        if (ctx.player.shieldActive) {
-          ctx.player.breakShield()
-          enemy.active = false
-          const color = ENEMY_COLORS[enemy.type] || '#ffffff'
-          ctx.fx.explosion(enemy.x, enemy.y, color)
-          ctx.sound.enemyHit()
-          continue
-        }
-        ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
-        ctx.player.explode()
-        ctx.fx.flash('#ff0000', 0.4)
-        ctx.fx.addShake(12, 0.5)
-        enemy.active = false
-        ctx.sound.explosion()
-        ctx.handlePlayerDeath()
-        return
-      }
-    }
+      if (!CollisionSystem.checkAABB(playerRect, enemyRect)) continue
 
-    // Player vs Enemy Bullets
+      if (isInvincible) return false
+
+      if (ctx.player.shieldActive) {
+        ctx.player.breakShield()
+        enemy.active = false
+        ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+        ctx.sound.enemyHit()
+        continue
+      }
+
+      CollisionSystem.killPlayer(ctx, enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+      enemy.active = false
+      return true
+    }
+    return false
+  }
+
+  private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
+    const isInvincible = ctx.player.invincibilityTimer > 0
+
     for (const bullet of ctx.enemyManager.bullets) {
       if (!bullet.active) continue
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
-      if (CollisionSystem.checkAABB(playerRect, bulletRect)) {
-        if (isInvincible) { bullet.active = false; continue }
-        if (ctx.player.shieldActive) {
-          ctx.player.breakShield()
-          bullet.active = false
-          ctx.fx.explosion(bullet.x, bullet.y, '#ffaaaa')
-          ctx.sound.enemyHit()
-          ctx.registerHit()
-          continue
-        }
-        ctx.player.explode()
-        ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ff4400')
-        ctx.fx.flash('#ff0000', 0.4)
-        ctx.fx.addShake(12, 0.5)
-        bullet.active = false
-        ctx.sound.explosion()
-        ctx.handlePlayerDeath()
-        return
-      }
-    }
+      if (!CollisionSystem.checkAABB(playerRect, bulletRect)) continue
 
-    // Player Bullets vs Enemies
+      if (isInvincible) {
+        bullet.active = false
+        continue
+      }
+
+      if (ctx.player.shieldActive) {
+        ctx.player.breakShield()
+        bullet.active = false
+        ctx.fx.explosion(bullet.x, bullet.y, '#ffaaaa')
+        ctx.sound.enemyHit()
+        ctx.registerHit()
+        continue
+      }
+
+      CollisionSystem.killPlayer(ctx, ctx.player.x, ctx.player.y, '#ff4400')
+      bullet.active = false
+      return true
+    }
+    return false
+  }
+
+  private static checkBulletsVsEnemies(ctx: CollisionContext): void {
     for (const bullet of ctx.player.bullets) {
       if (!bullet.active) continue
       const bulletRect: Rect = {
@@ -155,23 +173,25 @@ export class CollisionSystem {
         }
       }
     }
+  }
 
-    // Player vs Fuel
+  private static checkPlayerVsFuel(ctx: CollisionContext, playerRect: Rect): void {
     if (ctx.fuelSystem.checkPickup(playerRect)) {
       ctx.sound.fuelCollect()
     }
+  }
 
-    // Player vs PowerUps
+  private static checkPlayerVsPowerUps(ctx: CollisionContext, playerRect: Rect): void {
     for (const p of ctx.powerUpSystem.powerUps) {
       if (!p.active) continue
       const pRect: Rect = { x: p.x, y: p.y, width: p.width, height: p.height }
       if (CollisionSystem.checkAABB(playerRect, pRect)) {
         p.active = false
-        if (p.type === 'double_shot') ctx.player.doubleShotTimer = 10.0
+        if (p.type === 'double_shot') ctx.player.doubleShotTimer = POWERUP_DOUBLE_SHOT_DURATION
         if (p.type === 'shield') ctx.player.shieldActive = true
         if (p.type === 'slow_motion') ctx.activateSlowMotion()
-        ctx.sound.fuelCollect() // using fuel collect sound for powerups too
-        ctx.addScore(100)
+        ctx.sound.fuelCollect()
+        ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
       }
     }

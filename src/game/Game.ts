@@ -10,10 +10,18 @@ import { Fx } from './Fx'
 import { Scenery } from './Scenery'
 import { Atmosphere } from './Atmosphere'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
+import { ScoringSystem } from './ScoringSystem'
+import { GameState } from './GameState'
+import {
+  COMBO_SHOT_PENALTY,
+  FUEL_LOW_THRESHOLD, FUEL_LOW_FLASH_INTERVAL, FUEL_RESPAWN_MIN,
+  SLOW_MOTION_DURATION,
+  GAME_OVER_DELAY, RESPAWN_DELAY, HIGH_SCORE_KEY,
+} from './constants'
 export type GameCallback = (score: number, highScore: number) => void
 
 export class Game {
-  private static readonly HIGH_SCORE_KEY = 'river-raid-highscore'
+  private static readonly HIGH_SCORE_KEY_STATIC = HIGH_SCORE_KEY
 
   private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D
@@ -33,19 +41,26 @@ export class Game {
   scenery: Scenery
   atmosphere: Atmosphere
 
-  score = 0
-  lives = 3
-  gameTime = 0
-  scrollSpeed = 120
   private onGameOver: GameCallback | null = null
   private gameOverTriggered = false
 
-  private fuelFlashTimer = 0
-  slowMotionTimer = 0
-  comboMultiplier = 1
-  consecutiveHits = 0
-  comboAnimTimer = 0
-  comboLevelTimer = 0
+  private scoring = new ScoringSystem()
+  private state = new GameState()
+
+  get score(): number { return this.scoring.score }
+  set score(value: number) { this.scoring.score = value }
+  get lives(): number { return this.state.lives }
+  set lives(value: number) { this.state.lives = value }
+  get gameTime(): number { return this.state.gameTime }
+  set gameTime(value: number) { this.state.gameTime = value }
+  get scrollSpeed(): number { return this.state.scrollSpeed }
+  set scrollSpeed(value: number) { this.state.scrollSpeed = value }
+  get slowMotionTimer(): number { return this.state.slowMotionTimer }
+  set slowMotionTimer(value: number) { this.state.slowMotionTimer = value }
+  get comboMultiplier(): number { return this.scoring.comboMultiplier }
+  get consecutiveHits(): number { return this.scoring.consecutiveHits }
+  get comboAnimTimer(): number { return this.scoring.comboAnimTimer }
+  get comboLevelTimer(): number { return this.scoring.comboLevelTimer }
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -140,24 +155,16 @@ export class Game {
 
   restart(): void {
     this.stop()
-    this.score = 0
-    this.lives = 3
-    this.gameTime = 0
-    this.scrollSpeed = 120
+    this.state.reset()
+    this.scoring.reset()
     this.player.reset(this.canvas.width, this.canvas.height)
     this.world.reset(this.canvas.width, this.canvas.height)
     this.enemyManager.reset(this.canvas.width, this.canvas.height)
     this.fuelSystem.reset(this.canvas.width, this.canvas.height)
     this.powerUpSystem.reset(this.canvas.width, this.canvas.height)
-    this.slowMotionTimer = 0
-    this.comboMultiplier = 1
-    this.consecutiveHits = 0
-    this.comboAnimTimer = 0
-    this.comboLevelTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
-    this.fuelFlashTimer = 0
     this.start()
   }
 
@@ -177,50 +184,19 @@ export class Game {
   }
 
   registerHit(): void {
-    this.consecutiveHits++
-    const oldMultiplier = this.comboMultiplier
-
-    if (this.consecutiveHits >= 25) {
-      this.comboMultiplier = 4
-    } else if (this.consecutiveHits >= 12) {
-      this.comboMultiplier = 3
-    } else if (this.consecutiveHits >= 5) {
-      this.comboMultiplier = 2
-    }
-
-    // Every hit refreshes the current level timer
-    this.comboLevelTimer = 6.0 // 6 seconds to find next target at any level
-
-    if (this.comboMultiplier > oldMultiplier) {
-      this.comboAnimTimer = 1.0
+    const previous = this.comboMultiplier
+    this.scoring.registerHit()
+    if (this.comboMultiplier > previous) {
       this.fx.addShake(3, 0.1)
     }
   }
 
   registerMiss(): void {
-    // Punishing miss resets everything
-    this.comboMultiplier = 1
-    this.comboAnimTimer = 0.5
-    this.comboLevelTimer = 0
-    this.consecutiveHits = 0
+    this.scoring.registerMiss()
   }
 
   decayCombo(): void {
-    if (this.comboMultiplier > 1) {
-      this.comboMultiplier--
-      this.comboAnimTimer = 0.5
-      
-      // Reset hits to the minimum threshold of the lower level
-      if (this.comboMultiplier === 3) this.consecutiveHits = 12
-      else if (this.comboMultiplier === 2) this.consecutiveHits = 5
-      else this.consecutiveHits = 0
-
-      if (this.comboMultiplier > 1) {
-        this.comboLevelTimer = 6.0
-      } else {
-        this.comboLevelTimer = 0
-      }
-    }
+    this.scoring.decayCombo()
   }
 
   private loop = (timestamp: number): void => {
@@ -238,8 +214,6 @@ export class Game {
   }
 
   private update(dt: number): void {
-    // While player is in exploding animation, keep updating fx only.
-    // When the animation ends (state → 'dead'), handlePlayerDeath is called.
     if (this.player.state === 'exploding') {
       this.player.update(dt, 0, this.canvas.width)
       this.fx.update(dt)
@@ -252,31 +226,12 @@ export class Game {
       return
     }
 
-    this.gameTime += dt
-    const baseSpeed = Math.min(200, 120 + this.gameTime * 0.4)
+    this.state.updateTime(dt)
+    const speedMod = this.state.updateSpeed(this.player.keys)
+    this.scoring.update(dt)
+    this.sound.updateEngine()
 
-    // Vertical input modulates scroll speed (up = faster, down = slower)
-    let speedMod = 1.0
-    if (this.player.keys.has('ArrowUp')) speedMod = 1.4
-    if (this.player.keys.has('ArrowDown')) speedMod = 0.4
-    this.scrollSpeed = baseSpeed * speedMod
-
-    this.sound.updateEngine(speedMod)
-
-    if (this.slowMotionTimer > 0) {
-      this.slowMotionTimer -= dt
-    }
-    if (this.comboAnimTimer > 0) {
-      this.comboAnimTimer -= dt
-    }
-    if (this.comboLevelTimer > 0) {
-      this.comboLevelTimer -= dt
-      if (this.comboLevelTimer <= 0) {
-        this.decayCombo()
-      }
-    }
-
-    const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
+    const envDt = this.state.getEnvDt(dt)
 
     this.world.update(envDt, this.scrollSpeed)
     this.atmosphere.update(dt, this.scrollSpeed)
@@ -309,29 +264,28 @@ export class Game {
         triggerGameOver: () => this.triggerGameOver(),
         handlePlayerDeath: () => this.handlePlayerDeath(),
         addScore: (points) => {
-          this.score += points
+          this.scoring.addScore(points)
         },
         registerHit: () => {
           this.registerHit()
         },
         activateSlowMotion: () => {
-          this.slowMotionTimer = 5.0
+          this.slowMotionTimer = SLOW_MOTION_DURATION
         }
       })
 
       if (this.player.justShot) {
         this.sound.shoot()
         this.player.justShot = false
-        // Trigger small penalty for firing to discourage spamming
         if (this.comboMultiplier > 1) {
-          this.comboLevelTimer -= 0.3 // -0.3s per shot
+          this.scoring.comboLevelTimer -= COMBO_SHOT_PENALTY
         }
       }
 
-      if (this.fuelSystem.fuel < 20) {
-        this.fuelFlashTimer += dt
-        if (this.fuelFlashTimer > 0.8) {
-          this.fuelFlashTimer = 0
+      if (this.fuelSystem.fuel < FUEL_LOW_THRESHOLD) {
+        this.state.fuelFlashTimer += dt
+        if (this.state.fuelFlashTimer > FUEL_LOW_FLASH_INTERVAL) {
+          this.state.fuelFlashTimer = 0
           this.fx.flash('#ff2200', 0.15)
           this.sound.lowFuelBeep()
         }
@@ -405,11 +359,11 @@ export class Game {
       setTimeout(() => {
         if (!this.running || this.gameOverTriggered) return
         // Give minimum fuel on respawn so player isn't stuck in a fuel-out loop
-        if (this.fuelSystem.fuel < 30) {
-          this.fuelSystem.fuel = 30
+        if (this.fuelSystem.fuel < FUEL_RESPAWN_MIN) {
+          this.fuelSystem.fuel = FUEL_RESPAWN_MIN
         }
         this.player.respawn(this.canvas.width, this.canvas.height)
-      }, 1300)
+      }, RESPAWN_DELAY)
     } else {
       // No more lives — real game over
       this.triggerGameOver()
@@ -427,18 +381,18 @@ export class Game {
     }
     setTimeout(() => {
       this.onGameOver?.(this.score, this.getHighScore())
-    }, 1200)
+    }, GAME_OVER_DELAY)
   }
 
   getHighScore(): number {
-    return readSecureNumber(Game.HIGH_SCORE_KEY, 0)
+    return readSecureNumber(Game.HIGH_SCORE_KEY_STATIC, 0)
   }
 
   private saveHighScore(): void {
     try {
       const current = this.getHighScore()
       if (this.score > current) {
-        writeSecureNumber(Game.HIGH_SCORE_KEY, this.score)
+        writeSecureNumber(Game.HIGH_SCORE_KEY_STATIC, this.score)
       }
     } catch {
       // ignore

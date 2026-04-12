@@ -1,270 +1,270 @@
-# River Raid — Spec de Evolução
+# River Raid — Levantamento de Melhorias
 
-> Documento gerado a partir da análise do código real do projeto (Fases 1–4 + extras implementados).
-> Serve como roadmap e referência para próximas implementações.
-
----
-
-## Estado Atual (concluído)
-
-### Módulos implementados
-
-| Módulo | Arquivo | Responsabilidade |
-|--------|---------|------------------|
-| Game | `src/game/Game.ts` | Loop principal (RAF), orquestra sistemas, pause/mute/high-score, combo, vidas |
-| Player | `src/game/Player.ts` | Aeronave: posição, movimento, tiro, touch target, estados (alive/exploding/dead) |
-| EnemyManager | `src/game/EnemyManager.ts` | Spawn, 4 tipos de inimigos, balas inimigas, dificuldade progressiva |
-| World | `src/game/World.ts` | Rio procedural: segmentos, curvas, variação de largura, colisão com margens |
-| FuelSystem | `src/game/FuelSystem.ts` | Dreno de combustível, pickups, fuel drop de pontes |
-| CollisionSystem | `src/game/CollisionSystem.ts` | Detecção AABB completa |
-| Fx | `src/game/Fx.ts` | Pool de partículas, score popups, flash de tela, screen shake, smoke trail |
-| Scenery | `src/game/Scenery.ts` | Objetos decorativos nas margens (palmeiras, árvores, casas, arbustos, rochas, tanques) |
-| SoundManager | `src/game/SoundManager.ts` | Sons procedurais via Web Audio API (tiro, explosão, fuel, enemy hit, game over, música) |
-| UI | `src/game/UI.ts` | HUD in-canvas: score, fuel bar, ícone mute, overlay pause, minimap, combo, vidas |
-| Atmosphere | `src/game/Atmosphere.ts` | Ciclo dia/noite, paletas de cor, nuvens parallax, CRT scanlines |
-| PowerUpSystem | `src/game/PowerUpSystem.ts` | Power-ups: tiro duplo, escudo, slow-motion |
-| RankingService | `src/game/RankingService.ts` | Ranking top 10 no localStorage |
-| StorageService | `src/game/StorageService.ts` | Abstração de localStorage para high score e ranking |
-
-### React shell
-
-| Arquivo | Responsabilidade |
-|---------|------------------|
-| `src/App.tsx` | Telas: menu, playing, gameover (com high score + NEW BEST!, ranking top 10) |
-| `src/components/GameCanvas.tsx` | Monta canvas, lifecycle do engine, bridge React↔Game |
-| `src/components/TouchControls.tsx` | D-pad virtual + botão FIRE (A1) — ativo em touch devices |
-| `src/components/SwipeControls.tsx` | Swipe/drag + tap-to-shoot (A2) — ativo em touch devices |
-
-### Features já funcionais
-
-- Movimento horizontal + tiro (arrow keys + space)
-- Controles touch: D-pad virtual (A1) e swipe + tap (A2)
-- Auto-scroll com velocidade dinâmica (120→200), input vertical modula velocidade
-- 4 tipos de inimigos com IA distinta (helicóptero, avião, barco, ponte)
-- Inimigos atiram (helicópteros 50%, aviões 60%)
-- Sistema de 3 vidas com invincibility frames (2s)
-- Combustível com dreno + pickups + fuel drop de pontes
-- Rio procedural com curvas graduais
-- Colisão AABB completa (player↔enemy, player↔bank, bullet↔enemy, player↔fuel, player↔enemy bullets)
-- Score em tempo real + high score (localStorage)
-- Combo multiplier (x1→x4) com decay dinâmico
-- Power-ups: tiro duplo, escudo, slow-motion
-- Pause (P/ESC) + Mute (M)
-- Efeitos visuais: explosões, screen shake, smoke trail, score popups, flash
-- Cenário nas margens: 6 tipos de objetos decorativos
-- Ciclo dia/noite (12 min: dia → entardecer → noite → amanhecer)
-- CRT scanlines + nuvens parallax
-- Sons procedurais (tiro, explosão, fuel, enemy hit, game over, música)
-- Minimap no canto superior direito
-- Ranking top 10 com input de nome inline
-- Dificuldade progressiva (mais inimigos ao longo do tempo)
+> Gerado em 12/04/2026 via análise automatizada do código-fonte (Serena MCP + inspeção direta).
 
 ---
 
-## Eixos de Evolução
+## Estado Atual do Projeto
+
+- **LOC:** ~4130 linhas (src/)
+- **Módulos:** 16 módulos TS em `src/game/` + 3 componentes React em `src/components/`
+- **Build:** Limpo (246 KB gzipped: 75 KB)
+- **Typecheck:** Sem erros
+- **Lint:** 1 erro pendente (`SoundManager.ts:68` — `_speedRatio` não usado)
+- **Testes:** 1 arquivo de teste (`utils.test.ts`) — cobertura quase zero
+- **Fase do PRD:** Fases 1-4 implementadas + extras (power-ups, atmosfera, scenery, ranking, touch/swipe)
 
 ---
 
-### Eixo A — Mobile / Touch
+## Visão Geral da Arquitetura
 
-> Bloqueio de maior impacto para jogabilidade real. PRD menciona mobile como "future goal".
+```
+src/
+  game/
+    Game.ts              → God class: game loop, score, combo, lives, slow-mo, respawn, high-score
+    Player.ts            → Aircraft entity: movement, shooting, states, shield, double-shot
+    EnemyManager.ts      → Spawn + update + render de 4 tipos + bullets (tudo em 1 classe)
+    World.ts             → Rio procedural: segmentos, curvas, largura variável
+    FuelSystem.ts        → Dreno de combustível, pickups, bridge fuel drops
+    CollisionSystem.ts   → AABB: 6 tipos de colisão em 1 método (137 linhas)
+    Fx.ts                → Pool de partículas, score popups, flash, shake
+    SoundManager.ts      → Web Audio API: sons procedurais + música + engine
+    UI.ts                → HUD in-canvas: score, fuel, minimap, power-ups, combo, pause
+    Scenery.ts           → Objetos decorativos nas margens
+    Atmosphere.ts        → Ciclo dia/noite com paletas, nuvens, scanlines CRT
+    PowerUpSystem.ts     → Double-shot, shield, slow-motion
+    StorageService.ts    → Obfuscation + localStorage
+    RankingService.ts    → Ranking com nome + score + data
+    utils.ts             → compactArray (swap-remove in-place)
+    utils.test.ts        → 3 testes para compactArray
+  components/
+    GameCanvas.tsx       → Monta canvas, instancia Game, lifecycle bridge
+    TouchControls.tsx    → Botões touch para mobile
+    SwipeControls.tsx    → Swipe + tap para mobile
+  App.tsx                → Shell: menu/game/gameover + ranking
+```
 
-#### A1 — Controles touch (D-pad virtual + botão de tiro) (concluído)
+---
 
-- Overlay de controles em canvas ou div React
-- D-pad no canto inferior esquerdo, botão de tiro no canto inferior direito
-- Detecção de touch events separados para cada controle
-- Responsividade: canvas adapta ao viewport do dispositivo
+## Problemas Detectados
 
+### Críticos
+
+| Problema | Local | Impacto |
+|----------|-------|---------|
+| Cobertura de testes quase zero | Todo `src/game/` | Risco alto de regressão em qualquer mudança |
+| Lint error pendente | `SoundManager.ts:68` | `_speedRatio` não usado — possível bug |
+
+### Estruturais
+
+| Problema | Local | Impacto |
+|----------|-------|---------|
+| God class (`Game.ts`) | `Game.ts` | 30+ propriedades, responsabilidades misturadas |
+| Render + lógica acoplados | `EnemyManager.ts` | 4 métodos render*() misturados com spawn/update |
+| CollisionResolver monolítico | `CollisionSystem.ts` | `resolveCollisions` com 137 linhas e 6 tipos |
+| Alocação no hot loop | `Player.ts`, `EnemyManager.ts` | `push()` de objetos a cada frame (bullets, enemies) |
+| `.filter()` no render | `Game.ts:386-390` | Aloca arrays a cada frame para minimap |
+| Magic numbers espalhados | Vários arquivos | Manutenibilidade reduzida |
+| `Date.now()` no render | `EnemyManager.ts:312` | Inconsistente com `gameTime` do engine |
+
+---
+
+## Abordagens de Melhoria
+
+### A. Estabilização e Qualidade (prioridade alta)
+
+**Foco:** testes, correção de lint, eliminação de bugs
+
+- Corrigir lint error (`_speedRatio` não usado no `SoundManager.ts:68`)
+- Criar testes unitários para os módulos críticos: `CollisionSystem`, `EnemyManager`, `FuelSystem`, `Player`, `World`
+- Criar testes de integração para o game loop (`Game.ts`)
+- Adicionar `npm run test:coverage` com threshold mínimo
+
+**Prós:** Base sólida para refactoring futuro, regressões detectadas automaticamente
+**Contras:** Não agrega valor visível ao jogador, esforço alto (16 módulos sem teste)
 **Complexidade:** Média
-**Arquivos afetados:** Novo módulo `TouchControls.ts` ou div React, `GameCanvas.tsx`, `Player.ts` (input touch)
-**Risco:** Baixo — não afeta gameplay keyboard
-
-#### A2 — Swipe horizontal para mover + tap para atirar (concluído)
-
-- Swipe/drag horizontal controla posição X do avião diretamente (posicionamento 1:1)
-- Tap rápido (duração < 200ms, movimento < 15px) dispara tiro
-- Movimento suave com interpolação (speed-limited lerp) para evitar teleporte
-- Overlay transparente full-screen com botões pause/mute no topo
-- Ativado automaticamente em dispositivos touch (`@media (pointer: coarse)`)
-
-**Complexidade:** Média
-**Arquivos afetados:** `Player.ts` (touchTargetX), `Game.ts` (bridge), `SwipeControls.tsx` (gestos), `SwipeControls.css`, `GameCanvas.tsx`
-**Risco:** Baixo — não afeta gameplay keyboard, fallback natural
-
-#### A3 — Combinação A1 + A2 com detecção automática de dispositivo
-
-- Desktop: keyboard
-- Mobile: D-pad + tiro (A1)
-- Opção de swipe como alternativa (A2)
-
-**Complexidade:** Média-Alta
-**Arquivos afetados:** Mesmos + lógica de detecção
-**Risco:** Baixo
 
 ---
 
-### Eixo B — Vidas e Checkpoints
+### B. Refactoring Arquitetural (prioridade média)
 
-> Original River Raid tinha vidas múltiplas. Atualmente 1 hit = game over.
+**Foco:** reduzir acoplamento, SRP, object pooling
 
-#### B1 — Sistema de 3 vidas (concluído) (recomendado)
+- Extrair `Game.ts` em subsistemas: `GameLoop`, `SystemCoordinator`
+- Object pool para bullets (Player) e enemies (EnemyManager) — atualmente `push()` aloca a cada frame
+- Extrair render de cada entidade para uma `Renderer` separada (EnemyManager tem `renderHelicopter`, `renderPlane`, etc. misturados com lógica de jogo)
+- Extrair `CollisionSystem.resolveCollisions` (137 linhas) em métodos por tipo de colisão
+- Mover magic numbers para constants (`src/game/constants.ts`)
+- Eliminar `Date.now()` no render do helicóptero — usar `gameTime` consistente
 
-- Player tem 3 vidas
-- Ao morrer: respawn na posição atual com invincibility frames (2s)
-- HUD mostra vidas restantes (ícones de avião)
-- Game over só quando vidas = 0
-- Invincibility: sprite pisca (alpha alternado)
-
-**Complexidade:** Baixa
-**Arquivos afetados:** `Player.ts` (estado de vida), `Game.ts` (triggerGameOver só quando vidas=0), `UI.ts` (ícones de vida)
-**Risco:** Baixo — lógica simples, poucos arquivos
-
-
-
----
-
-### Eixo C — Efeitos Visuais Avançados
-
-> Atualmente: sprites retangulares simples, shimmer mínimo na água, flash de tela.
-
-#### C1 — Screen shake + trail de fumaça + ondas no rio (concluído) (recomendado)
-
-- **Screen shake:** ao explodir inimigo ou morrer, canvas desloca 3-5px por 0.3s
-  - Implementação: `ctx.translate(randomShake, randomShake)` no render
-- **Trail de fumaça:** partículas cinza saindo atrás do avião continuamente
-  - Usa pool existente em `Fx.ts`, tipo novo "trail"
-- **Ondas no rio:** linhas horizontais com offset senoidal animado sobre a água azul
-  - Modificação em `World.ts` render
-
-**Complexidade:** Média
-**Arquivos afetados:** `Fx.ts` (trail), `Game.ts` (shake), `World.ts` (ondas)
-**Risco:** Baixo — performance mitigável com toggle
-
-#### C2 — C1 + filtro CRT scanline + nuvens parallax (concluído)
-
-- Scanline overlay sutil (linhas horizontais semi-transparentes)
-- Nuvens passando em camada acima do verde mas abaixo do HUD
-- Camada de nuvens: 2-3 nuvens grandes, velocidade menor que scroll
-
-**Complexidade:** Média-Alta
-**Arquivos afetados:** Mesmos de C1 + novo render pass para scanlines + nuvens
-**Risco:** Baixo — camadas não interagem com gameplay
-
-#### C3 — C2 + variação dia/noite progressiva (concluído)
-
-- Cores do rio/verde/HUD mudam gradualmente ao longo do tempo
-- Ciclo: dia → entardecer → noite → amanhecer (~3 min cada)
-- Tons de azul mais escuros à noite, laranja no entardecer
-- HUD adapta contraste automaticamente
-
+**Prós:** Manutenibilidade, performance, testabilidade
+**Contras:** Risco de quebrar gameplay, muito esforço, sem UX visível
 **Complexidade:** Alta
-**Arquivos afetados:** Todos os módulos de render
-**Risco:** Médio — impacto em legibilidade do HUD
 
 ---
 
-### Eixo D — Gameplay Profundo
+### C. Performance e Otimização (prioridade média)
 
-> Replayability e profundidade mecânica.
+**Foco:** 60fps estável em devices fracos
 
-#### D1 — Score multiplier / combo (concluído) (recomendado)
+- Object pooling para bullets, enemies, particles (atualmente já existe pool em `Fx`, mas Player e EnemyManager criam objetos novos)
+- Eliminar `.filter()` no render do `Game.ts` (linhas de minimap) — aloca arrays a cada frame
+- Spatial hashing ou grid para collision detection (atualmente O(n*m) brute force)
+- Cache de `Math.sin/cos` para water waves no `World.render`
+- Eliminar `Date.now()` em render (usar `gameTime`)
+- Pré-calcular paths de render quando possível
 
-- Combo sobe a cada kill seguido sem miss (errar tiro)
-- Multiplicador: x1 → x2 → x3 → x4 (máximo)
-- Reseta ao errar tiro (bullet sai da tela sem hit)
-- HUD mostra multiplicador atual com animação ao subir
-- Visual: texto do combo cresce e diminui ao mudar
-
-**Complexidade:** Baixa
-**Arquivos afetados:** `Game.ts` (estado de combo), `UI.ts` (render combo), `Player.ts` (detectar miss)
-**Risco:** Baixo — estado simples
-
-#### D2 — Power-ups (concluído)
-
-- Inimigos especiais (marcados visualmente) dropam power-ups ao morrer
-- Tipos de power-up:
-  - **Tiro duplo** — 2 balas simultâneas por 10s
-  - **Escudo** — absorve 1 hit, indicador visual ao redor do avião
-  - **Slow-motion** — scrollSpeed reduz 50% por 5s
-- Power-ups flutuam no rio como fuel tanks, player coleta passando por cima
-- Drop chance: 15% em inimigos marcados, 5% em qualquer inimigo
-
-**Complexidade:** Alta
-**Arquivos afetados:** Novo módulo `PowerUpSystem.ts`, `Game.ts`, `Player.ts`, `CollisionSystem.ts`, `UI.ts`, `EnemyManager.ts`
-**Risco:** Médio — balanceamento necessário
-
-#### D3 — Ranking top 10 no localStorage (concluído)
-
-- Estrutura: array de `{ name: string, score: number, date: string }`
-- Tela de game over mostra top 10
-- Se score entrou no ranking: input inline para nome (sem prompt)
-- Armazenado em `localStorage('river-raid-ranking')`
-
-**Complexidade:** Baixa
-**Arquivos afetados:** `RankingService.ts`, `StorageService.ts`, `App.tsx` (tela de ranking), `RankingEntry`
-**Risco:** Baixo
+**Prós:** FPS estável, menos GC pressure
+**Contras:** Premature optimization se já roda a 60fps
+**Complexidade:** Média-Alta
 
 ---
 
-### Eixo E — Polimento de Áudio e HUD (concluído)
+### D. Features de Polish (prioridade baixa-média)
 
-#### E1 — Som ambiente (motor do avião + rio) (concluído)
+**Foco:** UX, gameplay, retenção
 
-- Loop procedural de motor: oscilador contínuo com variação de pitch por velocidade
-- Som de rio: ruído branco filtrado em lowpass, volume baixo
-- Motor muda pitch quando veloz vs lento
-- Tudo mutado pelo mesmo toggle M
+- Tela de tutorial/controles (como jogar)
+- Tela de configurações (volume, controles)
+- Sistema de achievements (primeiro bridge, combo máximo, etc.)
+- Mais enemy types (tanques, navios)
+- Dificuldade progressiva mais sofisticada (biomas/temas visuais por zona)
+- Leaderboard online (substituir localStorage)
+- Suporte a gamepad (Gamepad API)
+- `prefers-reduced-motion` — desabilitar partículas/shake
 
-**Complexidade:** Baixa
-**Arquivos afetados:** `SoundManager.ts` (novos métodos, loop contínuo), `Game.ts` (start/stop ambient)
-**Risco:** Baixo — pode ser repetitivo, mitigado com variação
-
-#### E2 — Ranking top 10 visual na tela de game over (concluído)
-
-- Lista com posições numeradas, highlight na entrada do jogador
-- Scroll automático se necessário
-- Nome do jogador coletado inline (campo de texto)
-
-**Complexidade:** Baixa
-**Arquivos afetados:** `App.tsx`, `Game.ts`
-**Risco:** Baixo
-
-#### E3 — Minimap no canto (concluído)
-
-- Mini-retângulo no canto superior direito mostrando próximos 3-4 segmentos do rio
-- Posição do jogador indicada por ponto
-- Inimigos como pontos vermelhos
-- Fuel tanks como pontos verdes
-
-**Complexidade:** Média
-**Arquivos afetados:** `UI.ts` (render minimap), `Game.ts` (passar dados)
-**Risco:** Baixo — visual apenas
+**Prós:** Experiência de jogador muito melhor, diferencial
+**Contras:** Feature creep, esforço variável por item
+**Complexidade:** Variável (baixa a alta por item)
 
 ---
 
-## Priorização Recomendada
+### E. Accessibility e Responsividade (prioridade baixa)
 
-| Ordem | Eixo | Esforço | Impacto | Risco |
-|-------|-------|---------|---------|-------|
-| 1 | B1 — 3 vidas | Baixo | Alto (retenção) | Baixo |
-| 2 | D1 — Combo multiplier | Baixo | Alto (replayability) | Baixo |
-| 3 | C1 — Screen shake + trail + ondas | Médio | Alto (visual) | Baixo |
-| 4 | A1 — Controles touch | Médio | Alto (mobile) | Baixo |
-| 5 | D3 — Ranking top 10 | Baixo | Médio (engajamento) | Baixo |
-| 6 | E1 — Som ambiente | Baixo | Médio (imersão) | Baixo |
-| 7 | C2 — CRT scanlines + nuvens | Médio | Médio (polimento) | Baixo |
-| 8 | D2 — Power-ups | Alto | Alto (gameplay) | Médio |
-| 9 | E3 — Minimap | Médio | Baixo | Baixo |
-| 10 | C3 — Dia/noite | Alto | Médio | Médio |
+**Foco:** inclusão e multi-device
+
+- `prefers-reduced-motion` para desabilitar FX
+- ARIA labels nos controles React fora do canvas
+- Navegação por teclado completa nos menus
+- Scaling responsivo do canvas (atualmente fullscreen fixo)
+- Detecção de mobile com UI adaptativa
+- High contrast mode
+
+**Prós:** Alcance maior de público
+**Contras:** Baixo impacto para o público-alvo atual (desktop gamers)
+**Complexidade:** Baixa a Média
 
 ---
 
-## Notas Técnicas
+## Matriz de Complexidade
 
-- Todos os eixos respeitam a arquitetura: React shell + pure TS engine em `src/game/`
-- React nunca chama lógica de jogo durante render
-- Novos sistemas seguem o padrão existente: classe com `update(dt)` + `render(ctx)` + `reset()`
-- Performance: manter 60 FPS. Evitar alocações no hot loop. Usar object pools.
-- Canvas-only para gameplay. React só para shell (menu, gameover, ranking).
-- TypeScript strict. ESM only.
+| Abordagem | Complexidade | Impacto Técnico | Impacto UX |
+|-----------|-------------|-----------------|------------|
+| A. Estabilização | Média | Alto | Nenhum |
+| B. Refactoring | Alta | Alto | Nenhum |
+| C. Performance | Média-Alta | Médio | Baixo |
+| D. Polish | Variável | Baixo | Alto |
+| E. Accessibility | Baixa-Média | Baixo | Médio |
+
+---
+
+## Riscos
+
+- **B (Refactoring):** Risco alto de regressão sem testes (abordagem A é pré-requisito). O `Game.ts` é o coração — qualquer mudança pode quebrar gameplay.
+- **C (Performance):** Se o jogo já roda a 60fps, é otimização prematura. Precisa medir antes (adicionar FPS counter ou profiler).
+- **D (Polish):** Feature creep se não houver priorização clara.
+- **Lint error existente** (`SoundManager.ts:68`): baixo risco mas indica possível bug no `updateEngine` que recebe `speedRatio` e não usa.
+
+---
+
+## Aderência ao Projeto
+
+- **`.agents` / `AGENTS.md`:** Todas as abordagens respeitam o princípio de "React shell + Canvas 2D puro, sem frameworks externas". Nenhuma proposta introduz dependências proibidas.
+- **Specs (`introducion.md`, `prd.md`):** Abordagem D alinha com Fase 4 (Polish) e Fase 5 (Extras). Abordagem A alinha com a meta de "TypeScript strict".
+- **Código atual:** Estrutura real corresponde ao spec. Lint error confirmado. Magic numbers e falta de pooling observados diretamente.
+
+---
+
+## Recomendação
+
+**Ordem sugerida: A → C (parcial) → D (seletivo)**
+
+1. **A primeiro** — sem testes, qualquer refactoring é perigoso. Corrigir o lint error imediatamente (1 linha). Criar testes para `CollisionSystem` e `EnemyManager` (maior risco de bugs).
+
+2. **C parcial** — object pooling para bullets/enemies (impacto real em GC) e eliminar `.filter()` no render (simples, ganho imediato). Medir FPS antes/depois.
+
+3. **D seletivo** — escolher 2-3 features de maior impacto para o jogador (ex: tutorial + gamepad support + achievements).
+
+B (refactoring arquitetural) pode ser feito incrementalmente depois, com segurança pelos testes.
+
+---
+
+## Confiança na Recomendação
+
+**Alta** — análise baseada em leitura direta de todos os 16 módulos do engine via Serena, validação de lint/typecheck/build em tempo real, e correspondência confirmada entre specs e implementação real.
+
+---
+
+## Execução Concluída — Refactoring Arquitetural (Item B)
+
+Status: **Concluído em 12/04/2026**
+
+### Itens implementados
+
+- [x] Extrair `Game.ts` em subsistemas
+  - Criado `src/game/ScoringSystem.ts` para score/combo
+  - Criado `src/game/GameState.ts` para estado temporal/velocidade/slow-motion
+  - `src/game/Game.ts` agora delega responsabilidades para os dois módulos
+
+- [x] Object pool para bullets (Player) e enemies (EnemyManager)
+  - Criado `src/game/ObjectPool.ts`
+  - `src/game/Player.ts` usa pool para bullets
+  - `src/game/EnemyManager.ts` usa pool para enemies e enemy bullets
+
+- [x] Extrair render de entidades para renderer separado
+  - Criado `src/game/EnemyRenderer.ts`
+  - `EnemyManager` delega render para `EnemyRenderer`
+
+- [x] Extrair `CollisionSystem.resolveCollisions` em métodos por tipo
+  - `src/game/CollisionSystem.ts` refatorado com métodos privados especializados
+
+- [x] Mover magic numbers para constants
+  - Criado `src/game/constants.ts`
+  - Módulos principais atualizados para usar constantes compartilhadas
+
+- [x] Eliminar `Date.now()` no render do helicóptero
+  - Render do rotor passa a usar `gameTime` do engine
+
+- [x] Corrigir lint pendente
+  - `src/game/SoundManager.ts` ajustado (remoção de parâmetro não usado)
+
+### Validação pós-implementação
+
+- Typecheck: **OK** (`npx tsc --noEmit`)
+- Lint: **OK** (`npm run lint`)
+- Testes: **OK** (3/3 passando, `npm run test`)
+- Build: **OK** (`npm run build`)
+
+### Arquivos criados
+
+- `src/game/constants.ts`
+- `src/game/ObjectPool.ts`
+- `src/game/EnemyRenderer.ts`
+- `src/game/ScoringSystem.ts`
+- `src/game/GameState.ts`
+
+### Arquivos alterados
+
+- `src/game/Game.ts`
+- `src/game/Player.ts`
+- `src/game/EnemyManager.ts`
+- `src/game/CollisionSystem.ts`
+- `src/game/FuelSystem.ts`
+- `src/game/PowerUpSystem.ts`
+- `src/game/SoundManager.ts`
+
+### Observações
+
+- Refactoring foi feito preservando compatibilidade com o shell React (`App.tsx` / `GameCanvas.tsx`).
+- Não foram adicionadas dependências externas.
+- Estrutura continua aderente ao `AGENTS.md` (Canvas 2D puro + engine modular).

@@ -1,4 +1,5 @@
 import { compactArray } from './utils'
+import { POWERUP_DROP_CHANCE, POWERUP_SIZE } from './constants'
 
 export type PowerUpType = 'double_shot' | 'shield' | 'slow_motion'
 
@@ -25,7 +26,7 @@ export class PowerUpSystem {
 
   trySpawnAt(x: number, y: number): void {
     // 8% drop chance
-    if (Math.random() > 0.08) return
+    if (Math.random() > POWERUP_DROP_CHANCE) return
 
     const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
     const type = types[Math.floor(Math.random() * types.length)]
@@ -34,8 +35,8 @@ export class PowerUpSystem {
       type,
       x,
       y,
-      width: 16,
-      height: 16,
+      width: POWERUP_SIZE,
+      height: POWERUP_SIZE,
       active: true,
     })
   }

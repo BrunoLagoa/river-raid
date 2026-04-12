@@ -65,7 +65,7 @@ export class SoundManager {
     // Engine sound removed
   }
 
-  updateEngine(_speedRatio: number): void {
+  updateEngine(): void {
   }
 
   private playMusicStep(): void {
