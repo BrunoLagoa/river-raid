@@ -43,6 +43,12 @@ O jogo possui um ciclo atmosférico contínuo de **8 minutos** com 4 fases que a
 
 As transições usam interpolação `smoothstep` com período de retenção (35% hold) para mudanças suaves e orgânicas. O ciclo roda em tempo real independente de pausas, mortes ou slow motion.
 
+### 🏆 Conquistas (Achievements)
+O jogo possui um sistema de conquistas persistentes que desafiam suas habilidades:
+- **Bridge Breaker:** Destrua sua primeira ponte.
+- **Combo Master x4:** Atinja o multiplicador máximo de combo.
+- **Fuel Saver 70%+:** Termine uma ponte com mais de 70% de combustível.
+
 ### 🏆 Ranking Top 10
 - Sistema de ranking local com persistência via `localStorage`.
 - Armazenamento seguro com ofuscação XOR e verificação de integridade via checksum FNV-1a para prevenir manipulação de scores.
@@ -64,6 +70,12 @@ O jogo conta com camadas avançadas de feedback visual para uma experiência mai
 ### 🎵 Áudio
 - **Música Chiptune Procedural:** Melodia gerada em tempo real via Web Audio API com osciladores `square` (lead) e `triangle` (bass), alternando entre duas variações a cada 32 compassos.
 - **Efeitos Sonoros:** Tiro, explosão, coleta de combustível, alerta de combustível baixo, hit em inimigo e game over — todos sintetizados proceduralmente.
+
+### ⚙️ Configurações e Acessibilidade
+O jogo permite personalizar a experiência através de um menu de configurações persistente:
+- **Controle de Volume:** Ajuste fino do volume principal e opção de mute.
+- **Reduced Motion:** Opção para suavizar ou desativar efeitos visuais intensos para maior conforto.
+- **Suporte a Gamepad:** Ativação automática de controles compatíveis via Standard Gamepad API.
 
 ---
 
@@ -104,18 +116,26 @@ src/
   │   ├── Game.ts            # Orquestrador Central e Loop Principal
   │   ├── Player.ts          # Lógica da Aeronave e Tiros
   │   ├── EnemyManager.ts    # IA e Spawn de Inimigos
+  │   ├── EnemyRenderer.ts   # Renderização especializada de inimigos
   │   ├── PowerUpSystem.ts   # Sistema de Itens e Timers
   │   ├── World.ts           # Geração Procedural do Rio
   │   ├── FuelSystem.ts      # Logística de Combustível
-  │   ├── CollisionSystem.ts # Física de Colisões AABB
+  │   ├── CollisionSystem.ts # Física de Colisões AABB e Spatial Grid
   │   ├── Atmosphere.ts      # Ciclo Dia/Noite, Nuvens e Scanlines
   │   ├── Scenery.ts         # Cenário Decorativo Pixel-Art
   │   ├── Fx.ts              # Partículas, Shakes e Popups
   │   ├── SoundManager.ts    # Sintetizador de Áudio e Música
   │   ├── UI.ts              # Rendering do HUD e Radar
+  │   ├── AchievementService.ts # Gestão de Conquistas/Achievements
+  │   ├── SettingsService.ts # Preferências e Configurações (Volume, Movimento)
+  │   ├── ScoringSystem.ts   # Lógica dedicada de Combo e Pontuação
   │   ├── RankingService.ts  # Sistema de Ranking Top 10
-  │   ├── StorageService.ts  # Armazenamento Seguro (localStorage)
-  │   └── utils.ts           # Funções Utilitárias
+  │   ├── StorageService.ts  # Armazenamento Seguro (XOR/Checksum)
+  │   ├── GameState.ts       # Máquina de Estados do Jogo
+  │   ├── ObjectPool.ts      # Otimização de Memória (Pooling de Entidades)
+  │   ├── SpatialGrid.ts     # Otimização de Colisões
+  │   ├── constants.ts       # Parâmetros de Balanceamento e Configuração
+  │   └── utils.ts           # Funções Utilitárias e Math
   ├── components/            # Componentes React
   │   ├── GameCanvas.tsx     # Ponte React ↔ Canvas
   │   ├── TouchControls.tsx  # Interface Mobile (D-Pad)
