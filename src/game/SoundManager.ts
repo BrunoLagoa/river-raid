@@ -4,8 +4,12 @@ export class SoundManager {
   private muted = false
   private musicTimer: number | null = null
   private musicStep = 0
+  private engineOsc: OscillatorNode | null = null
+  private engineGain: GainNode | null = null
+  private currentMusicVariation = 0
 
   private static readonly MELODY = [659.25, 783.99, 880, 783.99, 698.46, 783.99, 987.77, 880]
+  private static readonly MELODY_VAR_1 = [880, 987.77, 1046.50, 987.77, 880, 783.99, 880, 659.25]
   private static readonly BASS = [164.81, 164.81, 196, 196, 174.61, 174.61, 220, 196]
 
 
@@ -55,12 +59,58 @@ export class SoundManager {
     }
   }
 
+  startEngine(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain || this.engineOsc) return
+
+    this.engineOsc = ctx.createOscillator()
+    this.engineOsc.type = 'sawtooth'
+    this.engineOsc.frequency.value = 55
+
+    this.engineGain = ctx.createGain()
+    this.engineGain.gain.value = 0.05
+
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 120
+
+    this.engineOsc.connect(filter)
+    filter.connect(this.engineGain)
+    this.engineGain.connect(this.masterGain)
+
+    this.engineOsc.start(ctx.currentTime)
+  }
+
+  stopEngine(): void {
+    if (this.engineOsc) {
+      this.engineOsc.stop()
+      this.engineOsc.disconnect()
+      this.engineOsc = null
+    }
+    if (this.engineGain) {
+      this.engineGain.disconnect()
+      this.engineGain = null
+    }
+  }
+
+  updateEngine(speedRatio: number): void {
+    if (this.engineOsc && this.ctx) {
+      this.engineOsc.frequency.setTargetAtTime(45 + speedRatio * 30, this.ctx.currentTime, 0.1)
+    }
+  }
+
   private playMusicStep(): void {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain) return
 
     const start = ctx.currentTime + 0.02
-    const melodyFreq = SoundManager.MELODY[this.musicStep % SoundManager.MELODY.length]
+    
+    // Switch variation every 4 measures (32 steps)
+    if (this.musicStep > 0 && this.musicStep % 32 === 0) {
+      this.currentMusicVariation = (this.currentMusicVariation + 1) % 2
+    }
+    const currentMelody = this.currentMusicVariation === 0 ? SoundManager.MELODY : SoundManager.MELODY_VAR_1
+    const melodyFreq = currentMelody[this.musicStep % currentMelody.length]
     const bassFreq = SoundManager.BASS[this.musicStep % SoundManager.BASS.length]
 
     const leadOsc = ctx.createOscillator()
@@ -169,6 +219,23 @@ export class SoundManager {
     osc.stop(ctx.currentTime + 0.2)
   }
 
+  lowFuelBeep(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(880, ctx.currentTime) // High pitch
+    gain.gain.setValueAtTime(0.1, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1)
+    
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.1)
+  }
+
   enemyHit(): void {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain) return
@@ -191,6 +258,7 @@ export class SoundManager {
     if (!ctx || !this.masterGain) return
 
     this.stopMusic()
+    this.stopEngine()
 
     const master = this.masterGain
     const notes = [440, 370, 311, 261]
@@ -211,6 +279,7 @@ export class SoundManager {
 
   destroy(): void {
     this.stopMusic()
+    this.stopEngine()
     if (this.ctx) {
       this.ctx.close()
       this.ctx = null

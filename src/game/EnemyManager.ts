@@ -12,7 +12,7 @@ export interface EnemyBullet {
   fromPlane: boolean
 }
 
-export interface Enemy {
+export interface BaseEnemy {
   type: EnemyType
   x: number
   y: number
@@ -21,20 +21,52 @@ export interface Enemy {
   speed: number
   active: boolean
   points: number
+}
+
+export interface HelicopterEnemy extends BaseEnemy {
+  type: 'helicopter'
   canShoot: boolean
   shootCooldown: number
   shootInterval: number
-  phase?: number
-  phaseSpeed?: number
-  amplitude?: number
-  originX?: number
+  phase: number
+  phaseSpeed: number
+  amplitude: number
+  originX: number
 }
+
+export interface PlaneEnemy extends BaseEnemy {
+  type: 'plane'
+  canShoot: boolean
+  shootCooldown: number
+  shootInterval: number
+}
+
+export interface BoatEnemy extends BaseEnemy {
+  type: 'boat'
+  phase: number
+  phaseSpeed: number
+  amplitude: number
+  originX: number
+}
+
+export interface BridgeEnemy extends BaseEnemy {
+  type: 'bridge'
+}
+
+export type Enemy = HelicopterEnemy | PlaneEnemy | BoatEnemy | BridgeEnemy
 
 const ENEMY_CONFIGS: Record<EnemyType, { width: number; height: number; points: number }> = {
   helicopter: { width: 28, height: 20, points: 60 },
   plane: { width: 32, height: 28, points: 100 },
   boat: { width: 24, height: 16, points: 30 },
   bridge: { width: 200, height: 16, points: 500 },
+}
+
+export const ENEMY_COLORS: Record<EnemyType, string> = {
+  helicopter: '#ff4444',
+  plane: '#dddddd',
+  boat: '#8888dd',
+  bridge: '#2d1a12',
 }
 
 export class EnemyManager {
@@ -76,12 +108,12 @@ export class EnemyManager {
     for (const enemy of this.enemies) {
       enemy.y += scrollSpeed * dt * (enemy.type === 'bridge' ? 1 : 0.3)
 
-      if (enemy.type === 'helicopter' && enemy.originX !== undefined && enemy.phase !== undefined && enemy.phaseSpeed !== undefined && enemy.amplitude !== undefined) {
+      if (enemy.type === 'helicopter') {
         enemy.phase += enemy.phaseSpeed * dt
         enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude
       }
 
-      if (enemy.type === 'boat' && enemy.originX !== undefined && enemy.phase !== undefined && enemy.phaseSpeed !== undefined && enemy.amplitude !== undefined) {
+      if (enemy.type === 'boat') {
         enemy.phase += enemy.phaseSpeed * dt
         enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude
       }
@@ -92,21 +124,23 @@ export class EnemyManager {
         enemy.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, enemy.x))
       }
 
-      if (enemy.canShoot && enemy.y > 0) {
-        enemy.shootCooldown -= dt
-        if (enemy.shootCooldown <= 0) {
-          const bulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : 220 + this.gameTime * 0.4
-          this.bullets.push({
-            x: enemy.x,
-            y: enemy.y + enemy.height / 2,
-            speed: bulletSpeed,
-            width: enemy.type === 'plane' ? 5 : 4,
-            height: enemy.type === 'plane' ? 10 : 8,
-            active: true,
-            fromPlane: enemy.type === 'plane',
-          })
-          enemy.shootCooldown = enemy.shootInterval + Math.random() * 0.3
-        }
+      if (enemy.type === 'helicopter' || enemy.type === 'plane') {
+          if (enemy.canShoot && enemy.y > 0) {
+            enemy.shootCooldown -= dt
+            if (enemy.shootCooldown <= 0) {
+              const bulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : 220 + this.gameTime * 0.4
+              this.bullets.push({
+                x: enemy.x,
+                y: enemy.y + enemy.height / 2,
+                speed: bulletSpeed,
+                width: enemy.type === 'plane' ? 5 : 4,
+                height: enemy.type === 'plane' ? 10 : 8,
+                active: true,
+                fromPlane: enemy.type === 'plane',
+              })
+              enemy.shootCooldown = enemy.shootInterval + Math.random() * 0.3
+            }
+          }
       }
 
       if (enemy.y > this.canvasHeight + 50) {
@@ -162,42 +196,67 @@ export class EnemyManager {
       x = leftBound + Math.random() * (rightBound - leftBound)
     }
 
-    let canShoot = false
-    let shootInterval = 3.0
+    let enemy: Enemy
+
     if (type === 'helicopter') {
-      canShoot = Math.random() < 0.5
-      shootInterval = 2.0 + Math.random()
+      enemy = {
+        type: 'helicopter',
+        x,
+        y: -20 + yOffset,
+        width,
+        height: config.height,
+        speed: 80,
+        active: true,
+        points: config.points,
+        canShoot: Math.random() < 0.5,
+        shootCooldown: 1.0 + Math.random() * 2.0,
+        shootInterval: 2.0 + Math.random(),
+        originX: x,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: 2 + Math.random(),
+        amplitude: 30 + Math.random() * 40,
+      }
     } else if (type === 'plane') {
-      canShoot = Math.random() < 0.6
-      shootInterval = 0.6 + Math.random() * 0.4
-    }
-
-    const enemy: Enemy = {
-      type,
-      x,
-      y: -20 + yOffset,
-      width,
-      height: config.height,
-      speed: type === 'plane' ? 200 : type === 'helicopter' ? 80 : type === 'boat' ? 40 : 0,
-      active: true,
-      points: config.points,
-      canShoot,
-      shootCooldown: 1.0 + Math.random() * 2.0,
-      shootInterval,
-    }
-
-    if (type === 'helicopter') {
-      enemy.originX = x
-      enemy.phase = Math.random() * Math.PI * 2
-      enemy.phaseSpeed = 2 + Math.random()
-      enemy.amplitude = 30 + Math.random() * 40
-    }
-
-    if (type === 'boat') {
-      enemy.originX = x
-      enemy.phase = Math.random() * Math.PI * 2
-      enemy.phaseSpeed = 0.8 + Math.random() * 0.5
-      enemy.amplitude = 20 + Math.random() * 20
+      enemy = {
+        type: 'plane',
+        x,
+        y: -20 + yOffset,
+        width,
+        height: config.height,
+        speed: 200,
+        active: true,
+        points: config.points,
+        canShoot: Math.random() < 0.6,
+        shootCooldown: 1.0 + Math.random() * 2.0,
+        shootInterval: 0.6 + Math.random() * 0.4,
+      }
+    } else if (type === 'boat') {
+      enemy = {
+        type: 'boat',
+        x,
+        y: -20 + yOffset,
+        width,
+        height: config.height,
+        speed: 40,
+        active: true,
+        points: config.points,
+        originX: x,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: 0.8 + Math.random() * 0.5,
+        amplitude: 20 + Math.random() * 20,
+      }
+    } else {
+      // bridge
+      enemy = {
+        type: 'bridge',
+        x,
+        y: -20 + yOffset,
+        width,
+        height: config.height,
+        speed: 0,
+        active: true,
+        points: config.points,
+      }
     }
 
     this.enemies.push(enemy)
@@ -251,13 +310,15 @@ export class EnemyManager {
     ctx.fillRect(cx + 8, cy - 2, 6, 4)
     ctx.fillStyle = '#dd3333'
     ctx.fillRect(cx - 14, cy - 1, 4, 2)
+    const time = Date.now() / 50
+    const rotorWidth = 16 * Math.abs(Math.cos(time))
     ctx.strokeStyle = '#ff6666'
-    ctx.lineWidth = 1
+    ctx.lineWidth = 2
     ctx.beginPath()
-    ctx.moveTo(cx - 16, cy - 4)
-    ctx.lineTo(cx + 16, cy - 4)
+    ctx.moveTo(cx - rotorWidth, cy - 4)
+    ctx.lineTo(cx + rotorWidth, cy - 4)
     ctx.stroke()
-    if (e.canShoot) {
+    if ('canShoot' in e && e.canShoot) {
       ctx.fillStyle = '#ffaa00'
       ctx.fillRect(cx - 2, cy + 4, 4, 4)
     }
@@ -280,7 +341,7 @@ export class EnemyManager {
     ctx.fillRect(cx - 12, cy + 2, 24, 4)
     ctx.fillStyle = '#aa77ee'
     ctx.fillRect(cx - 2, cy + 4, 4, 6)
-    if (e.canShoot) {
+    if ('canShoot' in e && e.canShoot) {
       ctx.fillStyle = '#ffaa00'
       ctx.fillRect(cx - 2, cy + e.height / 2, 4, 4)
     }

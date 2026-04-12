@@ -4,6 +4,13 @@ export interface RiverSegment {
   width: number
 }
 
+interface FlowLine {
+  x: number
+  y: number
+  length: number
+  speedRatio: number
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 /** Each segment is this many pixels tall */
@@ -31,6 +38,8 @@ export class World {
   segmentHeight = SEG_H
   canvasWidth: number
   canvasHeight: number
+
+  private waterLines: FlowLine[] = []
 
   // generation-time bank positions (updated as we push new segments upward)
   private genLeft: number
@@ -233,6 +242,29 @@ export class World {
       this.advanceGenState(SEG_H)
       this.segments.push(this.makeSegment(newY))
     }
+
+    // Update water lines
+    for (let i = this.waterLines.length - 1; i >= 0; i--) {
+      const wl = this.waterLines[i]
+      wl.y += speed * wl.speedRatio * dt
+      if (wl.y > this.canvasHeight + 20) {
+        // Recycle to top
+        wl.y = -20
+        wl.x = Math.random() * this.canvasWidth
+      }
+    }
+
+    // Spawn initial water lines if empty
+    if (this.waterLines.length === 0) {
+      for (let i = 0; i < 40; i++) {
+        this.waterLines.push({
+          x: Math.random() * this.canvasWidth,
+          y: Math.random() * this.canvasHeight,
+          length: 5 + Math.random() * 15,
+          speedRatio: 1.05 + Math.random() * 0.15,
+        })
+      }
+    }
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -243,12 +275,25 @@ export class World {
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
 
     // River water
-    ctx.fillStyle = '#1a3a8a'
+    ctx.save()
+    ctx.beginPath()
     for (const seg of this.segments) {
-      if (seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
+      if (seg.y < -10 || seg.y > this.canvasHeight + 10) continue
       const left = seg.centerX - seg.width / 2
-      ctx.fillRect(left, seg.y, seg.width, SEG_H)
+      ctx.rect(left, seg.y - 1, seg.width, 10 + 2)
     }
+    ctx.clip()
+
+    // Base water color
+    ctx.fillStyle = '#1a3a8a'
+    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+
+    // Flow lines
+    ctx.fillStyle = '#2a55aa'
+    for (const wl of this.waterLines) {
+      ctx.fillRect(wl.x, wl.y, 2, wl.length)
+    }
+    ctx.restore()
 
     // Bank edge highlight — dark outer + bright inner for stronger contrast
     for (const seg of this.segments) {

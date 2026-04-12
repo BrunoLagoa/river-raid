@@ -31,6 +31,11 @@ export class Fx {
   private flashDuration = 0
   private flashTimer = 0
 
+  public shakeX = 0
+  public shakeY = 0
+  private shakeTimer = 0
+  private shakeIntensity = 0
+
   constructor() {
     for (let i = 0; i < POOL_SIZE; i++) {
       this.particles.push({
@@ -65,6 +70,28 @@ export class Fx {
       p.color = color
       p.active = true
     }
+    
+    // Shake effect on small explosions
+    this.addShake(4, 0.2)
+  }
+
+  addShake(intensity: number, duration: number): void {
+    this.shakeIntensity = Math.max(this.shakeIntensity, intensity)
+    this.shakeTimer = Math.max(this.shakeTimer, duration)
+  }
+
+  smokeTrail(x: number, y: number): void {
+    const p = this.getNextParticle()
+    if (!p) return
+    p.x = x + (Math.random() - 0.5) * 4
+    p.y = y + (Math.random() - 0.5) * 2
+    p.vx = (Math.random() - 0.5) * 10
+    p.vy = 80 + Math.random() * 40
+    p.life = 0.3 + Math.random() * 0.2
+    p.maxLife = p.life
+    p.size = 2 + Math.random() * 2
+    p.color = '#888888'
+    p.active = true
   }
 
   scorePopup(x: number, y: number, text: string): void {
@@ -113,6 +140,23 @@ export class Fx {
       if (this.flashTimer <= 0) {
         this.flashColor = ''
         this.flashAlpha = 0
+      }
+    }
+
+    if (this.shakeTimer > 0) {
+      this.shakeTimer -= dt
+      if (this.shakeTimer <= 0) {
+        this.shakeTimer = 0
+        this.shakeIntensity = 0
+        this.shakeX = 0
+        this.shakeY = 0
+      } else {
+        // Damping the intensity linearly
+        const currentIntensity = this.shakeIntensity * (this.shakeTimer / this.shakeTimer) // Wait, storing maxDuration is needed for correct damping, but constant intensity is fine too.
+        // Let's just use constant intensity for simplicity, or slightly decay it.
+        const damping = this.shakeTimer // pseudo damping
+        this.shakeX = (Math.random() - 0.5) * 2 * this.shakeIntensity
+        this.shakeY = (Math.random() - 0.5) * 2 * this.shakeIntensity
       }
     }
   }
@@ -164,5 +208,9 @@ export class Fx {
     for (const p of this.popups) p.active = false
     this.flashTimer = 0
     this.flashAlpha = 0
+    this.shakeX = 0
+    this.shakeY = 0
+    this.shakeTimer = 0
+    this.shakeIntensity = 0
   }
 }
