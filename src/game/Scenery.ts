@@ -123,10 +123,12 @@ export class Scenery {
     }
   }
 
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D, brightness = 1.0): void {
     for (const obj of this.objects) {
       if (obj.y < -obj.height || obj.y > this.canvasHeight + obj.height) continue
       ctx.save()
+      // Apply night-cycle dimming to decorative scenery only
+      if (brightness < 0.99) ctx.globalAlpha = brightness
       switch (obj.type) {
         case 'palm':
           this.renderPalm(ctx, obj)

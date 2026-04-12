@@ -1,3 +1,5 @@
+import type { ColorPalette } from './Atmosphere'
+
 export interface RiverSegment {
   y: number
   centerX: number
@@ -270,9 +272,19 @@ export class World {
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
-  render(ctx: CanvasRenderingContext2D): void {
-    // Background land (solid green)
-    ctx.fillStyle = '#1a5c1a'
+  render(ctx: CanvasRenderingContext2D, palette?: ColorPalette): void {
+    // Resolve colours — fallback to original hardcoded values when no palette given
+    const land       = palette?.landBase       ?? '#1a5c1a'
+    const edgeDark   = palette?.landEdgeDark   ?? '#0f4a0f'
+    const edgeBright = palette?.landEdgeBright ?? '#2a5aaa'
+    const water      = palette?.waterBase      ?? '#1a3a8a'
+    const flow       = palette?.waterFlow      ?? '#2a55aa'
+    const wave       = palette?.waterWave      ?? 'rgba(120, 180, 255, 0.08)'
+    const depth      = palette?.waterDepth     ?? 'rgba(0, 10, 40, 0.15)'
+    const shimmerC   = palette?.shimmer        ?? 'rgba(100, 160, 255, 0.08)'
+
+    // Background land
+    ctx.fillStyle = land
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
 
     // River water
@@ -286,17 +298,17 @@ export class World {
     ctx.clip()
 
     // Base water color
-    ctx.fillStyle = '#1a3a8a'
+    ctx.fillStyle = water
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
 
     // Flow lines
-    ctx.fillStyle = '#2a55aa'
+    ctx.fillStyle = flow
     for (const wl of this.waterLines) {
       ctx.fillRect(wl.x, wl.y, 2, wl.length)
     }
 
     // Sinusoidal water waves — organic horizontal ripples
-    ctx.strokeStyle = 'rgba(120, 180, 255, 0.08)'
+    ctx.strokeStyle = wave
     ctx.lineWidth = 1
     const waveCount = 8
     const waveSpacing = this.canvasHeight / waveCount
@@ -313,7 +325,7 @@ export class World {
 
     // Depth gradient — water gets darker toward the top
     const depthGrad = ctx.createLinearGradient(0, 0, 0, this.canvasHeight)
-    depthGrad.addColorStop(0, 'rgba(0, 10, 40, 0.15)')
+    depthGrad.addColorStop(0, depth)
     depthGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
     ctx.fillStyle = depthGrad
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
@@ -326,17 +338,17 @@ export class World {
       const left = seg.centerX - seg.width / 2
       const right = left + seg.width
       // Dark edge (land side)
-      ctx.fillStyle = '#0f4a0f'
+      ctx.fillStyle = edgeDark
       ctx.fillRect(left - 2, seg.y, 2, SEG_H)
       ctx.fillRect(right, seg.y, 2, SEG_H)
       // Bright edge (water side)
-      ctx.fillStyle = '#2a5aaa'
+      ctx.fillStyle = edgeBright
       ctx.fillRect(left, seg.y, 2, SEG_H)
       ctx.fillRect(right - 2, seg.y, 2, SEG_H)
     }
 
     // Subtle water shimmer
-    ctx.fillStyle = 'rgba(100, 160, 255, 0.08)'
+    ctx.fillStyle = shimmerC
     for (let i = 0; i < this.segments.length; i += 8) {
       const seg = this.segments[i]
       if (!seg || seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue

@@ -8,6 +8,7 @@ import { PowerUpSystem } from './PowerUpSystem'
 import { SoundManager } from './SoundManager'
 import { Fx } from './Fx'
 import { Scenery } from './Scenery'
+import { Atmosphere } from './Atmosphere'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 export type GameCallback = (score: number, highScore: number) => void
 
@@ -30,6 +31,7 @@ export class Game {
   sound: SoundManager
   fx: Fx
   scenery: Scenery
+  atmosphere: Atmosphere
 
   score = 0
   lives = 3
@@ -60,6 +62,7 @@ export class Game {
     this.sound = new SoundManager()
     this.fx = new Fx()
     this.scenery = new Scenery(canvas.width, canvas.height)
+    this.atmosphere = new Atmosphere(canvas.width, canvas.height)
 
     this.bindGlobalInput()
   }
@@ -149,6 +152,7 @@ export class Game {
     this.comboLevelTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
+    this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.fuelFlashTimer = 0
     this.start()
   }
@@ -162,6 +166,7 @@ export class Game {
     this.fuelSystem.setCanvasHeight(height)
     this.powerUpSystem.setCanvasHeight(height)
     this.scenery.setCanvasHeight(height)
+    this.atmosphere.resize(width, height)
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.resize(width, height, bounds.left, bounds.right)
     this.ui.resize(width)
@@ -268,6 +273,7 @@ export class Game {
     const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
 
     this.world.update(envDt, this.scrollSpeed)
+    this.atmosphere.update(envDt, this.scrollSpeed)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
@@ -341,13 +347,20 @@ export class Game {
   private render(): void {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
+    const palette = this.atmosphere.getPalette()
+
     this.ctx.save()
     if (this.fx.shakeX !== 0 || this.fx.shakeY !== 0) {
       this.ctx.translate(this.fx.shakeX, this.fx.shakeY)
     }
 
-    this.world.render(this.ctx)
-    this.scenery.render(this.ctx)
+    // World terrain + water (palette-driven colours for day/night)
+    this.world.render(this.ctx, palette)
+    // Decorative scenery dims at night
+    this.scenery.render(this.ctx, palette.brightness)
+    // Parallax clouds — above scenery, below gameplay entities
+    this.atmosphere.renderClouds(this.ctx)
+    // Gameplay entities always remain bright for readability
     this.fuelSystem.render(this.ctx)
     this.powerUpSystem.render(this.ctx)
     this.enemyManager.render(this.ctx)
@@ -371,6 +384,9 @@ export class Game {
       { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
       this.lives
     )
+
+    // CRT scanlines — screen-space overlay applied last, over everything including HUD
+    this.atmosphere.renderScanlines(this.ctx, this.canvas.width, this.canvas.height)
   }
 
   handlePlayerDeath(): void {

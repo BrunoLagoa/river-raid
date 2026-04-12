@@ -142,7 +142,7 @@
 **Arquivos afetados:** `Fx.ts` (trail), `Game.ts` (shake), `World.ts` (ondas)
 **Risco:** Baixo — performance mitigável com toggle
 
-#### C2 — C1 + filtro CRT scanline + nuvens parallax
+#### C2 — C1 + filtro CRT scanline + nuvens parallax (concluído)
 
 - Scanline overlay sutil (linhas horizontais semi-transparentes)
 - Nuvens passando em camada acima do verde mas abaixo do HUD
@@ -152,7 +152,7 @@
 **Arquivos afetados:** Mesmos de C1 + novo render pass para scanlines + nuvens
 **Risco:** Baixo — camadas não interagem com gameplay
 
-#### C3 — C2 + variação dia/noite progressiva
+#### C3 — C2 + variação dia/noite progressiva (concluído)
 
 - Cores do rio/verde/HUD mudam gradualmente ao longo do tempo
 - Ciclo: dia → entardecer → noite → amanhecer (~3 min cada)
