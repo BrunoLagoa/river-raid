@@ -92,7 +92,7 @@
 
 > Original River Raid tinha vidas múltiplas. Atualmente 1 hit = game over.
 
-#### B1 — Sistema de 3 vidas (recomendado)
+#### B1 — Sistema de 3 vidas (concluído) (recomendado)
 
 - Player tem 3 vidas
 - Ao morrer: respawn na posição atual com invincibility frames (2s)
