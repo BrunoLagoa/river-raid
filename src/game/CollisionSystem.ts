@@ -2,6 +2,7 @@ import type { Player } from './Player'
 import { ENEMY_COLORS, type EnemyManager } from './EnemyManager'
 import type { FuelSystem } from './FuelSystem'
 import type { Fx } from './Fx'
+import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
 
@@ -16,11 +17,13 @@ export interface CollisionContext {
   player: Player
   enemyManager: EnemyManager
   fuelSystem: FuelSystem
+  powerUpSystem: PowerUpSystem
   fx: Fx
   sound: SoundManager
   world: World
   triggerGameOver: () => void
   addScore: (points: number) => void
+  activateSlowMotion: () => void
 }
 
 export class CollisionSystem {
@@ -58,6 +61,14 @@ export class CollisionSystem {
       if (!enemy.active) continue
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
       if (CollisionSystem.checkAABB(playerRect, enemyRect)) {
+        if (ctx.player.shieldActive) {
+          ctx.player.breakShield()
+          enemy.active = false
+          const color = ENEMY_COLORS[enemy.type] || '#ffffff'
+          ctx.fx.explosion(enemy.x, enemy.y, color)
+          ctx.sound.enemyHit()
+          continue
+        }
         ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
         ctx.player.explode()
         ctx.fx.flash('#ff0000', 0.4)
@@ -73,6 +84,13 @@ export class CollisionSystem {
       if (!bullet.active) continue
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
       if (CollisionSystem.checkAABB(playerRect, bulletRect)) {
+        if (ctx.player.shieldActive) {
+          ctx.player.breakShield()
+          bullet.active = false
+          ctx.fx.explosion(bullet.x, bullet.y, '#ffaaaa')
+          ctx.sound.enemyHit()
+          continue
+        }
         ctx.player.explode()
         ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ff4400')
         ctx.fx.flash('#ff0000', 0.4)
@@ -107,6 +125,8 @@ export class CollisionSystem {
           ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${enemy.points}`)
           if (enemy.type === 'bridge' && Math.random() < 0.5) {
             ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
+          } else {
+            ctx.powerUpSystem.trySpawnAt(enemy.x, enemy.y)
           }
           enemy.active = false
           ctx.addScore(enemy.points)
@@ -119,6 +139,21 @@ export class CollisionSystem {
     // Player vs Fuel
     if (ctx.fuelSystem.checkPickup(playerRect)) {
       ctx.sound.fuelCollect()
+    }
+
+    // Player vs PowerUps
+    for (const p of ctx.powerUpSystem.powerUps) {
+      if (!p.active) continue
+      const pRect: Rect = { x: p.x, y: p.y, width: p.width, height: p.height }
+      if (CollisionSystem.checkAABB(playerRect, pRect)) {
+        p.active = false
+        if (p.type === 'double_shot') ctx.player.doubleShotTimer = 10.0
+        if (p.type === 'shield') ctx.player.shieldActive = true
+        if (p.type === 'slow_motion') ctx.activateSlowMotion()
+        ctx.sound.fuelCollect() // using fuel collect sound for powerups too
+        ctx.addScore(100)
+        ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
+      }
     }
   }
 }

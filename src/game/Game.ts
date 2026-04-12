@@ -4,6 +4,7 @@ import { CollisionSystem } from './CollisionSystem'
 import { UI } from './UI'
 import { EnemyManager } from './EnemyManager'
 import { FuelSystem } from './FuelSystem'
+import { PowerUpSystem } from './PowerUpSystem'
 import { SoundManager } from './SoundManager'
 import { Fx } from './Fx'
 import { Scenery } from './Scenery'
@@ -25,6 +26,7 @@ export class Game {
   ui: UI
   enemyManager: EnemyManager
   fuelSystem: FuelSystem
+  powerUpSystem: PowerUpSystem
   sound: SoundManager
   fx: Fx
   scenery: Scenery
@@ -36,6 +38,7 @@ export class Game {
   private gameOverTriggered = false
 
   private fuelFlashTimer = 0
+  slowMotionTimer = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -48,6 +51,7 @@ export class Game {
     this.ui = new UI()
     this.enemyManager = new EnemyManager(canvas.width, canvas.height)
     this.fuelSystem = new FuelSystem(canvas.width, canvas.height)
+    this.powerUpSystem = new PowerUpSystem(canvas.width, canvas.height)
     this.sound = new SoundManager()
     this.fx = new Fx()
     this.scenery = new Scenery(canvas.width, canvas.height)
@@ -131,6 +135,8 @@ export class Game {
     this.world.reset(this.canvas.width, this.canvas.height)
     this.enemyManager.reset(this.canvas.width, this.canvas.height)
     this.fuelSystem.reset(this.canvas.width, this.canvas.height)
+    this.powerUpSystem.reset(this.canvas.width, this.canvas.height)
+    this.slowMotionTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.fuelFlashTimer = 0
@@ -144,6 +150,7 @@ export class Game {
     this.world.canvasHeight = height
     this.enemyManager.setCanvasHeight(height)
     this.fuelSystem.setCanvasHeight(height)
+    this.powerUpSystem.setCanvasHeight(height)
     this.scenery.setCanvasHeight(height)
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.resize(width, height, bounds.left, bounds.right)
@@ -180,14 +187,21 @@ export class Game {
 
     this.sound.updateEngine(speedMod)
 
-    this.world.update(dt, this.scrollSpeed)
+    if (this.slowMotionTimer > 0) {
+      this.slowMotionTimer -= dt
+    }
+
+    const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
+
+    this.world.update(envDt, this.scrollSpeed)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right)
 
-    this.enemyManager.update(dt, this.world, this.world.segments, this.scrollSpeed)
-    this.fuelSystem.update(dt, this.world, this.world.segments, this.scrollSpeed)
-    this.scenery.update(dt, this.scrollSpeed, this.world, this.canvas.width)
+    this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed)
+    this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
+    this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
+    this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
 
     if (this.player.state === 'alive') {
       if (Math.random() < 0.3) {
@@ -198,6 +212,7 @@ export class Game {
         player: this.player,
         enemyManager: this.enemyManager,
         fuelSystem: this.fuelSystem,
+        powerUpSystem: this.powerUpSystem,
         fx: this.fx,
         sound: this.sound,
         world: this.world,
@@ -205,6 +220,9 @@ export class Game {
         addScore: (points) => {
           this.score += points
         },
+        activateSlowMotion: () => {
+          this.slowMotionTimer = 5.0
+        }
       })
 
       if (this.player.justShot) {
@@ -245,6 +263,7 @@ export class Game {
     this.world.render(this.ctx)
     this.scenery.render(this.ctx)
     this.fuelSystem.render(this.ctx)
+    this.powerUpSystem.render(this.ctx)
     this.enemyManager.render(this.ctx)
     this.player.render(this.ctx)
     this.fx.render(this.ctx)
@@ -259,7 +278,10 @@ export class Game {
         segments: this.world.segments,
         enemies: this.enemyManager.enemies.filter((enemy) => enemy.active),
         fuelTanks: this.fuelSystem.tanks.filter((tank) => tank.active),
+        powerUps: this.powerUpSystem.powerUps.filter((p) => p.active),
       },
+      this.player.doubleShotTimer,
+      this.slowMotionTimer
     )
   }
 

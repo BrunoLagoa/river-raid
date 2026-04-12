@@ -22,6 +22,9 @@ export class Player {
   shootCooldown = 0
   shootInterval = 0.18
   justShot = false
+  doubleShotTimer = 0
+  shieldActive = false
+  invincibilityTimer = 0
   private readonly MAX_BULLETS = 20
   private animFrame = 0
   private animTimer = 0
@@ -61,16 +64,24 @@ export class Player {
       }
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
 
+      if (this.doubleShotTimer > 0) this.doubleShotTimer -= dt
+      if (this.invincibilityTimer > 0) this.invincibilityTimer -= dt
+
       this.shootCooldown -= dt
       if (this.keys.has(' ') && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
-        this.bullets.push({
-          x: this.x,
-          y: this.y - this.height / 2,
-          speed: 500,
-          width: 3,
-          height: 12,
-          active: true,
-        })
+        if (this.doubleShotTimer > 0) {
+          this.bullets.push({ x: this.x - 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })
+          this.bullets.push({ x: this.x + 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })
+        } else {
+          this.bullets.push({
+            x: this.x,
+            y: this.y - this.height / 2,
+            speed: 500,
+            width: 3,
+            height: 12,
+            active: true,
+          })
+        }
         this.shootCooldown = this.shootInterval
         this.justShot = true
       }
@@ -100,7 +111,15 @@ export class Player {
 
   render(ctx: CanvasRenderingContext2D): void {
     if (this.state === 'alive') {
+      ctx.save()
+      if (this.invincibilityTimer > 0) {
+        ctx.globalAlpha = Math.floor(this.invincibilityTimer * 10) % 2 === 0 ? 0.4 : 1.0
+      }
       this.renderShip(ctx)
+      if (this.shieldActive) {
+        this.renderShield(ctx)
+      }
+      ctx.restore()
     }
 
     if (this.state === 'exploding') {
@@ -157,6 +176,21 @@ export class Player {
     ctx.restore()
   }
 
+  private renderShield(ctx: CanvasRenderingContext2D): void {
+    const cx = this.x
+    const cy = this.y
+    ctx.strokeStyle = '#4488ff'
+    ctx.lineWidth = 2
+    ctx.beginPath()
+    ctx.arc(cx, cy, 22, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(204, 255, 255, 0.6)'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.arc(cx, cy, 24, 0, Math.PI * 2)
+    ctx.stroke()
+  }
+
   private renderExplosion(ctx: CanvasRenderingContext2D): void {
     const progress = 1 - this.explodingTimer / this.explodingDuration
     const r1 = 5 + progress * 35
@@ -202,6 +236,11 @@ export class Player {
     }
   }
 
+  breakShield(): void {
+    this.shieldActive = false
+    this.invincibilityTimer = 1.5
+  }
+
   reset(canvasWidth: number, canvasHeight: number): void {
     this.x = canvasWidth / 2
     this.y = canvasHeight - 80
@@ -209,6 +248,9 @@ export class Player {
     this.bullets = []
     this.shootCooldown = 0
     this.justShot = false
+    this.doubleShotTimer = 0
+    this.shieldActive = false
+    this.invincibilityTimer = 0
     this.animFrame = 0
     this.animTimer = 0
     this.keys.clear()

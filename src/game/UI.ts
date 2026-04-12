@@ -14,6 +14,7 @@ interface MinimapData {
   segments: MinimapSegment[]
   enemies: MinimapEntity[]
   fuelTanks: MinimapEntity[]
+  powerUps: MinimapEntity[]
 }
 
 export class UI {
@@ -25,6 +26,8 @@ export class UI {
     muted = false,
     paused = false,
     minimap?: MinimapData,
+    doubleShotTimer = 0,
+    slowMotionTimer = 0,
   ): void {
     ctx.save()
 
@@ -102,6 +105,22 @@ export class UI {
       this.renderMinimap(ctx, canvasWidth, minimap)
     }
 
+    let activeY = 80
+    if (doubleShotTimer > 0) {
+      ctx.fillStyle = '#ff4444'
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`DOUBLE SHOT ${doubleShotTimer.toFixed(1)}s`, 14, activeY)
+      activeY += 16
+    }
+    if (slowMotionTimer > 0) {
+      ctx.fillStyle = '#eebb00'
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`SLOW MOTION ${slowMotionTimer.toFixed(1)}s`, 14, activeY)
+      activeY += 16
+    }
+
     if (paused) {
       ctx.fillStyle = 'rgba(0,0,0,0.6)'
       ctx.fillRect(0, 0, canvasWidth, ctx.canvas.height)
@@ -169,6 +188,14 @@ export class UI {
       if (dy < -20 || dy > visibleHeight) continue
       ctx.fillStyle = '#44dd66'
       ctx.fillRect(x + fuelTank.x * scaleX - 1, y + height - dy * scaleY - 1, 3, 3)
+    }
+
+    // Power Ups
+    for (const p of minimap.powerUps) {
+      const dy = minimap.player.y - p.y
+      if (dy < -20 || dy > visibleHeight) continue
+      ctx.fillStyle = '#44ffff'
+      ctx.fillRect(x + p.x * scaleX - 1, y + height - dy * scaleY - 1, 3, 3)
     }
 
     // Player dot
