@@ -52,20 +52,20 @@ src/
 
 | Problema | Local | Impacto |
 |----------|-------|---------|
-| Cobertura de testes quase zero | Todo `src/game/` | Risco alto de regressão em qualquer mudança |
-| Lint error pendente | `SoundManager.ts:68` | `_speedRatio` não usado — possível bug |
+| Cobertura de testes quase zero | Todo `src/game/` | **Resolvido** em 12/04/2026 (Abordagem A) |
+| Lint error pendente | `SoundManager.ts:68` | **Resolvido** em 12/04/2026 (Abordagem A/B) |
 
 ### Estruturais
 
 | Problema | Local | Impacto |
 |----------|-------|---------|
-| God class (`Game.ts`) | `Game.ts` | 30+ propriedades, responsabilidades misturadas |
-| Render + lógica acoplados | `EnemyManager.ts` | 4 métodos render*() misturados com spawn/update |
-| CollisionResolver monolítico | `CollisionSystem.ts` | `resolveCollisions` com 137 linhas e 6 tipos |
-| Alocação no hot loop | `Player.ts`, `EnemyManager.ts` | `push()` de objetos a cada frame (bullets, enemies) |
-| `.filter()` no render | `Game.ts:386-390` | Aloca arrays a cada frame para minimap |
-| Magic numbers espalhados | Vários arquivos | Manutenibilidade reduzida |
-| `Date.now()` no render | `EnemyManager.ts:312` | Inconsistente com `gameTime` do engine |
+| God class (`Game.ts`) | `Game.ts` | **Parcialmente resolvido** (extração de `ScoringSystem` + `GameState`) |
+| Render + lógica acoplados | `EnemyManager.ts` | **Resolvido** (extração para `EnemyRenderer`) |
+| CollisionResolver monolítico | `CollisionSystem.ts` | **Resolvido** (métodos especializados + broad-phase grid) |
+| Alocação no hot loop | `Player.ts`, `EnemyManager.ts` | **Parcialmente resolvido** (pooling aplicado; manter monitoramento) |
+| `.filter()` no render | `Game.ts:386-390` | **Resolvido** em 12/04/2026 (Abordagem C) |
+| Magic numbers espalhados | Vários arquivos | **Parcialmente resolvido** (`constants.ts` criado e adotado em módulos principais) |
+| `Date.now()` no render | `EnemyManager.ts:312` | **Resolvido** (usa `gameTime`) |
 
 ---
 
@@ -107,12 +107,12 @@ src/
 
 **Foco:** 60fps estável em devices fracos
 
-- Object pooling para bullets, enemies, particles (atualmente já existe pool em `Fx`, mas Player e EnemyManager criam objetos novos)
-- Eliminar `.filter()` no render do `Game.ts` (linhas de minimap) — aloca arrays a cada frame
-- Spatial hashing ou grid para collision detection (atualmente O(n*m) brute force)
-- Cache de `Math.sin/cos` para water waves no `World.render`
-- Eliminar `Date.now()` em render (usar `gameTime`)
-- Pré-calcular paths de render quando possível
+- [x] Object pooling para bullets, enemies, particles (pooling aplicado em Player/EnemyManager; `Fx` já possuía)
+- [x] Eliminar `.filter()` no render do `Game.ts` (minimap)
+- [x] Spatial hashing/grid para collision detection (broad-phase com `SpatialGrid`)
+- [x] Cache de `Math.sin/cos` para water waves no `World.render` (LUT + `fastSin`)
+- [x] Eliminar `Date.now()` em render (usar `gameTime`) *(concluído no item B)*
+- [x] Pré-calcular paths/dados de render quando possível (`visibleSegmentsCache` no `World`)
 
 **Prós:** FPS estável, menos GC pressure
 **Contras:** Premature optimization se já roda a 60fps
@@ -187,7 +187,7 @@ src/
 
 ## Recomendação
 
-**Ordem sugerida: C (parcial) → D (seletivo) → E (acessibilidade) [A e B já concluídas]**
+**Ordem sugerida: D (seletivo) → E (acessibilidade) [A, B e C já concluídas]**
 
 1. **A primeiro** — sem testes, qualquer refactoring é perigoso. Corrigir o lint error imediatamente (1 linha). Criar testes para `CollisionSystem` e `EnemyManager` (maior risco de bugs).
 
@@ -316,3 +316,44 @@ Status: **Concluído em 12/04/2026**
 
 - O threshold foi configurado como baseline inicial para os módulos-alvo da abordagem A.
 - Configuração de lint foi ajustada para ignorar artefatos de `coverage/`.
+
+---
+
+## Execução Concluída — Performance e Otimização (Item C)
+
+Status: **Concluído em 12/04/2026**
+
+### Itens implementados
+
+- [x] Eliminar `.filter()` no minimap de `Game.ts`
+- [x] Spatial hashing/grid no `CollisionSystem` (broad-phase)
+  - Criado `src/game/SpatialGrid.ts`
+  - Integração em `checkPlayerVsEnemies`, `checkPlayerVsEnemyBullets`, `checkBulletsVsEnemies`
+- [x] Cache de `Math.sin/cos` para ondas em `World.render`
+  - LUT (`SIN_LUT_SIZE`) + `fastSin()`
+  - amostras pré-calculadas (`waveX`, `waveBase`)
+- [x] Pré-cálculo de dados de render quando aplicável
+  - `visibleSegmentsCache` no `World`
+
+### Arquivos criados
+
+- `src/game/SpatialGrid.ts`
+
+### Arquivos alterados
+
+- `src/game/Game.ts`
+- `src/game/CollisionSystem.ts`
+- `src/game/World.ts`
+
+### Validação pós-implementação
+
+- Typecheck: **OK** (`npx tsc --noEmit`)
+- Lint: **OK** (`npm run lint`)
+- Testes: **OK** (18/18 passando, `npm run test`)
+- Cobertura: **OK** (`npm run test:coverage`)
+- Build: **OK** (`npm run build`)
+
+### Observações
+
+- AABB foi mantido como narrow-phase para preservar precisão de colisão.
+- Otimizações focadas em reduzir alocação e custo no hot path, preservando o comportamento funcional.
