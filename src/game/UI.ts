@@ -28,7 +28,7 @@ export class UI {
     minimap?: MinimapData,
     doubleShotTimer = 0,
     slowMotionTimer = 0,
-    comboData?: { multiplier: number; timer: number }
+    comboData?: { multiplier: number; timer: number; maxTimer: number }
   ): void {
     ctx.save()
 
@@ -135,7 +135,9 @@ export class UI {
       ctx.font = `bold ${fontSize}px "Courier New", monospace`
       ctx.textAlign = 'left'
       let text = `${multiplier}X COMBO`
-      if (multiplier >= 4) text += ' MAX!'
+      if (multiplier >= 4) {
+        text += ` MAX! (${comboData.maxTimer.toFixed(1)}s)`
+      }
       ctx.fillText(text, 14, activeY + (pulse/2))
       ctx.restore()
     }

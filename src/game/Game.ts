@@ -42,6 +42,7 @@ export class Game {
   comboMultiplier = 1
   consecutiveHits = 0
   comboAnimTimer = 0
+  comboMaxTimer = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -143,6 +144,7 @@ export class Game {
     this.comboMultiplier = 1
     this.consecutiveHits = 0
     this.comboAnimTimer = 0
+    this.comboMaxTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.fuelFlashTimer = 0
@@ -169,6 +171,7 @@ export class Game {
 
     if (this.consecutiveHits >= 15) {
       this.comboMultiplier = 4
+      this.comboMaxTimer = 5.0 // 5 seconds of max combo
     } else if (this.consecutiveHits >= 8) {
       this.comboMultiplier = 3
     } else if (this.consecutiveHits >= 3) {
@@ -184,6 +187,7 @@ export class Game {
     if (this.comboMultiplier > 1) {
       this.comboMultiplier = 1
       this.comboAnimTimer = 0.5
+      this.comboMaxTimer = 0
     }
     this.consecutiveHits = 0
   }
@@ -224,6 +228,12 @@ export class Game {
     }
     if (this.comboAnimTimer > 0) {
       this.comboAnimTimer -= dt
+    }
+    if (this.comboMaxTimer > 0) {
+      this.comboMaxTimer -= dt
+      if (this.comboMaxTimer <= 0) {
+        this.registerMiss()
+      }
     }
 
     const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
@@ -321,7 +331,7 @@ export class Game {
       },
       this.player.doubleShotTimer,
       this.slowMotionTimer,
-      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer }
+      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboMaxTimer }
     )
   }
 
