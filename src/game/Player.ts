@@ -23,7 +23,7 @@ export class Player {
   private animFrame = 0
   private animTimer = 0
 
-  private keys: Set<string> = new Set()
+  readonly keys: Set<string> = new Set()
   private explodingTimer = 0
   private readonly explodingDuration = 1.2
 
@@ -208,7 +208,7 @@ export class Player {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     this.keys.add(e.key)
-    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault()
     }
   }

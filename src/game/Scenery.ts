@@ -42,6 +42,10 @@ export class Scenery {
     this.canvasHeight = canvasHeight
   }
 
+  setCanvasHeight(h: number): void {
+    this.canvasHeight = h
+  }
+
   update(
     dt: number,
     scrollSpeed: number,

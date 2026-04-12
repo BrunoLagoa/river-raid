@@ -49,6 +49,10 @@ export class EnemyManager {
     this.canvasHeight = canvasHeight
   }
 
+  setCanvasHeight(h: number): void {
+    this.canvasHeight = h
+  }
+
   update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
     this.gameTime += dt
 
@@ -56,15 +60,15 @@ export class EnemyManager {
 
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) {
-      this.spawn(riverSegments)
+      this.spawn(riverSegments, 0)
       if (this.gameTime > 10 && Math.random() < 0.5) {
-        this.spawn(riverSegments)
+        this.spawn(riverSegments, -60)
       }
       if (this.gameTime > 30 && Math.random() < 0.4) {
-        this.spawn(riverSegments)
+        this.spawn(riverSegments, -120)
       }
       if (this.gameTime > 60 && Math.random() < 0.3) {
-        this.spawn(riverSegments)
+        this.spawn(riverSegments, -180)
       }
       this.spawnTimer = this.spawnInterval
     }
@@ -121,7 +125,7 @@ export class EnemyManager {
     this.bullets = this.bullets.filter((b) => b.active)
   }
 
-  private spawn(riverSegments: { centerX: number; width: number; y: number }[]): void {
+  private spawn(riverSegments: { centerX: number; width: number; y: number }[], yOffset = 0): void {
     if (riverSegments.length === 0) return
 
     const topSegment = riverSegments[riverSegments.length - 1]
@@ -150,7 +154,8 @@ export class EnemyManager {
 
     if (type === 'bridge') {
       x = topSegment.centerX
-      width = Math.min(topSegment.width - 10, config.width)
+      // Bridge spans the full river width minus a small gap for pillars
+      width = Math.max(60, topSegment.width - 4)
     } else {
       const leftBound = topSegment.centerX - topSegment.width / 2 + config.width
       const rightBound = topSegment.centerX + topSegment.width / 2 - config.width
@@ -170,7 +175,7 @@ export class EnemyManager {
     const enemy: Enemy = {
       type,
       x,
-      y: -20,
+      y: -20 + yOffset,
       width,
       height: config.height,
       speed: type === 'plane' ? 200 : type === 'helicopter' ? 80 : type === 'boat' ? 40 : 0,

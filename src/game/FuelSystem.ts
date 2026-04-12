@@ -21,8 +21,14 @@ export class FuelSystem {
     this.canvasHeight = canvasHeight
   }
 
+  setCanvasHeight(h: number): void {
+    this.canvasHeight = h
+  }
+
   update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
-    this.fuel = Math.max(0, this.fuel - this.drainRate * dt)
+    // Dynamic fuel drain: faster speed = more consumption
+    const dynamicDrain = this.drainRate + scrollSpeed * 0.012
+    this.fuel = Math.max(0, this.fuel - dynamicDrain * dt)
 
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) {
@@ -55,8 +61,8 @@ export class FuelSystem {
     this.tanks.push({
       x,
       y: -40,
-      width: 24,
-      height: 36,
+      width: 28,
+      height: 52,
       active: true,
     })
   }
@@ -65,8 +71,8 @@ export class FuelSystem {
     this.tanks.push({
       x,
       y,
-      width: 24,
-      height: 36,
+      width: 28,
+      height: 52,
       active: true,
     })
   }
@@ -88,37 +94,60 @@ export class FuelSystem {
 
   render(ctx: CanvasRenderingContext2D): void {
     for (const tank of this.tanks) {
-      const cx = tank.x
-      const cy = tank.y
-      const hw = tank.width / 2
-      const hh = tank.height / 2
+      this.drawFuelTank(ctx, tank.x, tank.y, tank.width, tank.height)
+    }
+  }
 
-      ctx.save()
+  private drawFuelTank(ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number, h: number): void {
+    ctx.save()
 
-      ctx.fillStyle = '#dd2200'
-      ctx.fillRect(cx - hw, cy - hh, tank.width, tank.height)
+    const left = cx - w / 2
+    const top = cy - h / 2
 
-      ctx.fillStyle = '#ff4422'
-      ctx.fillRect(cx - hw + 2, cy - hh + 2, tank.width - 4, tank.height - 4)
+    // === Green accent bar on the left (matches original River Raid sprite) ===
+    const accentW = Math.max(3, Math.round(w * 0.14))
+    ctx.fillStyle = '#cc3322'
+    ctx.fillRect(left, top, accentW, h)
 
+    // === Letter cells — each letter gets its own vivid red/coral block ===
+    const letters = ['F', 'U', 'E', 'L']
+    const bodyLeft = left + accentW
+    const bodyW = w - accentW
+    const cellH = h / letters.length
+
+    // Alternating red shades to give depth, distinct from river blue
+    const cellColors = ['#cc3322', '#0f7f0b', '#cc3322', '#0f7f0b']
+
+    for (let i = 0; i < letters.length; i++) {
+      const cellTop = top + i * cellH
+
+      // Red/coral cell background
+      ctx.fillStyle = cellColors[i]
+      ctx.fillRect(bodyLeft, cellTop, bodyW, cellH)
+
+      // Thin dark separator between cells
+      if (i > 0) {
+        ctx.fillStyle = '#550000'
+        ctx.fillRect(bodyLeft, cellTop, bodyW, 1)
+      }
+    }
+
+    // White outer border around body
+    ctx.strokeStyle = '#ffffff'
+    ctx.lineWidth = 1
+    ctx.strokeRect(bodyLeft + 0.5, top + 0.5, bodyW - 1, h - 1)
+
+    // === White letters centered in each cell ===
+    for (let i = 0; i < letters.length; i++) {
+      const cellMidY = top + i * cellH + cellH / 2
       ctx.fillStyle = '#ffffff'
-      ctx.fillRect(cx - hw + 2, cy - 2, tank.width - 4, 4)
-
-      ctx.fillStyle = '#ffee44'
-      ctx.font = 'bold 14px monospace'
+      ctx.font = `bold ${Math.round(cellH * 0.65)}px "Courier New", monospace`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('F', cx, cy - hh + 10)
-
-      ctx.fillStyle = '#aa1100'
-      ctx.fillRect(cx - hw + 2, cy + hh - 6, tank.width - 4, 4)
-
-      ctx.strokeStyle = '#881100'
-      ctx.lineWidth = 1
-      ctx.strokeRect(cx - hw, cy - hh, tank.width, tank.height)
-
-      ctx.restore()
+      ctx.fillText(letters[i], bodyLeft + bodyW / 2, cellMidY + 0.5)
     }
+
+    ctx.restore()
   }
 
   isOutOfFuel(): boolean {

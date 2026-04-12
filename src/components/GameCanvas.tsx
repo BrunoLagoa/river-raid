@@ -34,7 +34,7 @@ export default function GameCanvas({ onGameOver }: GameCanvasProps) {
 
     return () => {
       window.removeEventListener('resize', resize)
-      game.stop()
+      game.destroy()
       gameRef.current = null
     }
   }, [onGameOver])

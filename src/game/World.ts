@@ -234,11 +234,11 @@ export class World {
   // ── Render ───────────────────────────────────────────────────────────────────
 
   render(ctx: CanvasRenderingContext2D): void {
-    // Background land (green)
+    // Background land (solid green)
     ctx.fillStyle = '#1a5c1a'
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
 
-    // River water (draw every segment)
+    // River water
     ctx.fillStyle = '#1a3a8a'
     for (const seg of this.segments) {
       if (seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
@@ -246,12 +246,17 @@ export class World {
       ctx.fillRect(left, seg.y, seg.width, SEG_H)
     }
 
-    // Bank edge highlight (1-px lighter strip right at the bank edge)
-    ctx.fillStyle = '#2a4aaa'
+    // Bank edge highlight — dark outer + bright inner for stronger contrast
     for (const seg of this.segments) {
       if (seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
       const left = seg.centerX - seg.width / 2
       const right = left + seg.width
+      // Dark edge (land side)
+      ctx.fillStyle = '#0f4a0f'
+      ctx.fillRect(left - 2, seg.y, 2, SEG_H)
+      ctx.fillRect(right, seg.y, 2, SEG_H)
+      // Bright edge (water side)
+      ctx.fillStyle = '#2a5aaa'
       ctx.fillRect(left, seg.y, 2, SEG_H)
       ctx.fillRect(right - 2, seg.y, 2, SEG_H)
     }

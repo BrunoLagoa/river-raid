@@ -140,6 +140,12 @@ export class Game {
     }
   }
 
+  destroy(): void {
+    this.stop()
+    window.removeEventListener('keydown', this.globalKeyHandler)
+    this.sound.destroy()
+  }
+
   restart(): void {
     this.stop()
     this.score = 0
@@ -158,6 +164,11 @@ export class Game {
   resize(width: number, height: number): void {
     this.canvas.width = width
     this.canvas.height = height
+    this.world.canvasWidth = width
+    this.world.canvasHeight = height
+    this.enemyManager.setCanvasHeight(height)
+    this.fuelSystem.setCanvasHeight(height)
+    this.scenery.setCanvasHeight(height)
   }
 
   private loop = (timestamp: number): void => {
@@ -181,7 +192,13 @@ export class Game {
     }
 
     this.gameTime += dt
-    this.scrollSpeed = Math.min(200, 120 + this.gameTime * 0.4)
+    const baseSpeed = Math.min(200, 120 + this.gameTime * 0.4)
+
+    // Vertical input modulates scroll speed (up = faster, down = slower)
+    let speedMod = 1.0
+    if (this.player.keys.has('ArrowUp')) speedMod = 1.4
+    if (this.player.keys.has('ArrowDown')) speedMod = 0.4
+    this.scrollSpeed = baseSpeed * speedMod
 
     this.world.update(dt, this.scrollSpeed)
 
