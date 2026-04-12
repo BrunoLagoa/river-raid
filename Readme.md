@@ -1,189 +1,92 @@
-# River Raid
+# River Raid 🛩️
 
-Clone moderno de River Raid para navegador, construído com `React + Vite + TypeScript + HTML5 Canvas`.
+Clone moderno e aprimorado do clássico *River Raid*, construído com `React + Vite + TypeScript + HTML5 Canvas`. 
 
-O projeto usa uma arquitetura com shell React e engine modular em TypeScript puro dentro de `src/game/`, mantendo o loop principal e a lógica de gameplay fora do ciclo de render do React.
+O projeto utiliza uma arquitetura híbrida de alto desempenho: o **React** cuida da interface (shell, menus e overlays), enquanto uma **Engine modular em TypeScript puro** (`src/game/`) gerencia o loop principal de 60 FPS via Canvas, garantindo fluidez e isolamento de lógica.
 
-## Preview
+## 🚀 Jogue Online
+- **GitHub Pages:** [brunolagoa.github.io/river-raid/](https://brunolagoa.github.io/river-raid/)
 
-![Preview do jogo](./public/preview.png)
+---
 
-## Jogue online
+## 🕹️ Mecânicas de Gameplay
 
-- GitHub Pages: https://brunolagoa.github.io/river-raid/
+### Core
+- **Auto-Scroll Dinâmico:** O rio avança continuamente, acelerando conforme o tempo de jogo passa.
+- **Gerenciamento de Combustível:** Pilote sobre tanques de FUEL para reabastecer. Ficar sem combustível resulta em queda imediata.
+- **Inimigos com IA:**
+  - **Helicópteros:** Movimentação lateral errática e disparos frequentes.
+  - **Aviões de Caça:** Velozes, cruzam a tela horizontalmente e atiram com precisão.
+  - **Barcos:** Obstáculos lentos que patrulham o rio.
+  - **Pontes:** Checkpoints físicos e estratégicos que podem dropar combustível.
 
-## Demo do jogo
+### 🌟 Sistema de Power-ups (Novo!)
+Itens especiais flutuam no rio após a destruição de inimigos (8% de chance):
+- **[D] Double Shot:** Dispare dois mísseis paralelos simultâneos por 10 segundos.
+- **[S] Shield:** Ativa uma redoma de energia rotacional (com animação orbital). Absorve 1 hit e concede 1.5s de invencibilidade.
+- **[T] Slow Motion:** Manipula o tempo do cenário e inimigos, reduzindo a velocidade global em 50% por 5 segundos. Seus tiros continuam na velocidade normal!
 
-- Scroll vertical contínuo
-- Movimento horizontal dentro do rio
-- Tiro, combustível, score e game over
-- Inimigos variados e dificuldade progressiva
-- HUD no canvas, ranking local e efeitos visuais/sonoros
+### 🔥 Combo Multiplier (Sistema Tático)
+Recompensa para jogadores precisos:
+- **Níveis de Multiplicador:** Acertos consecutivos elevam seu score de **1x** até **4x MAX!**.
+- **Janela de Tempo:** Cada nível de combo tem uma "vida" de 6 segundos. Se não abater ninguém nesse tempo, o combo entra em *Decay* (cai um nível por vez).
+- **Penalidade de Miss:** Se um projétil sair da tela sem atingir nada, o multiplicador reseta instantaneamente para **1x**.
+- **Custo de Gatilho:** Cada tiro disparado consome **-0.3s** da sua barra de tempo de combo, desencorajando o uso indiscriminado de munição.
 
-## Stack
+---
 
-- React 19
-- Vite 8
-- TypeScript 6
-- Canvas 2D API
-- Web Audio API
-- ESLint
+## 📱 Controles e Plataforma
 
-## Como rodar
+### Desktop (Teclado)
+- `←` / `→` ou `A` / `D`: Movimentação lateral.
+- `↑` / `↓` ou `W` / `S`: Ajuste de velocidade (Acelerar/Frear).
+- `Espaço`: Disparar metralhadora.
+- `P` / `Esc`: Pausar jogo.
+- `M`: Alternar Mudo.
+- `Enter`: Iniciar / Reiniciar.
 
-### Pré-requisitos
+### Mobile (Touch)
+- O jogo detecta automaticamente dispositivos touch e exibe um **D-Pad Virtual** e **Botão de Ação** ergonômicos nas extremidades da tela.
 
-- Node.js 20+
-- npm
+---
 
-### Instalação
+## 🛠️ Stack Técnica
+- **Framework:** React 19 + Vite 8
+- **Linguagem:** TypeScript 6 (Strict Mode)
+- **Renderização:** HTML5 Canvas API (Context 2D)
+- **Áudio:** Web Audio API (Sons procedurais e sintéticos)
+- **Design:** CSS Moderno (Dynamic Viewports, Glassmorphism, Neon FX)
 
-```bash
-npm install
-```
+---
 
-### Desenvolvimento
-
-```bash
-npm run dev
-```
-
-### Build de produção
-
-```bash
-npm run build
-```
-
-### Preview local
-
-```bash
-npm run preview
-```
-
-### Lint
-
-```bash
-npm run lint
-```
-
-### Typecheck
-
-```bash
-npx tsc -b
-```
-
-## Controles
-
-- `←` / `→`: mover avião
-- `Space`: atirar
-- `P` ou `Esc`: pausar
-- `M`: mutar som
-- `Enter`: iniciar / reiniciar
-
-## Features implementadas
-
-- Mundo procedural com rio que varia largura e direção
-- 4 tipos de inimigos:
-  - helicópteros
-  - aviões
-  - barcos
-  - pontes
-- Sistema de combustível com coleta de tanques
-- Colisão AABB para player, inimigos, tiros e pickups
-- Score em tempo real
-- High score persistido em `localStorage`
-- Ranking top 10 com input inline de nome
-- HUD com score, combustível, mute, pause e minimap
-- Efeitos visuais:
-  - partículas
-  - explosões
-  - score popups
-  - flash de tela
-- Cenário com objetos decorativos nas margens:
-  - palmeiras
-  - árvores
-  - casas
-  - arbustos
-  - rochas
-  - tanques decorativos
-- Sons procedurais:
-  - tiro
-  - explosão
-  - coleta de combustível
-  - hit em inimigo
-  - game over
-  - trilha chiptune retrô discreta
-
-## Estrutura do projeto
-
+## 📁 Estrutura do Projeto
 ```text
 src/
-  game/
-    Game.ts
-    Player.ts
-    EnemyManager.ts
-    World.ts
-    FuelSystem.ts
-    CollisionSystem.ts
-    Fx.ts
-    Scenery.ts
-    SoundManager.ts
-    UI.ts
-  components/
-    GameCanvas.tsx
-  App.tsx
-  main.tsx
+  ├── game/                # Engine de Jogo (Pure TS)
+  │   ├── Game.ts          # Orquestrador Central
+  │   ├── Player.ts        # Lógica da Aeronave e Tiros
+  │   ├── EnemyManager.ts  # IA e Spawn de Inimigos
+  │   ├── PowerUpSystem.ts # Sistema de Itens e Timers
+  │   ├── World.ts         # Geração Procedural do Rio
+  │   ├── FuelSystem.ts    # Logística de Combustível
+  │   ├── CollisionSystem.ts# Física de Colisões AABB
+  │   ├── Fx.ts            # Partículas, Shakes e Popups
+  │   ├── SoundManager.ts  # Sintetizador de Áudio
+  │   └── UI.ts            # Rendering do HUD e Radar
+  ├── components/          # Componentes React
+  │   ├── GameCanvas.tsx   # Ponte React <-> Canvas
+  │   └── TouchControls.tsx# Interface Mobile
+  └── App.tsx              # Shell e Gestão de Telas
 ```
 
-## Arquitetura
+---
 
-### Princípio central
+## 📈 Roadmap e Documentação
+Para detalhes técnicos mais profundos e planos de futuras versões, consulte:
+- `spec.md`: Roadmap de evolução detalhado.
+- `prd.md`: Documento de Requisitos de Produto.
+- `introducion.md`: Glossário técnico e especificações da engine.
+- `AGENTS.md`: Guia de arquitetura para agentes de IA.
 
-- React renderiza apenas shell, menus e tela de game over
-- Canvas renderiza o gameplay
-- `Game.ts` orquestra todos os sistemas
-- Cada sistema vive em um módulo isolado em `src/game/`
-
-### Fluxo
-
-```text
-App.tsx
-  -> GameCanvas.tsx
-    -> Game.ts
-      -> World.ts
-      -> Player.ts
-      -> EnemyManager.ts
-      -> FuelSystem.ts
-      -> CollisionSystem.ts
-      -> Fx.ts
-      -> Scenery.ts
-      -> UI.ts
-      -> SoundManager.ts
-```
-
-## Persistência local
-
-O projeto usa `localStorage` para salvar:
-
-- high score
-- ranking top 10
-
-## Estado atual
-
-O jogo está funcional e jogável, com fases centrais concluídas e parte do polimento já implementada.
-
-Roadmap e ideias futuras estão documentados em `spec.md`.
-
-## Notas técnicas
-
-- Canvas-only para gameplay
-- Sem engine externa de jogos
-- Tipagem strict com TypeScript
-- Foco em manter 60 FPS e evitar custo desnecessário no hot loop
-
-## Referências internas
-
-- `introducion.md`: especificação canônica do jogo
-- `prd.md`: visão de produto e fases
-- `spec.md`: roadmap de evolução
-- `AGENTS.md`: regras de arquitetura e operação do repositório
+---
+*Construído com ❤️ por Bruno Lagoa e assistentes IA.*
