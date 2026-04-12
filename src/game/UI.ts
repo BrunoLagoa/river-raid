@@ -47,7 +47,7 @@ export class UI {
 
     // Life icons
     for (let i = 0; i < lives; i++) {
-      this.drawMiniPlane(ctx, 14 + i * 16, 38)
+      this.drawMiniPlane(ctx, 22 + i * 22, 38)
     }
 
     const barWidth = 100
@@ -254,13 +254,13 @@ export class UI {
     ctx.fillStyle = '#aabbcc'
     // fuselage
     ctx.beginPath()
-    ctx.moveTo(cx, cy - 5)
-    ctx.lineTo(cx - 2, cy + 2)
-    ctx.lineTo(cx + 2, cy + 2)
+    ctx.moveTo(cx, cy - 7)
+    ctx.lineTo(cx - 3, cy + 3)
+    ctx.lineTo(cx + 3, cy + 3)
     ctx.closePath()
     ctx.fill()
     // wings
-    ctx.fillRect(cx - 5, cy, 10, 2)
+    ctx.fillRect(cx - 8, cy, 16, 3)
     ctx.restore()
   }
 }
