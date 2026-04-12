@@ -123,14 +123,21 @@ h1.gameover-title {
 }
 
 .start-text {
-  font-size: 16px;
+  font-size: 14px;
   color: #88aacc;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
 
 .label {

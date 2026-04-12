@@ -14,7 +14,7 @@ export default function App() {
   const [playerName, setPlayerName] = useState('ACE')
   const [needsRankingName, setNeedsRankingName] = useState(false)
   const [rankingSaved, setRankingSaved] = useState(false)
-  const currentEntryId = useRef<string | null>(null)
+  const [currentEntryId, setCurrentEntryId] = useState<string | null>(null)
 
   const handleGameOver = useCallback((score: number, hs: number) => {
     setFinalScore(score)
@@ -28,7 +28,7 @@ export default function App() {
   const saveRanking = useCallback(() => {
     const name = playerName.trim().slice(0, 10) || 'ACE'
     const id = crypto.randomUUID()
-    currentEntryId.current = id
+    setCurrentEntryId(id)
     const nextRanking = saveStoredRankingEntry({
       id,
       name,
@@ -144,7 +144,7 @@ export default function App() {
                   <div style={{ fontSize: 12, color: '#778899', textAlign: 'center' }}>No records yet</div>
                 )}
                 {ranking.map((entry, index) => {
-                  const isCurrent = rankingSaved && entry.id === currentEntryId.current
+                  const isCurrent = rankingSaved && entry.id === currentEntryId
                   return (
                     <div
                       key={entry.id || `${entry.name}-${entry.score}-${entry.date}-${index}`}
