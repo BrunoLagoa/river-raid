@@ -190,8 +190,8 @@ function makeCloud(canvasWidth: number, canvasHeight: number, randomY = true): C
 
 // ─── Atmosphere class ─────────────────────────────────────────────────────────
 
-const CYCLE_DURATION = 720   // 12 minutes total
-const PHASE_DURATION = 180   // 3 minutes per phase
+const CYCLE_DURATION = 480   // 8 minutes total
+const PHASE_DURATION = 120   // 2 minutes per phase
 const HOLD_FRACTION  = 0.35  // 35% of each phase holds the colour steady
 
 export class Atmosphere {

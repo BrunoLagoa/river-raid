@@ -28,7 +28,7 @@
 
 .sys-buttons {
   position: absolute;
-  top: 60px;
+  top: 140px;
   z-index: 110;
   display: flex;
   gap: 12px;
