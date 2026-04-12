@@ -54,8 +54,16 @@ export class Player {
     this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
   }
 
-  update(dt: number, leftBound: number, rightBound: number): void {
+  update(dt: number, leftBound: number, rightBound: number, onMiss?: () => void): void {
     if (this.state === 'alive') {
+      for (const b of this.bullets) {
+        if (!b.active) continue
+        b.y -= b.speed * dt
+        if (b.y < -50) {
+          b.active = false
+          if (onMiss) onMiss()
+        }
+      }
       if (this.keys.has('ArrowLeft') || this.keys.has('a')) {
         this.x -= this.speed * dt
       }

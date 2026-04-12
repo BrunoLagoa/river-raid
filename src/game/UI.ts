@@ -28,6 +28,7 @@ export class UI {
     minimap?: MinimapData,
     doubleShotTimer = 0,
     slowMotionTimer = 0,
+    comboData?: { multiplier: number; timer: number }
   ): void {
     ctx.save()
 
@@ -119,6 +120,24 @@ export class UI {
       ctx.textAlign = 'left'
       ctx.fillText(`SLOW MOTION ${slowMotionTimer.toFixed(1)}s`, 14, activeY)
       activeY += 16
+    }
+
+    if (comboData && comboData.multiplier > 1) {
+      const { multiplier, timer } = comboData
+      ctx.save()
+      const pulse = timer > 0 ? Math.sin(timer * Math.PI) * 4 : 0
+      const fontSize = 16 + pulse
+      let fillStyle = '#ffff00'
+      if (multiplier === 3) fillStyle = '#ffa500'
+      if (multiplier >= 4) fillStyle = '#ff00ff'
+
+      ctx.fillStyle = fillStyle
+      ctx.font = `bold ${fontSize}px "Courier New", monospace`
+      ctx.textAlign = 'left'
+      let text = `${multiplier}X COMBO`
+      if (multiplier >= 4) text += ' MAX!'
+      ctx.fillText(text, 14, activeY + (pulse/2))
+      ctx.restore()
     }
 
     if (paused) {
@@ -216,5 +235,9 @@ export class UI {
     ctx.textAlign = 'left'
     ctx.fillText('RADAR', x + 6, y + 11)
     ctx.restore()
+  }
+
+  resize(_width: number): void {
+    // UI adaptation to width if needed in future
   }
 }

@@ -39,6 +39,9 @@ export class Game {
 
   private fuelFlashTimer = 0
   slowMotionTimer = 0
+  comboMultiplier = 1
+  consecutiveHits = 0
+  comboAnimTimer = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -137,6 +140,9 @@ export class Game {
     this.fuelSystem.reset(this.canvas.width, this.canvas.height)
     this.powerUpSystem.reset(this.canvas.width, this.canvas.height)
     this.slowMotionTimer = 0
+    this.comboMultiplier = 1
+    this.consecutiveHits = 0
+    this.comboAnimTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.fuelFlashTimer = 0
@@ -154,6 +160,32 @@ export class Game {
     this.scenery.setCanvasHeight(height)
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.resize(width, height, bounds.left, bounds.right)
+    this.ui.resize(width)
+  }
+
+  registerHit(): void {
+    this.consecutiveHits++
+    const oldMultiplier = this.comboMultiplier
+
+    if (this.consecutiveHits >= 15) {
+      this.comboMultiplier = 4
+    } else if (this.consecutiveHits >= 8) {
+      this.comboMultiplier = 3
+    } else if (this.consecutiveHits >= 3) {
+      this.comboMultiplier = 2
+    }
+
+    if (this.comboMultiplier > oldMultiplier) {
+      this.comboAnimTimer = 1.0
+    }
+  }
+
+  registerMiss(): void {
+    if (this.comboMultiplier > 1) {
+      this.comboMultiplier = 1
+      this.comboAnimTimer = 0.5
+    }
+    this.consecutiveHits = 0
   }
 
   private loop = (timestamp: number): void => {
@@ -190,13 +222,16 @@ export class Game {
     if (this.slowMotionTimer > 0) {
       this.slowMotionTimer -= dt
     }
+    if (this.comboAnimTimer > 0) {
+      this.comboAnimTimer -= dt
+    }
 
     const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
 
     this.world.update(envDt, this.scrollSpeed)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
-    this.player.update(dt, bounds.left, bounds.right)
+    this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
 
     this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
@@ -216,9 +251,13 @@ export class Game {
         fx: this.fx,
         sound: this.sound,
         world: this.world,
+        comboMultiplier: this.comboMultiplier,
         triggerGameOver: () => this.triggerGameOver(),
         addScore: (points) => {
           this.score += points
+        },
+        registerHit: () => {
+          this.registerHit()
         },
         activateSlowMotion: () => {
           this.slowMotionTimer = 5.0
@@ -281,7 +320,8 @@ export class Game {
         powerUps: this.powerUpSystem.powerUps.filter((p) => p.active),
       },
       this.player.doubleShotTimer,
-      this.slowMotionTimer
+      this.slowMotionTimer,
+      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer }
     )
   }
 

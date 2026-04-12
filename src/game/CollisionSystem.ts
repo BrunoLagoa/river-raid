@@ -21,9 +21,11 @@ export interface CollisionContext {
   fx: Fx
   sound: SoundManager
   world: World
+  comboMultiplier: number
   triggerGameOver: () => void
   addScore: (points: number) => void
   activateSlowMotion: () => void
+  registerHit: () => void
 }
 
 export class CollisionSystem {
@@ -89,6 +91,7 @@ export class CollisionSystem {
           bullet.active = false
           ctx.fx.explosion(bullet.x, bullet.y, '#ffaaaa')
           ctx.sound.enemyHit()
+          ctx.registerHit()
           continue
         }
         ctx.player.explode()
@@ -120,16 +123,19 @@ export class CollisionSystem {
         }
         if (CollisionSystem.checkAABB(bulletRect, enemyRect)) {
           bullet.active = false
-          const color = ENEMY_COLORS[enemy.type] || '#ffffff'
-          ctx.fx.explosion(enemy.x, enemy.y, color)
-          ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${enemy.points}`)
+          ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+          ctx.sound.explosion()
+          const scoredPoints = enemy.points * ctx.comboMultiplier
+          ctx.addScore(scoredPoints)
+          ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${scoredPoints}`)
+          ctx.registerHit()
+
           if (enemy.type === 'bridge' && Math.random() < 0.5) {
             ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
           } else {
             ctx.powerUpSystem.trySpawnAt(enemy.x, enemy.y)
           }
           enemy.active = false
-          ctx.addScore(enemy.points)
           ctx.sound.enemyHit()
           break
         }
