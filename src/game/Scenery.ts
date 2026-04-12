@@ -149,164 +149,140 @@ export class Scenery {
     }
   }
 
+  // ─── Pixel-art renderers (Atari 2600 style) ─────────────────────────────────
+
   private renderPalm(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Palm tree: tall vertical trunk + horizontal frond bars
     const cx = obj.x
     const baseY = obj.y + obj.height / 2
-    const trunkH = obj.height * 0.7
+    const p = 2 // pixel unit
 
+    // Brown trunk
     ctx.fillStyle = '#6b4226'
-    ctx.fillRect(cx - 2, baseY - trunkH, 4, trunkH)
+    ctx.fillRect(cx - p, baseY - 16 * p, p * 2, 16 * p)
 
-    ctx.fillStyle = '#1a8a1a'
-    const topY = baseY - trunkH
-    const leafLen = obj.variant === 0 ? 14 : obj.variant === 1 ? 10 : 12
-    for (let i = 0; i < 5; i++) {
-      const angle = (i / 5) * Math.PI * 2 - Math.PI / 2
-      ctx.beginPath()
-      ctx.moveTo(cx, topY)
-      const lx = cx + Math.cos(angle) * leafLen
-      const ly = topY + Math.sin(angle) * leafLen * 0.6 + leafLen * 0.3
-      ctx.quadraticCurveTo(cx + Math.cos(angle) * leafLen * 0.5, topY - 4, lx, ly)
-      ctx.quadraticCurveTo(cx + Math.cos(angle) * leafLen * 0.5, topY + 2, cx, topY)
-      ctx.fill()
-    }
-
-    if (obj.variant === 2) {
-      ctx.fillStyle = '#cc8800'
-      ctx.beginPath()
-      ctx.arc(cx, topY + 3, 3, 0, Math.PI * 2)
-      ctx.fill()
-    }
+    // Green fronds — horizontal bars at top, getting wider
+    ctx.fillStyle = '#7cba3c'
+    ctx.fillRect(cx - 5 * p, baseY - 16 * p, 10 * p, p * 2) // top bar
+    ctx.fillRect(cx - 4 * p, baseY - 14 * p, 8 * p, p * 2)
+    ctx.fillRect(cx - 6 * p, baseY - 12 * p, 12 * p, p * 2) // widest
+    ctx.fillRect(cx - 3 * p, baseY - 10 * p, 6 * p, p * 2)
+    // Darker frond tips
+    ctx.fillStyle = '#5a9a2a'
+    ctx.fillRect(cx - 6 * p, baseY - 12 * p, p * 2, p * 2)
+    ctx.fillRect(cx + 4 * p, baseY - 12 * p, p * 2, p * 2)
   }
 
   private renderTree(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Tree: cross/plus shaped canopy with brown center (matches reference image)
     const cx = obj.x
-    const baseY = obj.y + obj.height / 2
-    const trunkH = obj.height * 0.4
-    const crownR = obj.width / 2
+    const cy = obj.y
+    const p = 2 // pixel unit
 
-    ctx.fillStyle = '#5a3a1a'
-    ctx.fillRect(cx - 3, baseY - trunkH, 6, trunkH)
+    // Light green cross — vertical bar
+    ctx.fillStyle = '#7cba3c'
+    ctx.fillRect(cx - 3 * p, cy - 5 * p, 6 * p, 10 * p)
+    // Light green cross — horizontal bar
+    ctx.fillRect(cx - 5 * p, cy - 3 * p, 10 * p, 6 * p)
 
-    const crownY = baseY - trunkH - crownR * 0.4
-    const greens = ['#1a7a1a', '#2a8a2a', '#0f6a0f']
-    ctx.fillStyle = greens[obj.variant]
-    ctx.beginPath()
-    ctx.arc(cx, crownY, crownR, 0, Math.PI * 2)
-    ctx.fill()
+    // Slightly darker corners to round off the cross
+    ctx.fillStyle = '#6aaa2e'
+    ctx.fillRect(cx - 5 * p, cy - 3 * p, p * 2, p * 2)
+    ctx.fillRect(cx + 3 * p, cy - 3 * p, p * 2, p * 2)
+    ctx.fillRect(cx - 5 * p, cy + 1 * p, p * 2, p * 2)
+    ctx.fillRect(cx + 3 * p, cy + 1 * p, p * 2, p * 2)
 
-    ctx.fillStyle = 'rgba(0,0,0,0.15)'
-    ctx.beginPath()
-    ctx.arc(cx + 2, crownY + 2, crownR * 0.7, 0, Math.PI * 2)
-    ctx.fill()
-
-    if (obj.variant === 1) {
-      ctx.fillStyle = '#228822'
-      ctx.beginPath()
-      ctx.arc(cx - crownR * 0.3, crownY - crownR * 0.3, crownR * 0.5, 0, Math.PI * 2)
-      ctx.fill()
-    }
+    // Brown trunk center
+    ctx.fillStyle = '#6b4226'
+    ctx.fillRect(cx - p, cy - p, p * 2, p * 2)
   }
 
   private renderHouse(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Hangar/building: gray rectangular body with dark windows (matches reference image)
     const cx = obj.x
     const baseY = obj.y + obj.height / 2
-    const w = obj.width
-    const h = obj.height * 0.65
-    const roofH = obj.height * 0.35
+    const p = 2 // pixel unit
 
-    const wallColors = ['#c4a882', '#b89a78', '#d4b892']
-    ctx.fillStyle = wallColors[obj.variant]
-    ctx.fillRect(cx - w / 2, baseY - h, w, h)
+    // Dark base/shadow
+    ctx.fillStyle = '#555555'
+    ctx.fillRect(cx - 7 * p, baseY - 2 * p, 14 * p, 4 * p)
 
-    ctx.fillStyle = '#8b4513'
-    ctx.beginPath()
-    ctx.moveTo(cx - w / 2 - 3, baseY - h)
-    ctx.lineTo(cx, baseY - h - roofH)
-    ctx.lineTo(cx + w / 2 + 3, baseY - h)
-    ctx.closePath()
-    ctx.fill()
+    // Main gray body
+    ctx.fillStyle = '#b0b0b0'
+    ctx.fillRect(cx - 6 * p, baseY - 6 * p, 12 * p, 4 * p)
 
-    ctx.fillStyle = '#ffee88'
-    const winW = 4
-    const winH = 5
-    ctx.fillRect(cx - w / 4 - winW / 2, baseY - h + 4, winW, winH)
-    ctx.fillRect(cx + w / 4 - winW / 2, baseY - h + 4, winW, winH)
+    // Roof line (slightly wider, lighter)
+    ctx.fillStyle = '#cccccc'
+    ctx.fillRect(cx - 7 * p, baseY - 7 * p, 14 * p, p)
 
-    ctx.fillStyle = '#6b4226'
-    ctx.fillRect(cx - 3, baseY - 8, 6, 8)
+    // Dark green windows — 3 evenly spaced
+    ctx.fillStyle = '#2a5a2a'
+    ctx.fillRect(cx - 4 * p, baseY - 5 * p, 2 * p, 2 * p)
+    ctx.fillRect(cx - p, baseY - 5 * p, 2 * p, 2 * p)
+    ctx.fillRect(cx + 2 * p, baseY - 5 * p, 2 * p, 2 * p)
 
-    if (obj.variant === 2) {
-      ctx.fillStyle = '#993333'
-      ctx.fillRect(cx + 1, baseY - h - roofH + 2, 3, roofH * 0.5)
+    // Antenna on variant 1
+    if (obj.variant === 1) {
+      ctx.fillStyle = '#888888'
+      ctx.fillRect(cx, baseY - 9 * p, p, 2 * p)
     }
   }
 
   private renderBush(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Small bush: 2-layer green pixel blob
     const cx = obj.x
     const cy = obj.y
+    const p = 2
 
-    const greens = ['#2a8a2a', '#3a9a3a', '#1a7a1a']
-    ctx.fillStyle = greens[obj.variant]
-    ctx.beginPath()
-    ctx.ellipse(cx, cy, obj.width / 2, obj.height / 2, 0, 0, Math.PI * 2)
-    ctx.fill()
-
-    ctx.fillStyle = 'rgba(0,0,0,0.1)'
-    ctx.beginPath()
-    ctx.ellipse(cx + 2, cy + 1, obj.width / 2.5, obj.height / 3, 0, 0, Math.PI * 2)
-    ctx.fill()
+    ctx.fillStyle = '#5a9a2a'
+    ctx.fillRect(cx - 3 * p, cy - p, 6 * p, 2 * p)
+    ctx.fillStyle = '#7cba3c'
+    ctx.fillRect(cx - 2 * p, cy - 2 * p, 4 * p, 4 * p)
+    // Darker center
+    ctx.fillStyle = '#4a8a1a'
+    ctx.fillRect(cx - p, cy - p, 2 * p, 2 * p)
   }
 
   private renderRock(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Rock: blocky gray pixel shape
     const cx = obj.x
     const cy = obj.y
-    const hw = obj.width / 2
-    const hh = obj.height / 2
+    const p = 2
 
-    const grays = ['#777777', '#888888', '#6a6a6a']
-    ctx.fillStyle = grays[obj.variant]
-    ctx.beginPath()
-    ctx.moveTo(cx - hw, cy + hh)
-    ctx.lineTo(cx - hw * 0.6, cy - hh)
-    ctx.lineTo(cx + hw * 0.8, cy - hh * 0.7)
-    ctx.lineTo(cx + hw, cy + hh)
-    ctx.closePath()
-    ctx.fill()
-
-    ctx.fillStyle = 'rgba(255,255,255,0.12)'
-    ctx.beginPath()
-    ctx.moveTo(cx - hw * 0.4, cy - hh * 0.8)
-    ctx.lineTo(cx - hw * 0.1, cy - hh * 0.3)
-    ctx.lineTo(cx + hw * 0.3, cy - hh * 0.5)
-    ctx.closePath()
-    ctx.fill()
+    ctx.fillStyle = '#888888'
+    ctx.fillRect(cx - 2 * p, cy - p, 4 * p, 2 * p)
+    ctx.fillStyle = '#777777'
+    ctx.fillRect(cx - 3 * p, cy + p, 6 * p, p)
+    // Highlight pixel
+    ctx.fillStyle = '#aaaaaa'
+    ctx.fillRect(cx - p, cy - p, p, p)
   }
 
   private renderFuelTank(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Fuel depot: small red structure on the bank
     const cx = obj.x
     const baseY = obj.y + obj.height / 2
-    const w = obj.width
-    const h = obj.height
+    const p = 2
 
-    ctx.fillStyle = '#aa3333'
-    ctx.fillRect(cx - w / 2, baseY - h, w, h)
+    // Red body
+    ctx.fillStyle = '#cc3322'
+    ctx.fillRect(cx - 3 * p, baseY - 5 * p, 6 * p, 8 * p)
 
+    // White stripe
     ctx.fillStyle = '#ffffff'
-    ctx.fillRect(cx - w / 2, baseY - h / 2 - 1, w, 3)
+    ctx.fillRect(cx - 3 * p, baseY - 2 * p, 6 * p, p)
 
-    ctx.fillStyle = '#ddcc44'
+    // "F" letter
+    ctx.fillStyle = '#ffffff'
     ctx.font = 'bold 7px monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText('F', cx, baseY - h * 0.75)
+    ctx.fillText('F', cx, baseY - 3 * p)
 
-    ctx.strokeStyle = '#666666'
+    // Dark border
+    ctx.strokeStyle = '#881100'
     ctx.lineWidth = 1
-    ctx.strokeRect(cx - w / 2, baseY - h, w, h)
-
-    ctx.fillStyle = '#777777'
-    ctx.fillRect(cx - 3, baseY - h - 3, 6, 3)
+    ctx.strokeRect(cx - 3 * p, baseY - 5 * p, 6 * p, 8 * p)
   }
 
   reset(_canvasWidth: number, canvasHeight: number): void {
