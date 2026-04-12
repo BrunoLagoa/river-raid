@@ -221,6 +221,7 @@ export class Atmosphere {
 
   update(dt: number, scrollSpeed: number): void {
     this.cycleTime = (this.cycleTime + dt) % CYCLE_DURATION
+    if (this.cycleTime < 0) this.cycleTime += CYCLE_DURATION
 
     // ── Day/Night palette interpolation ────────────────────────────────────────
     const phaseIndex = Math.floor(this.cycleTime / PHASE_DURATION) % 4
