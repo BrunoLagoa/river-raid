@@ -249,4 +249,29 @@ h1.gameover-title {
   color: #8899aa;
   margin-top: 30px;
   animation: pulse 2s ease-in-out infinite;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .panel {
+    padding: 40px 20px;
+  }
+  .gameover-panel {
+    padding: 30px 20px;
+  }
+  h1.title {
+    font-size: 42px;
+    letter-spacing: 6px;
+  }
+  h1.gameover-title {
+    font-size: 36px;
+    letter-spacing: 4px;
+  }
+  .start-text, .restart-hint {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .score {
+    font-size: 32px;
+  }
 }
