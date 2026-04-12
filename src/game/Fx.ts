@@ -151,10 +151,6 @@ export class Fx {
         this.shakeX = 0
         this.shakeY = 0
       } else {
-        // Damping the intensity linearly
-        const currentIntensity = this.shakeIntensity * (this.shakeTimer / this.shakeTimer) // Wait, storing maxDuration is needed for correct damping, but constant intensity is fine too.
-        // Let's just use constant intensity for simplicity, or slightly decay it.
-        const damping = this.shakeTimer // pseudo damping
         this.shakeX = (Math.random() - 0.5) * 2 * this.shakeIntensity
         this.shakeY = (Math.random() - 0.5) * 2 * this.shakeIntensity
       }
