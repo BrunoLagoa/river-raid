@@ -91,7 +91,8 @@ export class Player {
       if (this.invincibilityTimer > 0) this.invincibilityTimer -= dt
 
       this.shootCooldown -= dt
-      if (this.keys.has(' ') && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
+      const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
+      if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         if (this.doubleShotTimer > 0) {
           this.bullets.push({ x: this.x - 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })
           this.bullets.push({ x: this.x + 8, y: this.y - this.height / 2, speed: 500, width: 3, height: 12, active: true })

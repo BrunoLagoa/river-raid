@@ -3,26 +3,19 @@ import './SwipeControls.css'
 
 interface SwipeControlsProps {
   onSetPosition: (x: number | null) => void
-  onFire: (down: boolean) => void
   onPause: () => void
   onMute: () => void
 }
 
-const TAP_MAX_DURATION = 200
-const TAP_MAX_DISTANCE = 15
-
-export default function SwipeControls({ onSetPosition, onFire, onPause, onMute }: SwipeControlsProps) {
-  const touchRef = useRef<{ startX: number; startTime: number } | null>(null)
+export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeControlsProps) {
+  const touching = useRef(false)
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       e.preventDefault()
       const el = e.currentTarget as HTMLElement
       el.setPointerCapture(e.pointerId)
-      touchRef.current = {
-        startX: e.clientX,
-        startTime: performance.now(),
-      }
+      touching.current = true
       onSetPosition(e.clientX)
     },
     [onSetPosition]
@@ -30,7 +23,7 @@ export default function SwipeControls({ onSetPosition, onFire, onPause, onMute }
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!touchRef.current) return
+      if (!touching.current) return
       e.preventDefault()
       onSetPosition(e.clientX)
     },
@@ -39,31 +32,20 @@ export default function SwipeControls({ onSetPosition, onFire, onPause, onMute }
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (!touchRef.current) return
+      if (!touching.current) return
       e.preventDefault()
       const el = e.currentTarget as HTMLElement
       if (el.hasPointerCapture(e.pointerId)) {
         el.releasePointerCapture(e.pointerId)
       }
-
-      const dx = Math.abs(e.clientX - touchRef.current.startX)
-      const elapsed = performance.now() - touchRef.current.startTime
-
-      if (elapsed < TAP_MAX_DURATION && dx < TAP_MAX_DISTANCE) {
-        onFire(true)
-        requestAnimationFrame(() => {
-          onFire(false)
-        })
-      }
-
-      touchRef.current = null
+      touching.current = false
       onSetPosition(null)
     },
-    [onSetPosition, onFire]
+    [onSetPosition]
   )
 
   const handlePointerCancel = useCallback(() => {
-    touchRef.current = null
+    touching.current = false
     onSetPosition(null)
   }, [onSetPosition])
 
