@@ -43,9 +43,9 @@ export class PowerUpSystem {
   update(dt: number, scrollSpeed: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }): void {
     for (const p of this.powerUps) {
       if (!p.active) continue
-      
+
       p.y += scrollSpeed * dt
-      
+
       const bounds = world.getBoundsAtY(p.y)
       const hw = p.width / 2
       p.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, p.x))
@@ -61,7 +61,7 @@ export class PowerUpSystem {
     for (const p of this.powerUps) {
       ctx.save()
       ctx.translate(p.x, p.y)
-      
+
       if (p.type === 'double_shot') {
         ctx.fillStyle = '#ff4444'
         ctx.strokeStyle = '#ffeecc'
@@ -72,21 +72,21 @@ export class PowerUpSystem {
         ctx.fillStyle = '#eebb00'
         ctx.strokeStyle = '#ffffff'
       }
-      
+
       ctx.lineWidth = 1.5
-      ctx.fillRect(-p.width/2, -p.height/2, p.width, p.height)
-      ctx.strokeRect(-p.width/2, -p.height/2, p.width, p.height)
-      
+      ctx.fillRect(-p.width / 2, -p.height / 2, p.width, p.height)
+      ctx.strokeRect(-p.width / 2, -p.height / 2, p.width, p.height)
+
       ctx.fillStyle = '#ffffff'
       ctx.font = 'bold 12px "Courier New", monospace'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      
+
       let letter = ''
       if (p.type === 'double_shot') letter = 'D'
       if (p.type === 'shield') letter = 'S'
       if (p.type === 'slow_motion') letter = 'T'
-      
+
       ctx.fillText(letter, 0, 1)
       ctx.restore()
     }
