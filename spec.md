@@ -129,7 +129,7 @@ src/
 - [x] Sistema de achievements
 - [x] Mais enemy types (tanque e gunboat)
 - [x] Dificuldade progressiva por zonas (spawn mix por tempo)
-- [x] Leaderboard online (com fallback local)
+- [ ] Leaderboard online *(adiado para fase futura; ranking permanece local)*
 - [x] Suporte a gamepad (Gamepad API)
 - [x] `prefers-reduced-motion` (efeitos reduzidos em `Fx`)
 
@@ -377,8 +377,9 @@ Status: **Concluído em 12/04/2026**
   - `tank` e `gunboat` adicionados em `EnemyManager` e `EnemyRenderer`
 - [x] Dificuldade progressiva por zonas
   - mix de spawn por janela de `gameTime`
-- [x] Leaderboard online com fallback local
-  - `OnlineRankingService` (GET/POST com timeout e fallback)
+- [ ] Leaderboard online
+  - Adiado para fase futura (sem backend neste momento)
+  - Ranking permanece local em `RankingService` + `StorageService`
 - [x] Suporte a gamepad
   - polling em `Game.pollGamepad()` para mover/atirar/pausar
 - [x] `prefers-reduced-motion`
@@ -388,7 +389,6 @@ Status: **Concluído em 12/04/2026**
 
 - `src/game/SettingsService.ts`
 - `src/game/AchievementService.ts`
-- `src/game/OnlineRankingService.ts`
 
 ### Arquivos alterados
 
@@ -409,5 +409,5 @@ Status: **Concluído em 12/04/2026**
 
 ### Observações
 
-- Online ranking agora usa `VITE_RIVER_RAID_RANKING_API` (sem endpoint hardcoded) e mantém fallback local.
+- Leaderboard online removido do escopo atual; projeto segue com ranking local.
 - Mudanças focadas em polish sem quebrar o shell React + engine modular.

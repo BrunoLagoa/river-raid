@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
-import { fetchOnlineRanking, submitOnlineScore } from './game/OnlineRankingService'
 import { getStoredAchievements, unlockAchievement } from './game/AchievementService'
 
 import './App.css'
@@ -56,7 +55,6 @@ export default function App() {
     setRanking(nextRanking)
     setRankingSaved(true)
     setNeedsRankingName(false)
-    submitOnlineScore(entry).catch(() => undefined)
   }, [finalScore, playerName])
 
   const handleAction = useCallback(() => {
@@ -71,13 +69,6 @@ export default function App() {
     }
   }, [screen, needsRankingName, rankingSaved, saveRanking])
 
-  useEffect(() => {
-    fetchOnlineRanking().then((online) => {
-      if (online && online.length > 0) {
-        setRanking(online)
-      }
-    })
-  }, [])
 
   useEffect(() => {
     if (screen === 'playing' || screen === 'settings' || screen === 'tutorial') return
