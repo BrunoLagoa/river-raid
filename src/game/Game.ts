@@ -32,6 +32,7 @@ export class Game {
   scenery: Scenery
 
   score = 0
+  lives = 3
   gameTime = 0
   scrollSpeed = 120
   private onGameOver: GameCallback | null = null
@@ -133,6 +134,7 @@ export class Game {
   restart(): void {
     this.stop()
     this.score = 0
+    this.lives = 3
     this.gameTime = 0
     this.scrollSpeed = 120
     this.player.reset(this.canvas.width, this.canvas.height)
@@ -227,6 +229,13 @@ export class Game {
   }
 
   private update(dt: number): void {
+    // While player is in exploding animation, keep updating fx only.
+    // When the animation ends (state → 'dead'), handlePlayerDeath is called.
+    if (this.player.state === 'exploding') {
+      this.player.update(dt, 0, this.canvas.width)
+      this.fx.update(dt)
+      return
+    }
     if (this.player.state === 'dead') {
       this.fx.update(dt)
       return
@@ -286,6 +295,7 @@ export class Game {
         world: this.world,
         comboMultiplier: this.comboMultiplier,
         triggerGameOver: () => this.triggerGameOver(),
+        handlePlayerDeath: () => this.handlePlayerDeath(),
         addScore: (points) => {
           this.score += points
         },
@@ -320,7 +330,7 @@ export class Game {
         this.fx.explosion(this.player.x, this.player.y, '#ff4400')
         this.fx.flash('#ff0000', 0.4)
         this.sound.explosion()
-        this.triggerGameOver()
+        this.handlePlayerDeath()
         return
       }
     }
@@ -358,8 +368,30 @@ export class Game {
       },
       this.player.doubleShotTimer,
       this.slowMotionTimer,
-      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer }
+      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
+      this.lives
     )
+  }
+
+  handlePlayerDeath(): void {
+    if (this.gameOverTriggered) return
+    this.lives--
+    this.registerMiss() // Reset combo on death
+
+    if (this.lives > 0) {
+      // Still has lives — respawn after the explosion animation (~1.2s)
+      setTimeout(() => {
+        if (!this.running || this.gameOverTriggered) return
+        // Give minimum fuel on respawn so player isn't stuck in a fuel-out loop
+        if (this.fuelSystem.fuel < 30) {
+          this.fuelSystem.fuel = 30
+        }
+        this.player.respawn(this.canvas.width, this.canvas.height)
+      }, 1300)
+    } else {
+      // No more lives — real game over
+      this.triggerGameOver()
+    }
   }
 
   private triggerGameOver(): void {

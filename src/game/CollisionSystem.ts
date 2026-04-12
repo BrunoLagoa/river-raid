@@ -23,6 +23,7 @@ export interface CollisionContext {
   world: World
   comboMultiplier: number
   triggerGameOver: () => void
+  handlePlayerDeath: () => void
   addScore: (points: number) => void
   activateSlowMotion: () => void
   registerHit: () => void
@@ -40,6 +41,8 @@ export class CollisionSystem {
 
   static resolveCollisions(ctx: CollisionContext): void {
     if (ctx.player.state !== 'alive') return
+    // Skip all damage while invincible (after respawn)
+    const isInvincible = ctx.player.invincibilityTimer > 0
 
     const playerRect: Rect = {
       x: ctx.player.x,
@@ -50,11 +53,13 @@ export class CollisionSystem {
 
     // Player vs Banks
     if (ctx.world.isOutOfBounds(ctx.player.x, ctx.player.y, ctx.player.width / 2)) {
+      if (isInvincible) return
       ctx.player.explode()
       ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ff4400')
       ctx.fx.flash('#ff0000', 0.4)
+      ctx.fx.addShake(12, 0.5)
       ctx.sound.explosion()
-      ctx.triggerGameOver()
+      ctx.handlePlayerDeath()
       return
     }
 
@@ -63,6 +68,7 @@ export class CollisionSystem {
       if (!enemy.active) continue
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
       if (CollisionSystem.checkAABB(playerRect, enemyRect)) {
+        if (isInvincible) break
         if (ctx.player.shieldActive) {
           ctx.player.breakShield()
           enemy.active = false
@@ -77,7 +83,7 @@ export class CollisionSystem {
         ctx.fx.addShake(12, 0.5)
         enemy.active = false
         ctx.sound.explosion()
-        ctx.triggerGameOver()
+        ctx.handlePlayerDeath()
         return
       }
     }
@@ -87,6 +93,7 @@ export class CollisionSystem {
       if (!bullet.active) continue
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
       if (CollisionSystem.checkAABB(playerRect, bulletRect)) {
+        if (isInvincible) { bullet.active = false; continue }
         if (ctx.player.shieldActive) {
           ctx.player.breakShield()
           bullet.active = false
@@ -101,7 +108,7 @@ export class CollisionSystem {
         ctx.fx.addShake(12, 0.5)
         bullet.active = false
         ctx.sound.explosion()
-        ctx.triggerGameOver()
+        ctx.handlePlayerDeath()
         return
       }
     }

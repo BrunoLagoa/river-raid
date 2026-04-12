@@ -28,7 +28,8 @@ export class UI {
     minimap?: MinimapData,
     doubleShotTimer = 0,
     slowMotionTimer = 0,
-    comboData?: { multiplier: number; timer: number; maxTimer: number }
+    comboData?: { multiplier: number; timer: number; maxTimer: number },
+    lives = 3
   ): void {
     ctx.save()
 
@@ -43,6 +44,11 @@ export class UI {
     ctx.font = 'bold 10px "Courier New", monospace'
     ctx.fillStyle = '#aaaacc'
     ctx.fillText('SCORE', 14, 12)
+
+    // Life icons
+    for (let i = 0; i < lives; i++) {
+      this.drawMiniPlane(ctx, 14 + i * 16, 38)
+    }
 
     const barWidth = 100
     const barHeight = 12
@@ -241,5 +247,20 @@ export class UI {
 
   resize(_width: number): void {
     // UI adaptation to width if needed in future
+  }
+
+  private drawMiniPlane(ctx: CanvasRenderingContext2D, cx: number, cy: number): void {
+    ctx.save()
+    ctx.fillStyle = '#aabbcc'
+    // fuselage
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - 5)
+    ctx.lineTo(cx - 2, cy + 2)
+    ctx.lineTo(cx + 2, cy + 2)
+    ctx.closePath()
+    ctx.fill()
+    // wings
+    ctx.fillRect(cx - 5, cy, 10, 2)
+    ctx.restore()
   }
 }

@@ -261,6 +261,21 @@ export class Player {
     }
   }
 
+  /** Respawn mid-game after losing a life. Recenters the player and grants invincibility. */
+  respawn(canvasWidth: number, canvasHeight: number): void {
+    this.x = canvasWidth / 2
+    this.y = canvasHeight - 80
+    this.state = 'alive'
+    this.bullets = []
+    this.shootCooldown = 0
+    this.justShot = false
+    this.shieldActive = false
+    this.doubleShotTimer = 0
+    this.invincibilityTimer = 2.5
+    this.animFrame = 0
+    this.animTimer = 0
+  }
+
   breakShield(): void {
     this.shieldActive = false
     this.invincibilityTimer = 1.5
