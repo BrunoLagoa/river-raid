@@ -42,7 +42,7 @@ export class Game {
   comboMultiplier = 1
   consecutiveHits = 0
   comboAnimTimer = 0
-  comboMaxTimer = 0
+  comboLevelTimer = 0
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -144,7 +144,7 @@ export class Game {
     this.comboMultiplier = 1
     this.consecutiveHits = 0
     this.comboAnimTimer = 0
-    this.comboMaxTimer = 0
+    this.comboLevelTimer = 0
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.fuelFlashTimer = 0
@@ -169,14 +169,16 @@ export class Game {
     this.consecutiveHits++
     const oldMultiplier = this.comboMultiplier
 
-    if (this.consecutiveHits >= 15) {
+    if (this.consecutiveHits >= 25) {
       this.comboMultiplier = 4
-      this.comboMaxTimer = 5.0 // 5 seconds of max combo
-    } else if (this.consecutiveHits >= 8) {
+    } else if (this.consecutiveHits >= 12) {
       this.comboMultiplier = 3
-    } else if (this.consecutiveHits >= 3) {
+    } else if (this.consecutiveHits >= 5) {
       this.comboMultiplier = 2
     }
+
+    // Every hit refreshes the current level timer
+    this.comboLevelTimer = 6.0 // 6 seconds to find next target at any level
 
     if (this.comboMultiplier > oldMultiplier) {
       this.comboAnimTimer = 1.0
@@ -184,12 +186,29 @@ export class Game {
   }
 
   registerMiss(): void {
-    if (this.comboMultiplier > 1) {
-      this.comboMultiplier = 1
-      this.comboAnimTimer = 0.5
-      this.comboMaxTimer = 0
-    }
+    // Punishing miss resets everything
+    this.comboMultiplier = 1
+    this.comboAnimTimer = 0.5
+    this.comboLevelTimer = 0
     this.consecutiveHits = 0
+  }
+
+  decayCombo(): void {
+    if (this.comboMultiplier > 1) {
+      this.comboMultiplier--
+      this.comboAnimTimer = 0.5
+      
+      // Reset hits to the minimum threshold of the lower level
+      if (this.comboMultiplier === 3) this.consecutiveHits = 12
+      else if (this.comboMultiplier === 2) this.consecutiveHits = 5
+      else this.consecutiveHits = 0
+
+      if (this.comboMultiplier > 1) {
+        this.comboLevelTimer = 6.0
+      } else {
+        this.comboLevelTimer = 0
+      }
+    }
   }
 
   private loop = (timestamp: number): void => {
@@ -229,10 +248,10 @@ export class Game {
     if (this.comboAnimTimer > 0) {
       this.comboAnimTimer -= dt
     }
-    if (this.comboMaxTimer > 0) {
-      this.comboMaxTimer -= dt
-      if (this.comboMaxTimer <= 0) {
-        this.registerMiss()
+    if (this.comboLevelTimer > 0) {
+      this.comboLevelTimer -= dt
+      if (this.comboLevelTimer <= 0) {
+        this.decayCombo()
       }
     }
 
@@ -277,6 +296,10 @@ export class Game {
       if (this.player.justShot) {
         this.sound.shoot()
         this.player.justShot = false
+        // Trigger small penalty for firing to discourage spamming
+        if (this.comboMultiplier > 1) {
+          this.comboLevelTimer -= 0.3 // -0.3s per shot
+        }
       }
 
       if (this.fuelSystem.fuel < 20) {
@@ -331,7 +354,7 @@ export class Game {
       },
       this.player.doubleShotTimer,
       this.slowMotionTimer,
-      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboMaxTimer }
+      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer }
     )
   }
 
