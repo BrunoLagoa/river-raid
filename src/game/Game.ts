@@ -97,6 +97,11 @@ export class Game {
     if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
       if (this.running && !this.gameOverTriggered) {
         this.paused = !this.paused
+        if (this.paused) {
+          this.sound.stopMusic()
+        } else {
+          this.sound.startMusic()
+        }
       }
     }
     if (e.key === 'm' || e.key === 'M') {
@@ -119,6 +124,7 @@ export class Game {
     this.paused = false
     this.sound.init()
     this.sound.resume()
+    this.sound.startMusic()
     this.player.attachInput()
     this.lastTime = performance.now()
     this.loop(this.lastTime)
@@ -126,6 +132,7 @@ export class Game {
 
   stop(): void {
     this.running = false
+    this.sound.stopMusic()
     this.player.detachInput()
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId)

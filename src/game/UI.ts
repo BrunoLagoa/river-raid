@@ -130,15 +130,17 @@ export class UI {
     const scaleY = height / visibleHeight
 
     ctx.save()
+
+    // Background
     ctx.fillStyle = 'rgba(4, 10, 20, 0.7)'
     ctx.fillRect(x, y, width, height)
-    ctx.strokeStyle = '#445566'
-    ctx.strokeRect(x, y, width, height)
-    ctx.fillStyle = '#8899aa'
-    ctx.font = '9px "Courier New", monospace'
-    ctx.textAlign = 'left'
-    ctx.fillText('RADAR', x + 6, y + 11)
 
+    // Clip ALL drawing to the minimap rect — nothing escapes the border
+    ctx.beginPath()
+    ctx.rect(x, y, width, height)
+    ctx.clip()
+
+    // River segments
     ctx.strokeStyle = '#2a7dff'
     ctx.lineWidth = 1
     for (const seg of minimap.segments) {
@@ -153,6 +155,7 @@ export class UI {
       ctx.stroke()
     }
 
+    // Enemies
     for (const enemy of minimap.enemies) {
       const dy = minimap.player.y - enemy.y
       if (dy < -20 || dy > visibleHeight) continue
@@ -160,6 +163,7 @@ export class UI {
       ctx.fillRect(x + enemy.x * scaleX - 1, y + height - dy * scaleY - 1, 3, 3)
     }
 
+    // Fuel tanks
     for (const fuelTank of minimap.fuelTanks) {
       const dy = minimap.player.y - fuelTank.y
       if (dy < -20 || dy > visibleHeight) continue
@@ -167,10 +171,23 @@ export class UI {
       ctx.fillRect(x + fuelTank.x * scaleX - 1, y + height - dy * scaleY - 1, 3, 3)
     }
 
+    // Player dot
     ctx.fillStyle = '#ffffff'
     ctx.beginPath()
     ctx.arc(x + minimap.player.x * scaleX, y + height - 8, 3, 0, Math.PI * 2)
     ctx.fill()
+
+    ctx.restore()
+
+    // Border drawn AFTER restore so it's always on top and never clipped
+    ctx.save()
+    ctx.strokeStyle = '#445566'
+    ctx.lineWidth = 1
+    ctx.strokeRect(x, y, width, height)
+    ctx.fillStyle = '#8899aa'
+    ctx.font = '9px "Courier New", monospace'
+    ctx.textAlign = 'left'
+    ctx.fillText('RADAR', x + 6, y + 11)
     ctx.restore()
   }
 }

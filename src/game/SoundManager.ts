@@ -2,6 +2,11 @@ export class SoundManager {
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
   private muted = false
+  private musicTimer: number | null = null
+  private musicStep = 0
+
+  private static readonly MELODY = [659.25, 783.99, 880, 783.99, 698.46, 783.99, 987.77, 880]
+  private static readonly BASS = [164.81, 164.81, 196, 196, 174.61, 174.61, 220, 196]
 
 
   init(): void {
@@ -34,6 +39,58 @@ export class SoundManager {
     if (!this.ctx) this.init()
     this.resume()
     return this.ctx
+  }
+
+  startMusic(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain || this.musicTimer !== null) return
+    this.musicStep = 0
+    this.playMusicStep()
+  }
+
+  stopMusic(): void {
+    if (this.musicTimer !== null) {
+      window.clearTimeout(this.musicTimer)
+      this.musicTimer = null
+    }
+  }
+
+  private playMusicStep(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const start = ctx.currentTime + 0.02
+    const melodyFreq = SoundManager.MELODY[this.musicStep % SoundManager.MELODY.length]
+    const bassFreq = SoundManager.BASS[this.musicStep % SoundManager.BASS.length]
+
+    const leadOsc = ctx.createOscillator()
+    const leadGain = ctx.createGain()
+    leadOsc.type = 'square'
+    leadOsc.frequency.setValueAtTime(melodyFreq, start)
+    leadGain.gain.setValueAtTime(0.02, start)
+    leadGain.gain.exponentialRampToValueAtTime(0.001, start + 0.14)
+    leadOsc.connect(leadGain)
+    leadGain.connect(this.masterGain)
+    leadOsc.start(start)
+    leadOsc.stop(start + 0.16)
+
+    if (bassFreq > 0) {
+      const bassOsc = ctx.createOscillator()
+      const bassGain = ctx.createGain()
+      bassOsc.type = 'triangle'
+      bassOsc.frequency.setValueAtTime(bassFreq, start)
+      bassGain.gain.setValueAtTime(0.012, start)
+      bassGain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
+      bassOsc.connect(bassGain)
+      bassGain.connect(this.masterGain)
+      bassOsc.start(start)
+      bassOsc.stop(start + 0.18)
+    }
+
+    this.musicStep += 1
+    this.musicTimer = window.setTimeout(() => {
+      this.playMusicStep()
+    }, 180)
   }
 
   shoot(): void {
@@ -133,6 +190,8 @@ export class SoundManager {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain) return
 
+    this.stopMusic()
+
     const master = this.masterGain
     const notes = [440, 370, 311, 261]
     notes.forEach((freq, i) => {
@@ -151,6 +210,7 @@ export class SoundManager {
   }
 
   destroy(): void {
+    this.stopMusic()
     if (this.ctx) {
       this.ctx.close()
       this.ctx = null
