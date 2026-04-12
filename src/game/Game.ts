@@ -46,6 +46,9 @@ export class Game {
 
   private scoring = new ScoringSystem()
   private state = new GameState()
+  private readonly minimapEnemies: Array<{ x: number; y: number; active: boolean }> = []
+  private readonly minimapFuelTanks: Array<{ x: number; y: number; active: boolean }> = []
+  private readonly minimapPowerUps: Array<{ x: number; y: number; active: boolean }> = []
 
   get score(): number { return this.scoring.score }
   set score(value: number) { this.scoring.score = value }
@@ -304,6 +307,18 @@ export class Game {
     this.fx.update(dt)
   }
 
+  private collectActiveEntities<T extends { x: number; y: number; active: boolean }>(
+    source: T[],
+    target: T[],
+  ): T[] {
+    target.length = 0
+    for (const item of source) {
+      if (!item.active) continue
+      target.push(item)
+    }
+    return target
+  }
+
   private render(): void {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
@@ -335,9 +350,9 @@ export class Game {
       {
         player: { x: this.player.x, y: this.player.y },
         segments: this.world.segments,
-        enemies: this.enemyManager.enemies.filter((enemy) => enemy.active),
-        fuelTanks: this.fuelSystem.tanks.filter((tank) => tank.active),
-        powerUps: this.powerUpSystem.powerUps.filter((p) => p.active),
+        enemies: this.collectActiveEntities(this.enemyManager.enemies, this.minimapEnemies),
+        fuelTanks: this.collectActiveEntities(this.fuelSystem.tanks, this.minimapFuelTanks),
+        powerUps: this.collectActiveEntities(this.powerUpSystem.powerUps, this.minimapPowerUps),
       },
       this.player.doubleShotTimer,
       this.slowMotionTimer,

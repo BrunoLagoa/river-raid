@@ -10,8 +10,8 @@
 - **Módulos:** 16 módulos TS em `src/game/` + 3 componentes React em `src/components/`
 - **Build:** Limpo (246 KB gzipped: 75 KB)
 - **Typecheck:** Sem erros
-- **Lint:** 1 erro pendente (`SoundManager.ts:68` — `_speedRatio` não usado)
-- **Testes:** 1 arquivo de teste (`utils.test.ts`) — cobertura quase zero
+- **Lint:** sem erros
+- **Testes:** 7 arquivos de teste / 18 testes passando + cobertura ativa (`npm run test:coverage`)
 - **Fase do PRD:** Fases 1-4 implementadas + extras (power-ups, atmosfera, scenery, ranking, touch/swipe)
 
 ---
@@ -187,7 +187,7 @@ src/
 
 ## Recomendação
 
-**Ordem sugerida: A → C (parcial) → D (seletivo)**
+**Ordem sugerida: C (parcial) → D (seletivo) → E (acessibilidade) [A e B já concluídas]**
 
 1. **A primeiro** — sem testes, qualquer refactoring é perigoso. Corrigir o lint error imediatamente (1 linha). Criar testes para `CollisionSystem` e `EnemyManager` (maior risco de bugs).
 
@@ -268,3 +268,51 @@ Status: **Concluído em 12/04/2026**
 - Refactoring foi feito preservando compatibilidade com o shell React (`App.tsx` / `GameCanvas.tsx`).
 - Não foram adicionadas dependências externas.
 - Estrutura continua aderente ao `AGENTS.md` (Canvas 2D puro + engine modular).
+
+---
+
+## Execução Concluída — Estabilização e Qualidade (Item A)
+
+Status: **Concluído em 12/04/2026**
+
+### Itens implementados
+
+- [x] Corrigir lint error (`_speedRatio` não usado no `SoundManager.ts:68`)
+- [x] Criar testes unitários para módulos críticos
+  - `src/game/CollisionSystem.test.ts`
+  - `src/game/EnemyManager.test.ts`
+  - `src/game/FuelSystem.test.ts`
+  - `src/game/Player.test.ts`
+  - `src/game/World.test.ts`
+- [x] Criar testes de integração para `Game.ts`
+  - `src/game/Game.test.ts`
+- [x] Adicionar `npm run test:coverage` com threshold mínimo
+  - Script adicionado em `package.json`
+  - Configuração de coverage adicionada em `vite.config.ts`
+  - Provider `@vitest/coverage-v8` adicionado
+
+### Suporte de testes criado
+
+- `src/game/test-helpers/canvas.ts`
+- `src/game/test-helpers/time.ts`
+- `src/game/test-helpers/audio.ts`
+
+### Validação pós-implementação
+
+- Typecheck: **OK** (`npx tsc --noEmit`)
+- Lint: **OK** (`npm run lint`)
+- Testes: **OK** (18/18 passando, `npm run test`)
+- Cobertura: **OK** (`npm run test:coverage`)
+- Build: **OK** (`npm run build`)
+
+### Arquivos alterados
+
+- `package.json`
+- `package-lock.json`
+- `vite.config.ts`
+- `eslint.config.js`
+
+### Observações
+
+- O threshold foi configurado como baseline inicial para os módulos-alvo da abordagem A.
+- Configuração de lint foi ajustada para ignorar artefatos de `coverage/`.

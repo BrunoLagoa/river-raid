@@ -6,6 +6,7 @@ import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
 import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE } from './constants'
+import { SpatialGrid } from './SpatialGrid'
 
 export interface Rect {
   x: number
@@ -80,8 +81,19 @@ export class CollisionSystem {
   private static checkPlayerVsEnemies(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    for (const enemy of ctx.enemyManager.enemies) {
+    const grid = new SpatialGrid(64)
+    for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
+      const enemy = ctx.enemyManager.enemies[i]
       if (!enemy.active) continue
+      grid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
+    }
+
+    const candidates: number[] = []
+    grid.query(playerRect, candidates)
+
+    for (const idx of candidates) {
+      const enemy = ctx.enemyManager.enemies[idx]
+      if (!enemy || !enemy.active) continue
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
       if (!CollisionSystem.checkAABB(playerRect, enemyRect)) continue
 
@@ -105,8 +117,19 @@ export class CollisionSystem {
   private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    for (const bullet of ctx.enemyManager.bullets) {
+    const grid = new SpatialGrid(64)
+    for (let i = 0; i < ctx.enemyManager.bullets.length; i++) {
+      const bullet = ctx.enemyManager.bullets[i]
       if (!bullet.active) continue
+      grid.insert(i, { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height })
+    }
+
+    const candidates: number[] = []
+    grid.query(playerRect, candidates)
+
+    for (const idx of candidates) {
+      const bullet = ctx.enemyManager.bullets[idx]
+      if (!bullet || !bullet.active) continue
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
       if (!CollisionSystem.checkAABB(playerRect, bulletRect)) continue
 
@@ -132,6 +155,15 @@ export class CollisionSystem {
   }
 
   private static checkBulletsVsEnemies(ctx: CollisionContext): void {
+    const enemyGrid = new SpatialGrid(64)
+    for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
+      const enemy = ctx.enemyManager.enemies[i]
+      if (!enemy.active) continue
+      enemyGrid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
+    }
+
+    const candidates: number[] = []
+
     for (const bullet of ctx.player.bullets) {
       if (!bullet.active) continue
       const bulletRect: Rect = {
@@ -140,14 +172,20 @@ export class CollisionSystem {
         width: bullet.width,
         height: bullet.height,
       }
-      for (const enemy of ctx.enemyManager.enemies) {
-        if (!enemy.active) continue
+
+      enemyGrid.query(bulletRect, candidates)
+
+      for (const idx of candidates) {
+        const enemy = ctx.enemyManager.enemies[idx]
+        if (!enemy || !enemy.active) continue
+
         const enemyRect: Rect = {
           x: enemy.x,
           y: enemy.y,
           width: enemy.width,
           height: enemy.height,
         }
+
         if (CollisionSystem.checkAABB(bulletRect, enemyRect)) {
           bullet.active = false
           if (enemy.type === 'bridge') {

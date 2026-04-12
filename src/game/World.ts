@@ -31,6 +31,7 @@ const MAX_HOLD = 380
 /** River width limits */
 const MIN_WIDTH = 90
 const MAX_WIDTH_RATIO = 0.72   // fraction of canvas width
+const SIN_LUT_SIZE = 2048
 
 // ─── World class ─────────────────────────────────────────────────────────────
 
@@ -43,6 +44,10 @@ export class World {
 
   private waterLines: FlowLine[] = []
   private gameTime = 0
+  private sinLut = new Float32Array(SIN_LUT_SIZE)
+  private waveX: number[] = []
+  private waveBase: number[] = []
+  private visibleSegmentsCache: Array<{ y: number; left: number; right: number; width: number; centerX: number }> = []
   // generation-time bank positions (updated as we push new segments upward)
   private genLeft: number
   private genRight: number
@@ -71,10 +76,39 @@ export class World {
     this.genPhase = 'hold'
     this.genRemaining = MAX_HOLD
 
+    this.initWaveCache()
     this.generateInitialSegments()
+    this.rebuildVisibleSegmentsCache()
   }
 
   // ── Initial fill ────────────────────────────────────────────────────────────
+
+  private initWaveCache(): void {
+    for (let i = 0; i < SIN_LUT_SIZE; i++) {
+      this.sinLut[i] = Math.sin((i / SIN_LUT_SIZE) * Math.PI * 2)
+    }
+    this.rebuildWaveSamples()
+  }
+
+  private rebuildWaveSamples(): void {
+    this.waveX = []
+    this.waveBase = []
+    for (let x = 0; x < this.canvasWidth; x += 4) {
+      this.waveX.push(x)
+      this.waveBase.push(x * 0.03)
+    }
+  }
+
+  private fastSin(angle: number): number {
+    const twoPi = Math.PI * 2
+    let normalized = angle % twoPi
+    if (normalized < 0) normalized += twoPi
+    const idx = (normalized / twoPi) * SIN_LUT_SIZE
+    const i0 = idx | 0
+    const i1 = (i0 + 1) % SIN_LUT_SIZE
+    const t = idx - i0
+    return this.sinLut[i0] + (this.sinLut[i1] - this.sinLut[i0]) * t
+  }
 
   private generateInitialSegments(): void {
     const count = Math.ceil(this.canvasHeight / SEG_H) + 80
@@ -268,9 +302,27 @@ export class World {
         })
       }
     }
+
+    this.rebuildVisibleSegmentsCache()
   }
 
   // ── Render ───────────────────────────────────────────────────────────────────
+
+  private rebuildVisibleSegmentsCache(): void {
+    this.visibleSegmentsCache.length = 0
+    for (const seg of this.segments) {
+      if (seg.y < -10 || seg.y > this.canvasHeight + 10) continue
+      const left = seg.centerX - seg.width / 2
+      const right = left + seg.width
+      this.visibleSegmentsCache.push({
+        y: seg.y,
+        left,
+        right,
+        width: seg.width,
+        centerX: seg.centerX,
+      })
+    }
+  }
 
   render(ctx: CanvasRenderingContext2D, palette?: ColorPalette): void {
     // Resolve colours — fallback to original hardcoded values when no palette given
@@ -290,10 +342,8 @@ export class World {
     // River water
     ctx.save()
     ctx.beginPath()
-    for (const seg of this.segments) {
-      if (seg.y < -10 || seg.y > this.canvasHeight + 10) continue
-      const left = seg.centerX - seg.width / 2
-      ctx.rect(left, seg.y - 1, seg.width, 10 + 2)
+    for (const seg of this.visibleSegmentsCache) {
+      ctx.rect(seg.left, seg.y - 1, seg.width, 10 + 2)
     }
     ctx.clip()
 
@@ -307,17 +357,20 @@ export class World {
       ctx.fillRect(wl.x, wl.y, 2, wl.length)
     }
 
-    // Sinusoidal water waves — organic horizontal ripples
+    // Sinusoidal water waves — organic horizontal ripples (cached x-samples + LUT sin)
     ctx.strokeStyle = wave
     ctx.lineWidth = 1
     const waveCount = 8
     const waveSpacing = this.canvasHeight / waveCount
+    const timePhase = this.gameTime * 2
     for (let i = 0; i < waveCount; i++) {
       const baseY = (i * waveSpacing + this.gameTime * 25) % (this.canvasHeight + 40) - 20
+      const phaseOffset = i * 1.5
       ctx.beginPath()
-      for (let x = 0; x < this.canvasWidth; x += 4) {
-        const waveY = baseY + Math.sin((x * 0.03) + this.gameTime * 2 + i * 1.5) * 4
-        if (x === 0) ctx.moveTo(x, waveY)
+      for (let k = 0; k < this.waveX.length; k++) {
+        const x = this.waveX[k]
+        const waveY = baseY + this.fastSin(this.waveBase[k] + timePhase + phaseOffset) * 4
+        if (k === 0) ctx.moveTo(x, waveY)
         else ctx.lineTo(x, waveY)
       }
       ctx.stroke()
@@ -333,10 +386,9 @@ export class World {
     ctx.restore()
 
     // Bank edge highlight — dark outer + bright inner for stronger contrast
-    for (const seg of this.segments) {
-      if (seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
-      const left = seg.centerX - seg.width / 2
-      const right = left + seg.width
+    for (const seg of this.visibleSegmentsCache) {
+      const left = seg.left
+      const right = seg.right
       // Dark edge (land side)
       ctx.fillStyle = edgeDark
       ctx.fillRect(left - 2, seg.y, 2, SEG_H)
@@ -349,11 +401,10 @@ export class World {
 
     // Subtle water shimmer
     ctx.fillStyle = shimmerC
-    for (let i = 0; i < this.segments.length; i += 8) {
-      const seg = this.segments[i]
-      if (!seg || seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
-      const left = seg.centerX - seg.width / 2
-      const shimmerX = left + ((this.scrollOffset * 0.25 + seg.y * 9) % Math.max(1, seg.width))
+    for (let i = 0; i < this.visibleSegmentsCache.length; i += 8) {
+      const seg = this.visibleSegmentsCache[i]
+      if (!seg) continue
+      const shimmerX = seg.left + ((this.scrollOffset * 0.25 + seg.y * 9) % Math.max(1, seg.width))
       ctx.fillRect(shimmerX, seg.y, 16, SEG_H * 4)
     }
   }
@@ -414,6 +465,8 @@ export class World {
     this.stepAccum = 0
 
     this.segments = []
+    this.rebuildWaveSamples()
     this.generateInitialSegments()
+    this.rebuildVisibleSegmentsCache()
   }
 }
