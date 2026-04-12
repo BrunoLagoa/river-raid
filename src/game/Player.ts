@@ -179,16 +179,33 @@ export class Player {
   private renderShield(ctx: CanvasRenderingContext2D): void {
     const cx = this.x
     const cy = this.y
+    const time = performance.now() / 200
+    
+    ctx.save()
+    ctx.translate(cx, cy)
+    
+    // Efeito de pulsação (respiração) no próprio tamanho e brilho
+    const pulse = Math.sin(time * 0.5) * 1.5
+    
+    // Anel Giratório Interno (Gira no sentido Horário)
+    ctx.rotate(time * 0.3)
     ctx.strokeStyle = '#4488ff'
     ctx.lineWidth = 2
+    ctx.setLineDash([15, 10]) // Define que o aro é quebrado/tracejado
     ctx.beginPath()
-    ctx.arc(cx, cy, 22, 0, Math.PI * 2)
+    ctx.arc(0, 0, 22 + pulse, 0, Math.PI * 2)
     ctx.stroke()
-    ctx.strokeStyle = 'rgba(204, 255, 255, 0.6)'
+    
+    // Anel Giratório Externo (Gira no sentido Anti-Horário)
+    ctx.rotate(-time * 0.8) // Zera e inverte a rotação
+    ctx.strokeStyle = 'rgba(204, 255, 255, 0.7)'
     ctx.lineWidth = 1
+    ctx.setLineDash([8, 12])
     ctx.beginPath()
-    ctx.arc(cx, cy, 24, 0, Math.PI * 2)
+    ctx.arc(0, 0, 25 + pulse, 0, Math.PI * 2)
     ctx.stroke()
+    
+    ctx.restore()
   }
 
   private renderExplosion(ctx: CanvasRenderingContext2D): void {
