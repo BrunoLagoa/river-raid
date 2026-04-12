@@ -169,7 +169,7 @@
 
 > Replayability e profundidade mecânica.
 
-#### D1 — Score multiplier / combo (recomendado)
+#### D1 — Score multiplier / combo (concluído) (recomendado)
 
 - Combo sobe a cada kill seguido sem miss (errar tiro)
 - Multiplicador: x1 → x2 → x3 → x4 (máximo)
