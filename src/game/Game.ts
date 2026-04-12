@@ -243,10 +243,12 @@ export class Game {
     if (this.player.state === 'exploding') {
       this.player.update(dt, 0, this.canvas.width)
       this.fx.update(dt)
+      this.atmosphere.update(dt, this.scrollSpeed)
       return
     }
     if (this.player.state === 'dead') {
       this.fx.update(dt)
+      this.atmosphere.update(dt, this.scrollSpeed)
       return
     }
 
@@ -277,7 +279,7 @@ export class Game {
     const envDt = this.slowMotionTimer > 0 ? dt * 0.5 : dt
 
     this.world.update(envDt, this.scrollSpeed)
-    this.atmosphere.update(envDt, this.scrollSpeed)
+    this.atmosphere.update(dt, this.scrollSpeed)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
