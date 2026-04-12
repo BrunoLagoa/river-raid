@@ -22,6 +22,7 @@ export class Player {
   shootCooldown = 0
   shootInterval = 0.18
   justShot = false
+  private readonly MAX_BULLETS = 20
   private animFrame = 0
   private animTimer = 0
 
@@ -45,6 +46,11 @@ export class Player {
     this.keys.clear()
   }
 
+  resize(_canvasWidth: number, canvasHeight: number, leftBound: number, rightBound: number): void {
+    this.y = canvasHeight - 80
+    this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
+  }
+
   update(dt: number, leftBound: number, rightBound: number): void {
     if (this.state === 'alive') {
       if (this.keys.has('ArrowLeft')) {
@@ -56,7 +62,7 @@ export class Player {
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
 
       this.shootCooldown -= dt
-      if (this.keys.has(' ') && this.shootCooldown <= 0) {
+      if (this.keys.has(' ') && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         this.bullets.push({
           x: this.x,
           y: this.y - this.height / 2,

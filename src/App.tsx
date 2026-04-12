@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/Game'
 
@@ -18,6 +18,7 @@ export default function App() {
   const [playerName, setPlayerName] = useState('ACE')
   const [needsRankingName, setNeedsRankingName] = useState(false)
   const [rankingSaved, setRankingSaved] = useState(false)
+  const currentEntryId = useRef<string | null>(null)
 
   const handleGameOver = useCallback((score: number, hs: number) => {
     setFinalScore(score)
@@ -30,7 +31,10 @@ export default function App() {
 
   const saveRanking = useCallback(() => {
     const name = playerName.trim().slice(0, 10) || 'ACE'
+    const id = crypto.randomUUID()
+    currentEntryId.current = id
     const nextRanking = saveStoredRankingEntry({
+      id,
       name,
       score: finalScore,
       date: new Date().toISOString(),
@@ -295,10 +299,10 @@ export default function App() {
                 <div style={{ fontSize: 12, color: '#778899', textAlign: 'center' }}>No records yet</div>
               )}
               {ranking.map((entry, index) => {
-                const isCurrent = rankingSaved && entry.score === finalScore && entry.name === (playerName.trim().slice(0, 10) || 'ACE')
+                const isCurrent = rankingSaved && entry.id === currentEntryId.current
                 return (
                   <div
-                    key={`${entry.name}-${entry.score}-${entry.date}-${index}`}
+                    key={entry.id || `${entry.name}-${entry.score}-${entry.date}-${index}`}
                     style={{
                       display: 'flex',
                       justifyContent: 'space-between',

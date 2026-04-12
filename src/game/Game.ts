@@ -11,6 +11,7 @@ import type { Rect } from './CollisionSystem'
 
 export type GameCallback = (score: number, highScore: number) => void
 export interface RankingEntry {
+  id?: string
   name: string
   score: number
   date: string
@@ -100,6 +101,7 @@ export class Game {
         if (this.paused) {
           this.sound.stopMusic()
         } else {
+          this.lastTime = performance.now()
           this.sound.startMusic()
         }
       }
@@ -169,6 +171,8 @@ export class Game {
     this.enemyManager.setCanvasHeight(height)
     this.fuelSystem.setCanvasHeight(height)
     this.scenery.setCanvasHeight(height)
+    const bounds = this.world.getBoundsAtY(this.player.y)
+    this.player.resize(width, height, bounds.left, bounds.right)
   }
 
   private loop = (timestamp: number): void => {
