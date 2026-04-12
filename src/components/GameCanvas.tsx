@@ -14,10 +14,6 @@ export default function GameCanvas({ onGameOver }: GameCanvasProps) {
     gameRef.current?.setTouchPosition(x)
   }, [])
 
-  const handleFire = useCallback((down: boolean) => {
-    gameRef.current?.simulateKey(' ', down)
-  }, [])
-
   const handlePause = useCallback(() => {
     gameRef.current?.togglePause()
   }, [])
@@ -64,7 +60,6 @@ export default function GameCanvas({ onGameOver }: GameCanvasProps) {
       />
       <SwipeControls
         onSetPosition={handleSwipePosition}
-        onFire={handleFire}
         onPause={handlePause}
         onMute={handleMute}
       />
