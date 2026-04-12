@@ -32,6 +32,14 @@ Recompensa para jogadores precisos:
 - **Janela de Tempo:** Cada nível de combo tem uma "vida" de 6 segundos. Se não abater ninguém nesse tempo, o combo entra em *Decay* (cai um nível por vez).
 - **Penalidade de Miss:** Se um projétil sair da tela sem atingir nada, o multiplicador reseta instantaneamente para **1x**.
 - **Custo de Gatilho:** Cada tiro disparado consome **-0.3s** da sua barra de tempo de combo, desencorajando o uso indiscriminado de munição.
+  
+### ✨ Sumo Visual (Polimento)
+O jogo agora conta com camadas avançadas de feedback visual para uma experiência mais imersiva:
+- **Screen Shake Dinâmico:** Tremores de tela com intensidades variadas para destruição de pontes (forte), morte de inimigos (médio), subida de combo (micro) e morte do jogador (impactante).
+- **Trail de Fumaça Reativo:** O rastro do avião muda de cor em tempo real: Laranja vibrante ao acelerar (↑) e cinza escuro ao frear (↓).
+- **Rio Vivo e Orgânico:** O rio possui 8 camadas de ondas senoidais, gradiente de profundidade e brilho (*shimmer*) dinâmico na superfície da água.
+- **Death Smoke:** Nuvens de fumaça escura que permanecem no ar momentaneamente após a destruição de qualquer alvo.
+- **Explosões Massivas:** Pontes agora possuem explosões com o dobro de partículas e tremores prolongados.
 
 ---
 

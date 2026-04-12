@@ -129,7 +129,7 @@
 
 > Atualmente: sprites retangulares simples, shimmer mínimo na água, flash de tela.
 
-#### C1 — Screen shake + trail de fumaça + ondas no rio (recomendado)
+#### C1 — Screen shake + trail de fumaça + ondas no rio (concluído) (recomendado)
 
 - **Screen shake:** ao explodir inimigo ou morrer, canvas desloca 3-5px por 0.3s
   - Implementação: `ctx.translate(randomShake, randomShake)` no render
