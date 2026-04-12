@@ -17,6 +17,12 @@ export class EnemyRenderer {
         case 'bridge':
           this.renderBridge(ctx, enemy)
           break
+        case 'tank':
+          this.renderTank(ctx, enemy)
+          break
+        case 'gunboat':
+          this.renderGunboat(ctx, enemy)
+          break
       }
       ctx.restore()
     }
@@ -116,5 +122,31 @@ export class EnemyRenderer {
     ctx.fillStyle = '#9a7a5a'
     ctx.fillRect(left, top, e.width, 3)
     ctx.fillRect(left, top + e.height - 3, e.width, 3)
+  }
+
+  private renderTank(ctx: CanvasRenderingContext2D, e: Enemy): void {
+    const left = e.x - e.width / 2
+    const top = e.y - e.height / 2
+    ctx.fillStyle = '#2f7f2f'
+    ctx.fillRect(left, top, e.width, e.height)
+    ctx.fillStyle = '#7fcf7f'
+    ctx.fillRect(e.x - 5, top - 4, 10, 4)
+    ctx.fillStyle = '#1f4f1f'
+    ctx.fillRect(e.x - 1, top - 8, 2, 8)
+  }
+
+  private renderGunboat(ctx: CanvasRenderingContext2D, e: Enemy): void {
+    const cx = e.x
+    const cy = e.y
+    ctx.fillStyle = '#2f7f9f'
+    ctx.beginPath()
+    ctx.moveTo(cx - e.width / 2, cy - 1)
+    ctx.lineTo(cx - e.width / 2 + 4, cy + e.height / 2)
+    ctx.lineTo(cx + e.width / 2 - 4, cy + e.height / 2)
+    ctx.lineTo(cx + e.width / 2, cy - 1)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = '#8fdfff'
+    ctx.fillRect(cx - 3, cy - e.height / 2, 6, 5)
   }
 }

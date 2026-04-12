@@ -2,6 +2,7 @@ export class SoundManager {
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
   private muted = false
+  private volume = 0.3
   private musicTimer: number | null = null
   private musicStep = 0
   private currentMusicVariation = 0
@@ -15,7 +16,7 @@ export class SoundManager {
     if (this.ctx) return
     this.ctx = new AudioContext()
     this.masterGain = this.ctx.createGain()
-    this.masterGain.gain.value = 0.3
+    this.masterGain.gain.value = this.muted ? 0 : this.volume
     this.masterGain.connect(this.ctx.destination)
   }
 
@@ -28,13 +29,20 @@ export class SoundManager {
   toggleMute(): boolean {
     this.muted = !this.muted
     if (this.masterGain) {
-      this.masterGain.gain.value = this.muted ? 0 : 0.3
+      this.masterGain.gain.value = this.muted ? 0 : this.volume
     }
     return this.muted
   }
 
   isMuted(): boolean {
     return this.muted
+  }
+
+  setVolume(volume: number): void {
+    this.volume = Math.max(0, Math.min(1, volume))
+    if (this.masterGain && !this.muted) {
+      this.masterGain.gain.value = this.volume
+    }
   }
 
   private ensureCtx(): AudioContext | null {

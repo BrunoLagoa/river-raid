@@ -7,7 +7,7 @@ import {
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 
-export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge'
+export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge' | 'tank' | 'gunboat'
 
 export interface EnemyBullet {
   x: number
@@ -60,13 +60,26 @@ export interface BridgeEnemy extends BaseEnemy {
   type: 'bridge'
 }
 
-export type Enemy = HelicopterEnemy | PlaneEnemy | BoatEnemy | BridgeEnemy
+export interface TankEnemy extends BaseEnemy {
+  type: 'tank'
+}
+
+export interface GunboatEnemy extends BaseEnemy {
+  type: 'gunboat'
+  canShoot: boolean
+  shootCooldown: number
+  shootInterval: number
+}
+
+export type Enemy = HelicopterEnemy | PlaneEnemy | BoatEnemy | BridgeEnemy | TankEnemy | GunboatEnemy
 
 const ENEMY_CONFIGS: Record<EnemyType, { width: number; height: number; points: number }> = {
   helicopter: { width: 28, height: 20, points: 60 },
   plane: { width: 32, height: 28, points: 100 },
   boat: { width: 24, height: 16, points: 30 },
   bridge: { width: 200, height: 16, points: 500 },
+  tank: { width: 22, height: 14, points: 120 },
+  gunboat: { width: 28, height: 18, points: 160 },
 }
 
 export const ENEMY_COLORS: Record<EnemyType, string> = {
@@ -74,6 +87,8 @@ export const ENEMY_COLORS: Record<EnemyType, string> = {
   plane: '#dddddd',
   boat: '#8888dd',
   bridge: '#2d1a12',
+  tank: '#55aa55',
+  gunboat: '#44aacc',
 }
 
 export class EnemyManager {
@@ -163,12 +178,12 @@ export class EnemyManager {
         enemy.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, enemy.x))
       }
 
-      if (enemy.type === 'helicopter' || enemy.type === 'plane') {
+      if (enemy.type === 'helicopter' || enemy.type === 'plane' || enemy.type === 'gunboat') {
         if (enemy.canShoot && enemy.y > 0) {
           enemy.shootCooldown -= dt
           if (enemy.shootCooldown <= 0) {
             const bullet = this.bulletPool.acquire()
-            const bulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : 220 + this.gameTime * 0.4
+            const bulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : enemy.type === 'gunboat' ? 260 + this.gameTime * 0.5 : 220 + this.gameTime * 0.4
             bullet.x = enemy.x
             bullet.y = enemy.y + enemy.height / 2
             bullet.speed = bulletSpeed
@@ -198,12 +213,31 @@ export class EnemyManager {
 
     const topSegment = riverSegments[riverSegments.length - 1]
 
-    const weights: [EnemyType, number][] = [
-      ['helicopter', 40],
-      ['plane', 30],
-      ['boat', 20],
-      ['bridge', 10],
-    ]
+    const zone = this.gameTime < 35 ? 0 : this.gameTime < 90 ? 1 : 2
+    const weights: [EnemyType, number][] = zone === 0
+      ? [
+          ['helicopter', 42],
+          ['plane', 28],
+          ['boat', 20],
+          ['bridge', 10],
+        ]
+      : zone === 1
+        ? [
+            ['helicopter', 30],
+            ['plane', 24],
+            ['boat', 18],
+            ['bridge', 10],
+            ['tank', 10],
+            ['gunboat', 8],
+          ]
+        : [
+            ['helicopter', 24],
+            ['plane', 20],
+            ['boat', 14],
+            ['bridge', 10],
+            ['tank', 16],
+            ['gunboat', 16],
+          ]
     const roll = Math.random() * 100
     let cumulative = 0
     let type: EnemyType = 'helicopter'
@@ -284,6 +318,37 @@ export class EnemyManager {
         phaseSpeed: 0.8 + Math.random() * 0.5,
         amplitude: 20 + Math.random() * 20,
       } as BoatEnemy)
+      return
+    }
+
+    if (type === 'gunboat') {
+      Object.assign(enemy, {
+        type: 'gunboat',
+        x,
+        y: ENEMY_SPAWN_Y + yOffset,
+        width,
+        height: config.height,
+        speed: 65,
+        active: true,
+        points: config.points,
+        canShoot: Math.random() < 0.8,
+        shootCooldown: 0.8 + Math.random() * 1.2,
+        shootInterval: 1.0 + Math.random() * 0.5,
+      } as GunboatEnemy)
+      return
+    }
+
+    if (type === 'tank') {
+      Object.assign(enemy, {
+        type: 'tank',
+        x,
+        y: ENEMY_SPAWN_Y + yOffset,
+        width,
+        height: config.height,
+        speed: 55,
+        active: true,
+        points: config.points,
+      } as TankEnemy)
       return
     }
 

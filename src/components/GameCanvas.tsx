@@ -1,12 +1,14 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { Game } from '@/game/Game'
 import SwipeControls from './SwipeControls'
+import type { GameSettings } from '@/game/SettingsService'
 
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
+  settings: GameSettings
 }
 
-export default function GameCanvas({ onGameOver }: GameCanvasProps) {
+export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
 
@@ -51,6 +53,17 @@ export default function GameCanvas({ onGameOver }: GameCanvasProps) {
       gameRef.current = null
     }
   }, [onGameOver])
+
+  useEffect(() => {
+    if (!gameRef.current) return
+    gameRef.current.setReducedMotion(settings.reducedMotion)
+    gameRef.current.setMasterVolume(settings.masterVolume)
+    gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
+    const isMuted = gameRef.current.sound.isMuted()
+    if (settings.muted !== isMuted) {
+      gameRef.current.sound.toggleMute()
+    }
+  }, [settings])
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

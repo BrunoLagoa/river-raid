@@ -29,6 +29,7 @@ export class Game {
   private lastTime = 0
   private running = false
   private paused = false
+  private gamepadEnabled = true
 
   player: Player
   world: World
@@ -150,6 +151,18 @@ export class Game {
     this.player.setTouchTarget(screenX)
   }
 
+  setReducedMotion(enabled: boolean): void {
+    this.fx.setReducedMotion(enabled)
+  }
+
+  setMasterVolume(volume: number): void {
+    this.sound.setVolume(volume)
+  }
+
+  setGamepadEnabled(enabled: boolean): void {
+    this.gamepadEnabled = enabled
+  }
+
   destroy(): void {
     this.stop()
     window.removeEventListener('keydown', this.globalKeyHandler)
@@ -216,6 +229,30 @@ export class Game {
     this.rafId = requestAnimationFrame(this.loop)
   }
 
+  private pollGamepad(): void {
+    if (!this.gamepadEnabled || !navigator.getGamepads) return
+    const pads = navigator.getGamepads()
+    const gp = pads[0]
+    if (!gp) return
+
+    const axisX = gp.axes[0] ?? 0
+    if (axisX < -0.25) {
+      this.player.keys.add('ArrowLeft')
+      this.player.keys.delete('ArrowRight')
+    } else if (axisX > 0.25) {
+      this.player.keys.add('ArrowRight')
+      this.player.keys.delete('ArrowLeft')
+    } else {
+      this.player.keys.delete('ArrowLeft')
+      this.player.keys.delete('ArrowRight')
+    }
+
+    if (gp.buttons[0]?.pressed) this.player.keys.add(' ')
+    else this.player.keys.delete(' ')
+
+    if (gp.buttons[9]?.pressed) this.togglePause()
+  }
+
   private update(dt: number): void {
     if (this.player.state === 'exploding') {
       this.player.update(dt, 0, this.canvas.width)
@@ -229,6 +266,7 @@ export class Game {
       return
     }
 
+    this.pollGamepad()
     this.state.updateTime(dt)
     const speedMod = this.state.updateSpeed(this.player.keys)
     this.scoring.update(dt)

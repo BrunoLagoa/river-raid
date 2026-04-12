@@ -24,6 +24,7 @@ const POPUP_POOL_SIZE = 20
 
 export class Fx {
   private particles: Particle[] = []
+  private reducedMotion = false
   private freeStack: number[] = []
   private popups: ScorePopup[] = []
   private flashColor = ''
@@ -54,7 +55,7 @@ export class Fx {
   }
 
   explosion(x: number, y: number, color: string): void {
-    const count = 8 + Math.floor(Math.random() * 5)
+    const count = this.reducedMotion ? 2 : 8 + Math.floor(Math.random() * 5)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
@@ -76,7 +77,7 @@ export class Fx {
   }
 
   bigExplosion(x: number, y: number, color: string): void {
-    const count = 14 + Math.floor(Math.random() * 6)
+    const count = this.reducedMotion ? 4 : 14 + Math.floor(Math.random() * 6)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
@@ -96,6 +97,7 @@ export class Fx {
   }
 
   addShake(intensity: number, duration: number): void {
+    if (this.reducedMotion) return
     this.shakeIntensity = Math.max(this.shakeIntensity, intensity)
     this.shakeTimer = Math.max(this.shakeTimer, duration)
   }
@@ -230,6 +232,10 @@ export class Fx {
   private getNextParticle(): Particle | null {
     if (this.freeStack.length === 0) return null
     return this.particles[this.freeStack.pop()!]
+  }
+
+  setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled
   }
 
   reset(): void {

@@ -127,7 +127,16 @@ h1.gameover-title {
 .start-text {
   font-size: 14px;
   color: #88aacc;
+  margin-top: 40px;
+  letter-spacing: 2px;
   animation: pulse 1.5s ease-in-out infinite;
+}
+
+.menu-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 20px;
 }
 
 @keyframes pulse {
@@ -233,15 +242,20 @@ h1.gameover-title {
   background: var(--color-primary);
   color: #000;
   border: none;
-  padding: 9px 16px;
+  padding: 10px 24px;
   font-family: var(--font-retro);
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 
 .save-button:hover {
-  background: #66bbff;
+  background: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(68, 170, 255, 0.4);
 }
 
 .restart-hint {

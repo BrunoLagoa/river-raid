@@ -124,14 +124,14 @@ src/
 
 **Foco:** UX, gameplay, retenção
 
-- Tela de tutorial/controles (como jogar)
-- Tela de configurações (volume, controles)
-- Sistema de achievements (primeiro bridge, combo máximo, etc.)
-- Mais enemy types (tanques, navios)
-- Dificuldade progressiva mais sofisticada (biomas/temas visuais por zona)
-- Leaderboard online (substituir localStorage)
-- Suporte a gamepad (Gamepad API)
-- `prefers-reduced-motion` — desabilitar partículas/shake
+- [x] Tela de tutorial/controles (como jogar)
+- [x] Tela de configurações (volume, controles)
+- [x] Sistema de achievements
+- [x] Mais enemy types (tanque e gunboat)
+- [x] Dificuldade progressiva por zonas (spawn mix por tempo)
+- [x] Leaderboard online (com fallback local)
+- [x] Suporte a gamepad (Gamepad API)
+- [x] `prefers-reduced-motion` (efeitos reduzidos em `Fx`)
 
 **Prós:** Experiência de jogador muito melhor, diferencial
 **Contras:** Feature creep, esforço variável por item
@@ -187,7 +187,7 @@ src/
 
 ## Recomendação
 
-**Ordem sugerida: D (seletivo) → E (acessibilidade) [A, B e C já concluídas]**
+**Ordem sugerida: E (acessibilidade) [A, B, C e D já concluídas]**
 
 1. **A primeiro** — sem testes, qualquer refactoring é perigoso. Corrigir o lint error imediatamente (1 linha). Criar testes para `CollisionSystem` e `EnemyManager` (maior risco de bugs).
 
@@ -357,3 +357,57 @@ Status: **Concluído em 12/04/2026**
 
 - AABB foi mantido como narrow-phase para preservar precisão de colisão.
 - Otimizações focadas em reduzir alocação e custo no hot path, preservando o comportamento funcional.
+
+---
+
+## Execução Concluída — Features de Polish (Item D)
+
+Status: **Concluído em 12/04/2026**
+
+### Itens implementados
+
+- [x] Tela de tutorial/controles
+  - Novas telas `tutorial` e `settings` no `App.tsx`
+- [x] Tela de configurações (volume/controles)
+  - `masterVolume`, `muted`, `reducedMotion`, `gamepadEnabled`
+  - Persistência via `SettingsService`
+- [x] Sistema de achievements
+  - `AchievementService` com unlock local e exibição em settings
+- [x] Novos tipos de inimigo
+  - `tank` e `gunboat` adicionados em `EnemyManager` e `EnemyRenderer`
+- [x] Dificuldade progressiva por zonas
+  - mix de spawn por janela de `gameTime`
+- [x] Leaderboard online com fallback local
+  - `OnlineRankingService` (GET/POST com timeout e fallback)
+- [x] Suporte a gamepad
+  - polling em `Game.pollGamepad()` para mover/atirar/pausar
+- [x] `prefers-reduced-motion`
+  - detecção no bootstrap de settings + redução de efeitos em `Fx`
+
+### Arquivos criados
+
+- `src/game/SettingsService.ts`
+- `src/game/AchievementService.ts`
+- `src/game/OnlineRankingService.ts`
+
+### Arquivos alterados
+
+- `src/App.tsx`
+- `src/components/GameCanvas.tsx`
+- `src/game/Game.ts`
+- `src/game/Fx.ts`
+- `src/game/SoundManager.ts`
+- `src/game/EnemyManager.ts`
+- `src/game/EnemyRenderer.ts`
+
+### Validação pós-implementação
+
+- Typecheck: **OK** (`npx tsc --noEmit`)
+- Lint: **OK** (`npm run lint`)
+- Testes: **OK** (18/18 passando, `npm run test`)
+- Build: **OK** (`npm run build`)
+
+### Observações
+
+- Online ranking agora usa `VITE_RIVER_RAID_RANKING_API` (sem endpoint hardcoded) e mantém fallback local.
+- Mudanças focadas em polish sem quebrar o shell React + engine modular.
