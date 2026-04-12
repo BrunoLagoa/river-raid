@@ -33,6 +33,11 @@ export class Player {
   private explodingTimer = 0
   private readonly explodingDuration = 1.2
 
+  setTouchTarget(x: number | null): void {
+    this.touchTargetX = x
+  }
+  private touchTargetX: number | null = null
+
   constructor(canvasWidth: number, canvasHeight: number) {
     this.x = canvasWidth / 2
     this.y = canvasHeight - 80
@@ -64,11 +69,21 @@ export class Player {
           if (onMiss) onMiss()
         }
       }
-      if (this.keys.has('ArrowLeft') || this.keys.has('a')) {
-        this.x -= this.speed * dt
-      }
-      if (this.keys.has('ArrowRight') || this.keys.has('d')) {
-        this.x += this.speed * dt
+      if (this.touchTargetX !== null) {
+        const dx = this.touchTargetX - this.x
+        const maxMove = this.speed * dt
+        if (Math.abs(dx) <= maxMove) {
+          this.x = this.touchTargetX
+        } else {
+          this.x += Math.sign(dx) * maxMove
+        }
+      } else {
+        if (this.keys.has('ArrowLeft') || this.keys.has('a')) {
+          this.x -= this.speed * dt
+        }
+        if (this.keys.has('ArrowRight') || this.keys.has('d')) {
+          this.x += this.speed * dt
+        }
       }
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
 
@@ -294,6 +309,7 @@ export class Player {
     this.animFrame = 0
     this.animTimer = 0
     this.keys.clear()
+    this.touchTargetX = null
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {

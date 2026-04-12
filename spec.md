@@ -66,15 +66,17 @@
 **Arquivos afetados:** Novo módulo `TouchControls.ts` ou div React, `GameCanvas.tsx`, `Player.ts` (input touch)
 **Risco:** Baixo — não afeta gameplay keyboard
 
-#### A2 — Swipe horizontal para mover + tap para atirar
+#### A2 — Swipe horizontal para mover + tap para atirar (concluído)
 
-- Swipe horizontal controla posição do avião
-- Tap rápido dispara tiro
-- Mais imersivo mas menos preciso que D-pad
+- Swipe/drag horizontal controla posição X do avião diretamente (posicionamento 1:1)
+- Tap rápido (duração < 200ms, movimento < 15px) dispara tiro
+- Movimento suave com interpolação (speed-limited lerp) para evitar teleporte
+- Overlay transparente full-screen com botões pause/mute no topo
+- Ativado automaticamente em dispositivos touch (`@media (pointer: coarse)`)
 
 **Complexidade:** Média
-**Arquivos afetados:** Mesmos de A1
-**Risco:** Médio — precisão de input pode ser insuficiente para gameplay
+**Arquivos afetados:** `Player.ts` (touchTargetX), `Game.ts` (bridge), `SwipeControls.tsx` (gestos), `SwipeControls.css`, `GameCanvas.tsx`
+**Risco:** Baixo — não afeta gameplay keyboard, fallback natural
 
 #### A3 — Combinação A1 + A2 com detecção automática de dispositivo
 

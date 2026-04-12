@@ -128,6 +128,10 @@ export class Game {
     }
   }
 
+  setTouchPosition(screenX: number | null): void {
+    this.player.setTouchTarget(screenX)
+  }
+
   destroy(): void {
     this.stop()
     window.removeEventListener('keydown', this.globalKeyHandler)

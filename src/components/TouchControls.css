@@ -29,7 +29,9 @@
 
 .sys-buttons {
   position: absolute;
-  top: 20px;
+  top: 75px;
+  display: flex;
+  gap: 12px;
 }
 
 .sys-buttons.top-left {
