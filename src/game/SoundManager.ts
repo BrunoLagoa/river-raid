@@ -4,8 +4,6 @@ export class SoundManager {
   private muted = false
   private musicTimer: number | null = null
   private musicStep = 0
-  private engineOsc: OscillatorNode | null = null
-  private engineGain: GainNode | null = null
   private currentMusicVariation = 0
 
   private static readonly MELODY = [659.25, 783.99, 880, 783.99, 698.46, 783.99, 987.77, 880]
@@ -60,43 +58,15 @@ export class SoundManager {
   }
 
   startEngine(): void {
-    const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain || this.engineOsc) return
-
-    this.engineOsc = ctx.createOscillator()
-    this.engineOsc.type = 'sawtooth'
-    this.engineOsc.frequency.value = 55
-
-    this.engineGain = ctx.createGain()
-    this.engineGain.gain.value = 0.05
-
-    const filter = ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 120
-
-    this.engineOsc.connect(filter)
-    filter.connect(this.engineGain)
-    this.engineGain.connect(this.masterGain)
-
-    this.engineOsc.start(ctx.currentTime)
+    // Engine sound removed as per user request
   }
 
   stopEngine(): void {
-    if (this.engineOsc) {
-      this.engineOsc.stop()
-      this.engineOsc.disconnect()
-      this.engineOsc = null
-    }
-    if (this.engineGain) {
-      this.engineGain.disconnect()
-      this.engineGain = null
-    }
+    // Engine sound removed
   }
 
   updateEngine(speedRatio: number): void {
-    if (this.engineOsc && this.ctx) {
-      this.engineOsc.frequency.setTargetAtTime(45 + speedRatio * 30, this.ctx.currentTime, 0.1)
-    }
+    // Engine sound removed
   }
 
   private playMusicStep(): void {
