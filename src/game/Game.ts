@@ -182,6 +182,7 @@ export class Game {
 
     if (this.comboMultiplier > oldMultiplier) {
       this.comboAnimTimer = 1.0
+      this.fx.addShake(3, 0.1)
     }
   }
 
@@ -268,8 +269,11 @@ export class Game {
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
 
     if (this.player.state === 'alive') {
-      if (Math.random() < 0.3) {
-        this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2)
+      if (Math.random() < 0.5) {
+        let trailColor = '#888888'
+        if (speedMod > 1.2) trailColor = '#aa7744'
+        else if (speedMod < 0.6) trailColor = '#555555'
+        this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
       }
 
       CollisionSystem.resolveCollisions({

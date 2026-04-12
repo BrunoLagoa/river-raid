@@ -72,7 +72,27 @@ export class Fx {
     }
     
     // Shake effect on small explosions
-    this.addShake(4, 0.2)
+    this.addShake(5, 0.15)
+  }
+
+  bigExplosion(x: number, y: number, color: string): void {
+    const count = 14 + Math.floor(Math.random() * 6)
+    for (let i = 0; i < count; i++) {
+      const p = this.getNextParticle()
+      if (!p) break
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
+      const speed = 50 + Math.random() * 120
+      p.x = x
+      p.y = y
+      p.vx = Math.cos(angle) * speed
+      p.vy = Math.sin(angle) * speed
+      p.life = 0.4 + Math.random() * 0.5
+      p.maxLife = p.life
+      p.size = 3 + Math.random() * 4
+      p.color = color
+      p.active = true
+    }
+    this.addShake(8, 0.3)
   }
 
   addShake(intensity: number, duration: number): void {
@@ -80,7 +100,7 @@ export class Fx {
     this.shakeTimer = Math.max(this.shakeTimer, duration)
   }
 
-  smokeTrail(x: number, y: number): void {
+  smokeTrail(x: number, y: number, color = '#888888'): void {
     const p = this.getNextParticle()
     if (!p) return
     p.x = x + (Math.random() - 0.5) * 4
@@ -90,8 +110,25 @@ export class Fx {
     p.life = 0.3 + Math.random() * 0.2
     p.maxLife = p.life
     p.size = 2 + Math.random() * 2
-    p.color = '#888888'
+    p.color = color
     p.active = true
+  }
+
+  deathSmoke(x: number, y: number): void {
+    const count = 4 + Math.floor(Math.random() * 3)
+    for (let i = 0; i < count; i++) {
+      const p = this.getNextParticle()
+      if (!p) break
+      p.x = x + (Math.random() - 0.5) * 16
+      p.y = y + (Math.random() - 0.5) * 8
+      p.vx = (Math.random() - 0.5) * 20
+      p.vy = 40 + Math.random() * 60
+      p.life = 0.5 + Math.random() * 0.4
+      p.maxLife = p.life
+      p.size = 3 + Math.random() * 3
+      p.color = i % 2 === 0 ? '#333333' : '#555555'
+      p.active = true
+    }
   }
 
   scorePopup(x: number, y: number, text: string): void {

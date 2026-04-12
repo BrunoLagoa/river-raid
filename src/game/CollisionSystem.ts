@@ -74,6 +74,7 @@ export class CollisionSystem {
         ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
         ctx.player.explode()
         ctx.fx.flash('#ff0000', 0.4)
+        ctx.fx.addShake(12, 0.5)
         enemy.active = false
         ctx.sound.explosion()
         ctx.triggerGameOver()
@@ -97,6 +98,7 @@ export class CollisionSystem {
         ctx.player.explode()
         ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ff4400')
         ctx.fx.flash('#ff0000', 0.4)
+        ctx.fx.addShake(12, 0.5)
         bullet.active = false
         ctx.sound.explosion()
         ctx.triggerGameOver()
@@ -123,7 +125,12 @@ export class CollisionSystem {
         }
         if (CollisionSystem.checkAABB(bulletRect, enemyRect)) {
           bullet.active = false
-          ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+          if (enemy.type === 'bridge') {
+            ctx.fx.bigExplosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+          } else {
+            ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
+          }
+          ctx.fx.deathSmoke(enemy.x, enemy.y)
           ctx.sound.explosion()
           const scoredPoints = enemy.points * ctx.comboMultiplier
           ctx.addScore(scoredPoints)

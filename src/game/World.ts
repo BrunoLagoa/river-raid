@@ -40,7 +40,7 @@ export class World {
   canvasHeight: number
 
   private waterLines: FlowLine[] = []
-
+  private gameTime = 0
   // generation-time bank positions (updated as we push new segments upward)
   private genLeft: number
   private genRight: number
@@ -214,6 +214,7 @@ export class World {
 
   update(dt: number, speed = 120): void {
     this.scrollOffset += speed * dt
+    this.gameTime += dt
 
     // Move all segments downward
     for (const seg of this.segments) {
@@ -293,6 +294,30 @@ export class World {
     for (const wl of this.waterLines) {
       ctx.fillRect(wl.x, wl.y, 2, wl.length)
     }
+
+    // Sinusoidal water waves — organic horizontal ripples
+    ctx.strokeStyle = 'rgba(120, 180, 255, 0.08)'
+    ctx.lineWidth = 1
+    const waveCount = 8
+    const waveSpacing = this.canvasHeight / waveCount
+    for (let i = 0; i < waveCount; i++) {
+      const baseY = (i * waveSpacing + this.gameTime * 25) % (this.canvasHeight + 40) - 20
+      ctx.beginPath()
+      for (let x = 0; x < this.canvasWidth; x += 4) {
+        const waveY = baseY + Math.sin((x * 0.03) + this.gameTime * 2 + i * 1.5) * 4
+        if (x === 0) ctx.moveTo(x, waveY)
+        else ctx.lineTo(x, waveY)
+      }
+      ctx.stroke()
+    }
+
+    // Depth gradient — water gets darker toward the top
+    const depthGrad = ctx.createLinearGradient(0, 0, 0, this.canvasHeight)
+    depthGrad.addColorStop(0, 'rgba(0, 10, 40, 0.15)')
+    depthGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
+    ctx.fillStyle = depthGrad
+    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+
     ctx.restore()
 
     // Bank edge highlight — dark outer + bright inner for stronger contrast
@@ -311,7 +336,7 @@ export class World {
     }
 
     // Subtle water shimmer
-    ctx.fillStyle = 'rgba(100, 160, 255, 0.05)'
+    ctx.fillStyle = 'rgba(100, 160, 255, 0.08)'
     for (let i = 0; i < this.segments.length; i += 8) {
       const seg = this.segments[i]
       if (!seg || seg.y < -SEG_H || seg.y > this.canvasHeight + SEG_H) continue
