@@ -118,6 +118,7 @@ Load these skills when working on the corresponding tasks:
 - **Scaffolding / Vite config:** load `vite` skill from `.agents/skills/vite/`
 - **React components / HUD:** load `vercel-react-best-practices` skill from `.agents/skills/vercel-react-best-practices/`
 - **UI visual design (start screen, game-over, menus):** load `frontend-design` skill from `.agents/skills/frontend-design/`
+- **README updates/documentation sync:** load `create-readme` skill from `.agents/skills/create-readme/`
 - **MCP Context7:** use for up-to-date Vite, React, and TypeScript docs when needed.
 
 ## Commands

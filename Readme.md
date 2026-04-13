@@ -151,6 +151,7 @@ Para detalhes técnicos mais profundos e planos de futuras versões, consulte:
 - `prd.md`: Documento de Requisitos de Produto.
 - `introducion.md`: Glossário técnico e especificações da engine.
 - `AGENTS.md`: Guia de arquitetura para agentes de IA.
+- `.agents/skills/create-readme/SKILL.md`: Skill oficial para criação/manutenção deste README.
 
 ---
 *Construído com ❤️ por Bruno Lagoa e assistentes IA.*
