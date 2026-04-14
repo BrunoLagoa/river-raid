@@ -4,10 +4,17 @@ import {
   ENEMY_SPAWN_DUAL_TIME, ENEMY_SPAWN_TRIPLE_TIME, ENEMY_SPAWN_QUAD_TIME,
   ENEMY_SPAWN_DUAL_CHANCE, ENEMY_SPAWN_TRIPLE_CHANCE, ENEMY_SPAWN_QUAD_CHANCE,
   ENEMY_SPAWN_Y, ENEMY_OFFSCREEN_Y,
+  ENEMY_ACTIVE_CAP_BASE, ENEMY_ACTIVE_CAP_GROWTH_PER_SECOND, ENEMY_ACTIVE_CAP_MAX,
+  ENEMY_MAX_HELICOPTERS_ACTIVE, ENEMY_MAX_PLANES_ACTIVE, ENEMY_MAX_BOATS_ACTIVE,
+  ENEMY_MAX_BRIDGES_ACTIVE, ENEMY_MAX_TANKS_ACTIVE, ENEMY_MAX_GUNBOATS_ACTIVE,
+  ENEMY_SPAWN_MAX_PER_CYCLE_BASE, ENEMY_SPAWN_MAX_PER_CYCLE_GROWTH_PER_SECOND,
+  ENEMY_SPAWN_MAX_PER_CYCLE_MAX, ENEMY_SPAWN_MIN_Y_GAP, ENEMY_SPAWN_MIN_X_GAP,
+  ENEMY_SPAWN_MAX_POSITION_TRIES,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge' | 'tank' | 'gunboat'
+export type AiTier = 'basic' | 'smart' | 'elite'
 
 export interface EnemyBullet {
   x: number
@@ -21,6 +28,7 @@ export interface EnemyBullet {
 
 export interface BaseEnemy {
   type: EnemyType
+  aiTier: AiTier
   x: number
   y: number
   width: number
@@ -96,6 +104,7 @@ export class EnemyManager {
     60,
     () => ({
       type: 'bridge',
+      aiTier: 'basic',
       x: 0,
       y: 0,
       width: ENEMY_CONFIGS.bridge.width,
@@ -146,16 +155,27 @@ export class EnemyManager {
 
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) {
-      this.spawn(riverSegments, 0)
+      const spawnRequests: number[] = [0]
       if (this.gameTime > ENEMY_SPAWN_DUAL_TIME && Math.random() < ENEMY_SPAWN_DUAL_CHANCE) {
-        this.spawn(riverSegments, -60)
+        spawnRequests.push(-60)
       }
       if (this.gameTime > ENEMY_SPAWN_TRIPLE_TIME && Math.random() < ENEMY_SPAWN_TRIPLE_CHANCE) {
-        this.spawn(riverSegments, -120)
+        spawnRequests.push(-120)
       }
       if (this.gameTime > ENEMY_SPAWN_QUAD_TIME && Math.random() < ENEMY_SPAWN_QUAD_CHANCE) {
-        this.spawn(riverSegments, -180)
+        spawnRequests.push(-180)
       }
+
+      const maxPerCycle = this.getMaxSpawnsPerCycle()
+      let spawned = 0
+      for (const yOffset of spawnRequests) {
+        if (spawned >= maxPerCycle) break
+        if (!this.canSpawnAnyMore()) break
+        if (this.spawn(riverSegments, yOffset)) {
+          spawned++
+        }
+      }
+
       this.spawnTimer = this.spawnInterval
     }
 
@@ -208,8 +228,64 @@ export class EnemyManager {
     }
   }
 
-  private spawn(riverSegments: { centerX: number; width: number; y: number }[], yOffset = 0): void {
-    if (riverSegments.length === 0) return
+  private canSpawnAnyMore(): boolean {
+    return this.enemies.length < this.getActiveEnemyCap()
+  }
+
+  private getActiveEnemyCap(): number {
+    const cap = ENEMY_ACTIVE_CAP_BASE + this.gameTime * ENEMY_ACTIVE_CAP_GROWTH_PER_SECOND
+    return Math.min(ENEMY_ACTIVE_CAP_MAX, Math.floor(cap))
+  }
+
+  private getMaxSpawnsPerCycle(): number {
+    const maxSpawns = ENEMY_SPAWN_MAX_PER_CYCLE_BASE + this.gameTime * ENEMY_SPAWN_MAX_PER_CYCLE_GROWTH_PER_SECOND
+    return Math.min(ENEMY_SPAWN_MAX_PER_CYCLE_MAX, Math.max(1, Math.floor(maxSpawns)))
+  }
+
+  private countByType(type: EnemyType): number {
+    let total = 0
+    for (const enemy of this.enemies) {
+      if (enemy.type === type) total++
+    }
+    return total
+  }
+
+  private getTypeCap(type: EnemyType): number {
+    if (type === 'helicopter') return ENEMY_MAX_HELICOPTERS_ACTIVE
+    if (type === 'plane') return ENEMY_MAX_PLANES_ACTIVE
+    if (type === 'boat') return ENEMY_MAX_BOATS_ACTIVE
+    if (type === 'bridge') return ENEMY_MAX_BRIDGES_ACTIVE
+    if (type === 'tank') return ENEMY_MAX_TANKS_ACTIVE
+    return ENEMY_MAX_GUNBOATS_ACTIVE
+  }
+
+  private resolveAiTier(type: EnemyType): AiTier {
+    if (this.gameTime < 40) return 'basic'
+    if (this.gameTime < 100) {
+      if (type === 'plane' || type === 'gunboat') return 'smart'
+      return Math.random() < 0.35 ? 'smart' : 'basic'
+    }
+    if (type === 'plane' || type === 'gunboat') return Math.random() < 0.5 ? 'elite' : 'smart'
+    return Math.random() < 0.25 ? 'elite' : 'smart'
+  }
+
+  private hasSpawnSpace(type: EnemyType, x: number, y: number, width: number): boolean {
+    for (const enemy of this.enemies) {
+      if (enemy.type !== type) continue
+      const dy = Math.abs(enemy.y - y)
+      if (dy >= ENEMY_SPAWN_MIN_Y_GAP) continue
+
+      const minXGap = ENEMY_SPAWN_MIN_X_GAP + (enemy.width + width) / 2
+      if (Math.abs(enemy.x - x) < minXGap) {
+        return false
+      }
+    }
+    return true
+  }
+
+  private spawn(riverSegments: { centerX: number; width: number; y: number }[], yOffset = 0): boolean {
+    if (riverSegments.length === 0) return false
+    if (!this.canSpawnAnyMore()) return false
 
     const topSegment = riverSegments[riverSegments.length - 1]
 
@@ -238,38 +314,55 @@ export class EnemyManager {
             ['tank', 16],
             ['gunboat', 16],
           ]
-    const roll = Math.random() * 100
-    let cumulative = 0
+
     let type: EnemyType = 'helicopter'
-    for (const [t, w] of weights) {
-      cumulative += w
-      if (roll < cumulative) {
-        type = t
-        break
+    for (let i = 0; i < ENEMY_SPAWN_MAX_POSITION_TRIES; i++) {
+      const roll = Math.random() * 100
+      let cumulative = 0
+      type = 'helicopter'
+      for (const [t, w] of weights) {
+        cumulative += w
+        if (roll < cumulative) {
+          type = t
+          break
+        }
       }
+      if (this.countByType(type) < this.getTypeCap(type)) break
     }
 
-    const config = ENEMY_CONFIGS[type]
+    if (this.countByType(type) >= this.getTypeCap(type)) return false
 
-    let x: number
+    const config = ENEMY_CONFIGS[type]
+    let x = topSegment.centerX
     let width = config.width
+    const y = ENEMY_SPAWN_Y + yOffset
 
     if (type === 'bridge') {
-      x = topSegment.centerX
       width = Math.max(60, topSegment.width - 4)
+      if (!this.hasSpawnSpace(type, x, y, width)) return false
     } else {
       const leftBound = topSegment.centerX - topSegment.width / 2 + config.width
       const rightBound = topSegment.centerX + topSegment.width / 2 - config.width
-      x = leftBound + Math.random() * (rightBound - leftBound)
+      let found = false
+      for (let i = 0; i < ENEMY_SPAWN_MAX_POSITION_TRIES; i++) {
+        x = leftBound + Math.random() * (rightBound - leftBound)
+        if (this.hasSpawnSpace(type, x, y, width)) {
+          found = true
+          break
+        }
+      }
+      if (!found) return false
     }
 
+    const aiTier = this.resolveAiTier(type)
     const enemy = this.enemyPool.acquire()
 
     if (type === 'helicopter') {
       Object.assign(enemy, {
         type: 'helicopter',
+        aiTier,
         x,
-        y: ENEMY_SPAWN_Y + yOffset,
+        y,
         width,
         height: config.height,
         speed: 80,
@@ -283,14 +376,15 @@ export class EnemyManager {
         phaseSpeed: 2 + Math.random(),
         amplitude: 30 + Math.random() * 40,
       } as HelicopterEnemy)
-      return
+      return true
     }
 
     if (type === 'plane') {
       Object.assign(enemy, {
         type: 'plane',
+        aiTier,
         x,
-        y: ENEMY_SPAWN_Y + yOffset,
+        y,
         width,
         height: config.height,
         speed: 200,
@@ -300,14 +394,15 @@ export class EnemyManager {
         shootCooldown: 1.0 + Math.random() * 2.0,
         shootInterval: 0.6 + Math.random() * 0.4,
       } as PlaneEnemy)
-      return
+      return true
     }
 
     if (type === 'boat') {
       Object.assign(enemy, {
         type: 'boat',
+        aiTier,
         x,
-        y: ENEMY_SPAWN_Y + yOffset,
+        y,
         width,
         height: config.height,
         speed: 40,
@@ -318,14 +413,15 @@ export class EnemyManager {
         phaseSpeed: 0.8 + Math.random() * 0.5,
         amplitude: 20 + Math.random() * 20,
       } as BoatEnemy)
-      return
+      return true
     }
 
     if (type === 'gunboat') {
       Object.assign(enemy, {
         type: 'gunboat',
+        aiTier,
         x,
-        y: ENEMY_SPAWN_Y + yOffset,
+        y,
         width,
         height: config.height,
         speed: 65,
@@ -335,33 +431,36 @@ export class EnemyManager {
         shootCooldown: 0.8 + Math.random() * 1.2,
         shootInterval: 1.0 + Math.random() * 0.5,
       } as GunboatEnemy)
-      return
+      return true
     }
 
     if (type === 'tank') {
       Object.assign(enemy, {
         type: 'tank',
+        aiTier,
         x,
-        y: ENEMY_SPAWN_Y + yOffset,
+        y,
         width,
         height: config.height,
         speed: 55,
         active: true,
         points: config.points,
       } as TankEnemy)
-      return
+      return true
     }
 
     Object.assign(enemy, {
       type: 'bridge',
+      aiTier,
       x,
-      y: ENEMY_SPAWN_Y + yOffset,
+      y,
       width,
       height: config.height,
       speed: 0,
       active: true,
       points: config.points,
     } as BridgeEnemy)
+    return true
   }
 
   render(ctx: CanvasRenderingContext2D): void {

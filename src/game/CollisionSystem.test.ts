@@ -61,6 +61,7 @@ describe('CollisionSystem', () => {
     ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
     ctx.enemyManager.enemies.push({
       type: 'plane',
+      aiTier: 'basic',
       x: 100,
       y: 100,
       width: 20,
