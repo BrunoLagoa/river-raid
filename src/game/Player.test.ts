@@ -32,4 +32,26 @@ describe('Player', () => {
     p.update(2, 0, 800)
     expect(p.state).toBe('dead')
   })
+
+  it('double shot aplica velocidade maior nos dois projeteis', () => {
+    const p = new Player(800, 600)
+    p.doubleShotTimer = 1
+    p.keys.add(' ')
+
+    p.update(0.2, 0, 800)
+
+    expect(p.bullets.length).toBe(2)
+    expect(p.bullets[0]?.speed).toBe(750)
+    expect(p.bullets[1]?.speed).toBe(750)
+  })
+
+  it('tiro normal mantem velocidade base', () => {
+    const p = new Player(800, 600)
+    p.keys.add(' ')
+
+    p.update(0.2, 0, 800)
+
+    expect(p.bullets.length).toBe(1)
+    expect(p.bullets[0]?.speed).toBe(500)
+  })
 })

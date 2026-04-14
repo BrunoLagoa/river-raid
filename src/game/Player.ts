@@ -5,7 +5,7 @@ import {
   PLAYER_BULLET_SPEED, PLAYER_BULLET_W, PLAYER_BULLET_H,
   PLAYER_EXPLODING_DURATION, PLAYER_RESPAWN_Y_OFFSET,
   PLAYER_INVINCIBILITY_TIME, PLAYER_SHIELD_BREAK_INVINCIBILITY,
-  PLAYER_DOUBLE_SHOT_SPREAD,
+  PLAYER_DOUBLE_SHOT_SPREAD, PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER,
 } from './constants'
 
 export type GameState = 'alive' | 'exploding' | 'dead'
@@ -107,16 +107,22 @@ export class Player {
       const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
       if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         if (this.doubleShotTimer > 0) {
+          const doubleShotSpeed = PLAYER_BULLET_SPEED * PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER
+
           const b1 = this.bulletPool.acquire()
           b1.x = this.x - PLAYER_DOUBLE_SHOT_SPREAD
           b1.y = this.y - this.height / 2
+          b1.speed = doubleShotSpeed
+
           const b2 = this.bulletPool.acquire()
           b2.x = this.x + PLAYER_DOUBLE_SHOT_SPREAD
           b2.y = this.y - this.height / 2
+          b2.speed = doubleShotSpeed
         } else {
           const b = this.bulletPool.acquire()
           b.x = this.x
           b.y = this.y - this.height / 2
+          b.speed = PLAYER_BULLET_SPEED
         }
         this.shootCooldown = this.shootInterval
         this.justShot = true
