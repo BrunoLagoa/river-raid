@@ -191,6 +191,9 @@ describe('CollisionSystem', () => {
       phase: 0,
       phaseSpeed: 1,
       amplitude: 30,
+      canShoot: false,
+      shootCooldown: 0,
+      shootInterval: 1,
     })
 
     CollisionSystem.resolveCollisions(ctx)

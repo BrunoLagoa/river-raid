@@ -257,7 +257,7 @@ describe('Game update paths', () => {
     const game = new Game(canvas)
     const deathSpy = vi.spyOn(game, 'handlePlayerDeath')
 
-    const pool = (game.enemyManager as any).enemyPool
+    const pool = (game.enemyManager as unknown as { enemyPool: { acquire: () => Record<string, unknown> } }).enemyPool
     const e = pool.acquire()
     Object.assign(e, {
       type: 'helicopter',
@@ -287,12 +287,12 @@ describe('Game update paths', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
     const game = new Game(canvas)
-    const addScoreSpy = vi.spyOn(game.scoring, 'addScore')
+    const scoreBefore = game.score
 
     game.player.invincibilityTimer = 5
     game.player.keys.add(' ')
 
-    const pool = (game.enemyManager as any).enemyPool
+    const pool = (game.enemyManager as unknown as { enemyPool: { acquire: () => Record<string, unknown> } }).enemyPool
     const e = pool.acquire()
     Object.assign(e, {
       type: 'helicopter',
@@ -315,7 +315,68 @@ describe('Game update paths', () => {
     raf.flush(50)
     game.stop()
 
-    expect(addScoreSpy).toHaveBeenCalled()
+    expect(game.score).toBeGreaterThan(scoreBefore)
+  })
+
+  it('coleta slow_motion powerup durante loop ativa timer', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    game.player.invincibilityTimer = 5
+    game.powerUpSystem.powerUps.push({
+      type: 'slow_motion',
+      x: game.player.x,
+      y: game.player.y,
+      width: 16,
+      height: 16,
+      active: true,
+    })
+
+    game.world.isOutOfBounds = () => false
+    game.start()
+    raf.flush(50)
+
+    const timer = game.slowMotionTimer
+    game.stop()
+
+    expect(timer).toBeGreaterThan(0)
+  })
+
+  it('morte durante loop com 0 vidas chama triggerGameOver', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+    game.setOnGameOver(cb)
+
+    game.lives = 0
+
+    const pool = (game.enemyManager as unknown as { enemyPool: { acquire: () => Record<string, unknown> } }).enemyPool
+    const e = pool.acquire()
+    Object.assign(e, {
+      type: 'helicopter',
+      aiTier: 'basic',
+      x: game.player.x,
+      y: game.player.y,
+      width: 28,
+      height: 20,
+      points: 60,
+      speed: 0,
+      active: true,
+      originX: game.player.x,
+      phase: 0,
+      phaseSpeed: 0,
+      amplitude: 0,
+    })
+
+    game.world.isOutOfBounds = () => false
+    game.start()
+    raf.flush(50)
+    vi.advanceTimersByTime(1300)
+    game.stop()
+
+    expect(cb).toHaveBeenCalled()
   })
 })
 
@@ -419,7 +480,7 @@ describe('Game pollGamepad', () => {
     game.stop()
 
     expect(hasLeft).toBe(true)
-    delete (navigator as any).getGamepads
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
   it('polls gamepad eixo direito adiciona ArrowRight', () => {
@@ -442,7 +503,7 @@ describe('Game pollGamepad', () => {
     game.stop()
 
     expect(hasRight).toBe(true)
-    delete (navigator as any).getGamepads
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
   it('polls gamepad dead zone limpa ambas setas', () => {
@@ -469,7 +530,7 @@ describe('Game pollGamepad', () => {
 
     expect(noLeft).toBe(true)
     expect(noRight).toBe(true)
-    delete (navigator as any).getGamepads
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
   it('polls gamepad botao A adiciona espaco', () => {
@@ -492,7 +553,7 @@ describe('Game pollGamepad', () => {
     game.stop()
 
     expect(hasSpace).toBe(true)
-    delete (navigator as any).getGamepads
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
   it('polls gamepad sem gamepad retorna cedo', () => {
@@ -510,7 +571,7 @@ describe('Game pollGamepad', () => {
     game.stop()
 
     expect(game.player.keys.has('ArrowLeft')).toBe(false)
-    delete (navigator as any).getGamepads
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
   it('ignora gamepad quando disabled', () => {
@@ -607,6 +668,59 @@ describe('Game getHighScore', () => {
     const hs = game.getHighScore()
 
     expect(typeof hs).toBe('number')
+    game.destroy()
+  })
+})
+
+describe('Game getters and setters', () => {
+  it('slowMotionTimer setter atualiza estado', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.slowMotionTimer = 5
+    expect(game.slowMotionTimer).toBe(5)
+    game.destroy()
+  })
+
+  it('consecutiveHits retorna valor do scoring', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    expect(typeof game.consecutiveHits).toBe('number')
+    game.destroy()
+  })
+
+  it('comboAnimTimer retorna valor do scoring', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    expect(typeof game.comboAnimTimer).toBe('number')
+    game.destroy()
+  })
+
+  it('comboLevelTimer retorna valor do scoring', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    expect(typeof game.comboLevelTimer).toBe('number')
+    game.destroy()
+  })
+
+  it('gameTime getter e setter', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.gameTime = 42
+    expect(game.gameTime).toBe(42)
+    game.destroy()
+  })
+
+  it('scrollSpeed getter e setter', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.scrollSpeed = 200
+    expect(game.scrollSpeed).toBe(200)
     game.destroy()
   })
 })

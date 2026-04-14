@@ -73,9 +73,19 @@ describe('FuelSystem', () => {
     expect(result).toBe(false)
   })
 
+  it('checkPickup ignora tanques inativos', () => {
+    const fs = new FuelSystem(800, 600)
+    fs.spawnAt(100, 100)
+    fs.tanks[0].active = false
+
+    const result = fs.checkPickup({ x: 100, y: 100, width: 20, height: 20 })
+
+    expect(result).toBe(false)
+  })
+
   it('spawn com segments vazio nao cria tanque', () => {
     const fs = new FuelSystem(800, 600)
-    fs.spawnTimer = -1
+    ;(fs as unknown as Record<string, unknown>).spawnTimer = -1
 
     fs.update(1, { getBoundsAtY: () => ({ left: 0, right: 800 }) }, [], 120)
 
