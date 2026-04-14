@@ -80,6 +80,13 @@ export interface BridgeEnemy extends BaseEnemy {
 
 export interface TankEnemy extends BaseEnemy {
   type: 'tank'
+  canShoot: boolean
+  shootCooldown: number
+  shootInterval: number
+  originX: number
+  phase: number
+  phaseSpeed: number
+  amplitude: number
 }
 
 export interface GunboatEnemy extends BaseEnemy {
@@ -205,6 +212,11 @@ export class EnemyManager {
         enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
       }
 
+      if (enemy.type === 'tank') {
+        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
+        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+      }
+
       if (enemy.type === 'plane' || enemy.type === 'gunboat') {
         const strafeSpeed = enemy.aiTier === 'elite'
           ? ENEMY_TIER_ELITE_STRAFE_SPEED
@@ -227,12 +239,12 @@ export class EnemyManager {
         enemy.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, enemy.x))
       }
 
-      if (enemy.type === 'helicopter' || enemy.type === 'plane' || enemy.type === 'gunboat') {
+      if (enemy.type === 'helicopter' || enemy.type === 'plane' || enemy.type === 'gunboat' || enemy.type === 'tank') {
         if (enemy.canShoot && enemy.y > 0) {
           enemy.shootCooldown -= dt
           if (enemy.shootCooldown <= 0) {
             const bullet = this.bulletPool.acquire()
-            const baseBulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : enemy.type === 'gunboat' ? 260 + this.gameTime * 0.5 : 220 + this.gameTime * 0.4
+            const baseBulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : enemy.type === 'gunboat' ? 260 + this.gameTime * 0.5 : enemy.type === 'tank' ? 200 + this.gameTime * 0.4 : 220 + this.gameTime * 0.4
             const tierBulletSpeed = this.getTierBulletSpeedMult(enemy.aiTier)
             bullet.x = enemy.x
             bullet.y = enemy.y + enemy.height / 2
@@ -486,7 +498,7 @@ export class EnemyManager {
         y,
         width,
         height: config.height,
-        speed: 65,
+        speed: 70,
         active: true,
         points: config.points,
         canShoot: Math.random() < 0.8,
@@ -507,6 +519,13 @@ export class EnemyManager {
         speed: 55,
         active: true,
         points: config.points,
+        canShoot: Math.random() < 0.5,
+        shootCooldown: 1.0 + Math.random() * 2.0,
+        shootInterval: (2.0 + Math.random()) * this.getTierShootIntervalMult(aiTier),
+        originX: x,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: 2 + Math.random(),
+        amplitude: 30 + Math.random() * 40,
       } as TankEnemy)
       return true
     }

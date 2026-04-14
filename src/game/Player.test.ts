@@ -160,10 +160,8 @@ describe('Player keyboard handlers', () => {
   it('onKeyDown adiciona tecla e previne default para espaco', () => {
     const p = new Player(800, 600)
     p.attachInput()
-    const event = new KeyboardEvent('keydown', { key: ' ' })
-    const preventSpy = vi.spyOn(event, 'preventDefault')
 
-    window.dispatchEvent(event)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }))
 
     expect(p.keys.has(' ')).toBe(true)
     p.detachInput()

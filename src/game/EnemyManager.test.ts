@@ -197,4 +197,25 @@ describe('EnemyManager', () => {
 
     expect(b.active).toBe(false)
   })
+
+  it('spawn com segments vazio nao cria inimigos', () => {
+    const em = new EnemyManager(800, 600)
+    em.update(2, world, [], 120)
+
+    expect(em.enemies.length).toBe(0)
+  })
+
+  it('spawn respeita cap total ativo', () => {
+    const em = new EnemyManager(800, 600)
+
+    for (let i = 0; i < 500; i++) {
+      em.update(0.5, world, segments, 0)
+    }
+
+    const beforeCount = em.enemies.length
+
+    em.update(5, world, segments, 120)
+
+    expect(em.enemies.length).toBeLessThanOrEqual(beforeCount + 3)
+  })
 })
