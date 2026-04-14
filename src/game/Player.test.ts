@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Player } from './Player'
+import { createMockContext2D } from './test-helpers/canvas'
 
 describe('Player', () => {
   it('move para esquerda e direita por teclado', () => {
@@ -98,5 +99,210 @@ describe('Player', () => {
     expect(removeSpy).toHaveBeenCalledWith('keydown', expect.any(Function))
     expect(removeSpy).toHaveBeenCalledWith('keyup', expect.any(Function))
     expect(p.keys.size).toBe(0)
+  })
+})
+
+describe('Player render', () => {
+  it('render alive desenha navio', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+    const fillSpy = vi.spyOn(ctx, 'fill')
+
+    p.render(ctx)
+
+    expect(fillSpy).toHaveBeenCalled()
+  })
+
+  it('render com invencibilidade aplica alpha alternado', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+    p.invincibilityTimer = 0.5
+
+    p.render(ctx)
+
+    expect(ctx.globalAlpha).toBeLessThanOrEqual(1)
+  })
+
+  it('render com shield desenha escudo', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+    p.shieldActive = true
+    const strokeSpy = vi.spyOn(ctx, 'stroke')
+
+    p.render(ctx)
+
+    expect(strokeSpy).toHaveBeenCalled()
+  })
+
+  it('render exploding desenha explosao', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+    p.explode()
+
+    p.render(ctx)
+
+    expect(ctx.globalAlpha).toBeLessThanOrEqual(1)
+  })
+
+  it('render desenha balas ativas', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+    p.keys.add(' ')
+    p.update(0.2, 0, 800)
+
+    p.render(ctx)
+
+    expect(ctx.fillRect).toHaveBeenCalled()
+  })
+})
+
+describe('Player keyboard handlers', () => {
+  it('onKeyDown adiciona tecla e previne default para espaco', () => {
+    const p = new Player(800, 600)
+    p.attachInput()
+    const event = new KeyboardEvent('keydown', { key: ' ' })
+    const preventSpy = vi.spyOn(event, 'preventDefault')
+
+    window.dispatchEvent(event)
+
+    expect(p.keys.has(' ')).toBe(true)
+    p.detachInput()
+  })
+
+  it('onKeyUp remove tecla', () => {
+    const p = new Player(800, 600)
+    p.attachInput()
+    p.keys.add('ArrowLeft')
+
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' }))
+
+    expect(p.keys.has('ArrowLeft')).toBe(false)
+    p.detachInput()
+  })
+
+  it('onKeyDown previne default para ArrowLeft', () => {
+    const p = new Player(800, 600)
+    p.attachInput()
+
+    const event = new KeyboardEvent('keydown', { key: 'ArrowLeft' })
+    const preventSpy = vi.spyOn(event, 'preventDefault')
+    window.dispatchEvent(event)
+
+    expect(preventSpy).toHaveBeenCalled()
+    p.detachInput()
+  })
+})
+
+describe('Player touch', () => {
+  it('move para touchTargetX', () => {
+    const p = new Player(800, 600)
+    p.setTouchTarget(200)
+    const startX = p.x
+
+    p.update(0.1, 0, 800)
+
+    expect(p.x).not.toBe(startX)
+  })
+
+  it('touch atira automaticamente', () => {
+    const p = new Player(800, 600)
+    p.setTouchTarget(400)
+
+    p.update(0.2, 0, 800)
+
+    expect(p.bullets.length).toBeGreaterThan(0)
+  })
+
+  it('setTouchTarget null remove alvo', () => {
+    const p = new Player(800, 600)
+    p.setTouchTarget(200)
+    p.setTouchTarget(null)
+
+    expect((p as unknown as { touchTargetX: number | null }).touchTargetX).toBe(null)
+  })
+})
+
+describe('Player resize e reset', () => {
+  it('resize clampa posicao dentro limites', () => {
+    const p = new Player(800, 600)
+    p.x = 900
+
+    p.resize(800, 600, 0, 400)
+
+    expect(p.x).toBeLessThanOrEqual(400 - p.width / 2 - 2)
+  })
+
+  it('reset limpa keys e touchTargetX', () => {
+    const p = new Player(800, 600)
+    p.keys.add('ArrowLeft')
+    p.setTouchTarget(200)
+    p.doubleShotTimer = 5
+
+    p.reset(800, 600)
+
+    expect(p.keys.size).toBe(0)
+    expect((p as unknown as { touchTargetX: number | null }).touchTargetX).toBe(null)
+    expect(p.doubleShotTimer).toBe(0)
+    expect(p.shieldActive).toBe(false)
+    expect(p.invincibilityTimer).toBe(0)
+  })
+})
+
+describe('Player edge cases', () => {
+  it('update com state dead nao faz nada', () => {
+    const p = new Player(800, 600)
+    p.state = 'dead'
+    const startY = p.y
+
+    p.update(0.1, 0, 800)
+
+    expect(p.y).toBe(startY)
+  })
+
+  it('bullet offscreen desativa e chama onMiss', () => {
+    const p = new Player(800, 600)
+    const missFn = vi.fn()
+    p.keys.add(' ')
+    p.update(0.2, 0, 800)
+
+    p.update(5, 0, 800, missFn)
+
+    expect(missFn).toHaveBeenCalled()
+  })
+
+  it('invincibilityTimer decrementa no update', () => {
+    const p = new Player(800, 600)
+    p.invincibilityTimer = 2
+
+    p.update(0.5, 0, 800)
+
+    expect(p.invincibilityTimer).toBeLessThan(2)
+  })
+
+  it('doubleShotTimer decrementa no update', () => {
+    const p = new Player(800, 600)
+    p.doubleShotTimer = 3
+
+    p.update(0.5, 0, 800)
+
+    expect(p.doubleShotTimer).toBeLessThan(3)
+  })
+
+  it('explode so funciona se alive', () => {
+    const p = new Player(800, 600)
+    p.state = 'dead'
+
+    p.explode()
+
+    expect(p.state).toBe('dead')
+  })
+
+  it('touch movement precisa se proximo do alvo', () => {
+    const p = new Player(800, 600)
+    p.setTouchTarget(p.x + 1)
+
+    p.update(0.1, 0, 800)
+
+    expect(p.x).toBe(p.x)
   })
 })

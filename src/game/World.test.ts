@@ -21,4 +21,23 @@ describe('World', () => {
     w.update(0.1, 120)
     expect(w.segments[0].y).toBeGreaterThan(yBefore)
   })
+
+  it('getBoundsAtY com segments vazio retorna limites do canvas', () => {
+    const w = new World(800, 600)
+    w.segments.length = 0
+
+    const bounds = w.getBoundsAtY(300)
+
+    expect(bounds.left).toBe(0)
+    expect(bounds.right).toBe(800)
+  })
+
+  it('reset reinicializa o mundo', () => {
+    const w = new World(800, 600)
+    w.update(5, 120)
+
+    w.reset(400, 300)
+
+    expect(w.segments.length).toBeGreaterThan(0)
+  })
 })

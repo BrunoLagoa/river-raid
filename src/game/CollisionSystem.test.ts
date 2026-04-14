@@ -139,4 +139,154 @@ describe('CollisionSystem', () => {
     expect(ctx.player.explode).not.toHaveBeenCalled()
     expect(ctx.enemyManager.bullets[0]?.active).toBe(false)
   })
+
+  it('bala inimiga mata player sem escudo e sem invencibilidade', () => {
+    const ctx = makeCtx()
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, active: true, fromPlane: false })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+  })
+
+  it('bala vs bridge dispara bigExplosion', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'bridge',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 16,
+      points: 500,
+      speed: 0,
+      active: true,
+    })
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.3)
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.bigExplosion).toHaveBeenCalled()
+    expect(ctx.fuelSystem.spawnAt).toHaveBeenCalled()
+  })
+
+  it('bala vs non-bridge chama explosion normal', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'helicopter',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 28,
+      height: 20,
+      points: 60,
+      speed: 100,
+      active: true,
+      originX: 100,
+      phase: 0,
+      phaseSpeed: 1,
+      amplitude: 30,
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.explosion).toHaveBeenCalled()
+  })
+
+  it('fuel pickup dispara som fuelCollect', () => {
+    const ctx = makeCtx()
+    ctx.fuelSystem.checkPickup = vi.fn(() => true)
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.sound.fuelCollect).toHaveBeenCalled()
+  })
+
+  it('double_shot power-up ativa doubleShotTimer', () => {
+    const ctx = makeCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'double_shot', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.doubleShotTimer).toBeGreaterThan(0)
+    expect(ctx.addScore).toHaveBeenCalledWith(100)
+  })
+
+  it('shield power-up ativa shieldActive', () => {
+    const ctx = makeCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'shield', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.shieldActive).toBe(true)
+  })
+
+  it('nao faz nada quando player nao esta alive', () => {
+    const ctx = makeCtx()
+    ctx.player.state = 'dead'
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.world.isOutOfBounds).not.toHaveBeenCalled()
+  })
+
+  it('inimigo mata player sem escudo e sem invencibilidade', () => {
+    const ctx = makeCtx()
+    ctx.enemyManager.enemies.push({
+      type: 'plane',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 100,
+      speed: 200,
+      canShoot: false,
+      shootCooldown: 0,
+      shootInterval: 1,
+      active: true,
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+  })
+
+  it('checkAABB retorna false para retangulos separados', () => {
+    expect(
+      CollisionSystem.checkAABB(
+        { x: 10, y: 10, width: 10, height: 10 },
+        { x: 100, y: 100, width: 10, height: 10 },
+      ),
+    ).toBe(false)
+  })
+
+  it('bridge com random > 0.5 nao spawna fuel e tenta powerup', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'bridge',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 16,
+      points: 500,
+      speed: 0,
+      active: true,
+    })
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.8)
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fuelSystem.spawnAt).not.toHaveBeenCalled()
+    expect(ctx.powerUpSystem.trySpawnAt).toHaveBeenCalled()
+  })
 })

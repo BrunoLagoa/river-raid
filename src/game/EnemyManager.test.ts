@@ -186,4 +186,15 @@ describe('EnemyManager', () => {
     expect(basicAfter).toBeCloseTo(basicBefore, 5)
     expect(Math.abs(eliteAfter - eliteBefore)).toBeGreaterThan(0)
   })
+
+  it('bala inimiga que sai da tela e desativada', () => {
+    const em = new EnemyManager(800, 600)
+    const bulletPool = (em as unknown as { bulletPool: { acquire: () => Record<string, unknown> } }).bulletPool
+    const b = bulletPool.acquire()
+    Object.assign(b, { x: 400, y: 599, speed: 100, active: true, fromPlane: false })
+
+    em.update(0.5, world, segments, 120)
+
+    expect(b.active).toBe(false)
+  })
 })
