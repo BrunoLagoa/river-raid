@@ -79,4 +79,64 @@ describe('CollisionSystem', () => {
     expect(ctx.addScore).toHaveBeenCalledWith(100)
     expect(ctx.registerHit).toHaveBeenCalled()
   })
+
+
+  it('consome bala inimiga quando player esta invencivel', () => {
+    const ctx = makeCtx()
+    ctx.player.invincibilityTimer = 1
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, active: true, fromPlane: false })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.enemyManager.bullets[0]?.active).toBe(false)
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+  })
+
+  it('quebra escudo ao colidir com inimigo e nao mata o player', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    ctx.enemyManager.enemies.push({
+      type: 'boat',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 30,
+      speed: 40,
+      active: true,
+      originX: 100,
+      phase: 0,
+      phaseSpeed: 1,
+      amplitude: 10,
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.breakShield).toHaveBeenCalled()
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+  })
+
+  it('coleta power-up de slow motion e registra score', () => {
+    const ctx = makeCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'slow_motion', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.activateSlowMotion).toHaveBeenCalled()
+    expect(ctx.addScore).toHaveBeenCalledWith(100)
+    expect(ctx.sound.fuelCollect).toHaveBeenCalled()
+  })
+
+  it('quebra escudo ao colidir com bala inimiga e evita morte', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 220, active: true, fromPlane: false })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.breakShield).toHaveBeenCalled()
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    expect(ctx.enemyManager.bullets[0]?.active).toBe(false)
+  })
 })

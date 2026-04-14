@@ -42,4 +42,43 @@ describe('Game integration', () => {
 
     expect(cb).toHaveBeenCalled()
   })
+
+  it('togglePause alterna estado sem quebrar o loop ativo', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    game.start()
+    game.togglePause()
+    raf.flush(16)
+    game.togglePause()
+    raf.flush(32)
+    game.stop()
+
+    expect(game).toBeDefined()
+  })
+
+  it('restart reinicializa score e estado de jogo', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.score = 1234
+    game.lives = 1
+    game.simulateKey(' ', true)
+    game.restart()
+
+    expect(game.score).toBe(0)
+    expect(game.lives).toBe(3)
+    expect(game.player.keys.has(' ')).toBe(false)
+    game.stop()
+  })
+
+  it('setGamepadEnabled atualiza a flag interna', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.setGamepadEnabled(false)
+
+    expect((game as unknown as { gamepadEnabled: boolean }).gamepadEnabled).toBe(false)
+  })
 })

@@ -5,6 +5,8 @@ import {
   ENEMY_MAX_HELICOPTERS_ACTIVE,
   ENEMY_SPAWN_MIN_X_GAP,
   ENEMY_SPAWN_MIN_Y_GAP,
+  ENEMY_TIER_ELITE_BULLET_SPEED_MULT,
+  ENEMY_TIER_BASIC_BULLET_SPEED_MULT,
 } from './constants'
 
 const world = { getBoundsAtY: () => ({ left: 100, right: 700 }) }
@@ -91,5 +93,97 @@ describe('EnemyManager', () => {
         }
       }
     }
+  })
+
+  it('aplica IA por nivel no tiro (elite mais rapido que basic)', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+
+    Object.assign(pool[0], {
+      type: 'plane',
+      aiTier: 'basic',
+      x: 220,
+      y: 120,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      canShoot: true,
+      shootCooldown: 0,
+      shootInterval: 0.8,
+    })
+
+    Object.assign(pool[1], {
+      type: 'plane',
+      aiTier: 'elite',
+      x: 520,
+      y: 120,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      canShoot: true,
+      shootCooldown: 0,
+      shootInterval: 0.8,
+    })
+
+    const originalRandom = Math.random
+    Math.random = () => 0
+    try {
+      em.update(0.016, world, segments, 120)
+    } finally {
+      Math.random = originalRandom
+    }
+
+    expect(em.bullets.length).toBe(2)
+    const speeds = em.bullets.map((b) => b.speed).sort((a, b) => a - b)
+    expect(speeds[0]).toBeCloseTo((350 + 0.016 * 0.8) * ENEMY_TIER_BASIC_BULLET_SPEED_MULT, 4)
+    expect(speeds[1]).toBeCloseTo((350 + 0.016 * 0.8) * ENEMY_TIER_ELITE_BULLET_SPEED_MULT, 4)
+  })
+
+  it('aplica IA por nivel no movimento lateral de inimigos inteligentes', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+
+    Object.assign(pool[0], {
+      type: 'plane',
+      aiTier: 'basic',
+      x: 400,
+      y: 120,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    Object.assign(pool[1], {
+      type: 'plane',
+      aiTier: 'elite',
+      x: 400,
+      y: 120,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    const basicBefore = pool[0].x as number
+    const eliteBefore = pool[1].x as number
+    em.update(0.25, world, segments, 120)
+    const basicAfter = pool[0].x as number
+    const eliteAfter = pool[1].x as number
+
+    expect(basicAfter).toBeCloseTo(basicBefore, 5)
+    expect(Math.abs(eliteAfter - eliteBefore)).toBeGreaterThan(0)
   })
 })
