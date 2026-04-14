@@ -22,6 +22,20 @@
 - Impacto: baixo
 - Score: 15/100
 
+## [2026-04-14] Controle de saturacao no spawn de inimigos
+
+- Decisão: aplicar orcamento dinamico de inimigos (cap total progressivo), limite por tipo, limitador de burst por ciclo e validacao de densidade espacial (gaps em X/Y) no `EnemyManager`.
+- Motivo: evitar acumulacao extrema/encavalamento em partidas longas, mantendo dificuldade progressiva e jogabilidade justa.
+- Impacto: baixo
+- Score: 15/100
+
+## [2026-04-14] Preparacao de IA por nivel para inimigos
+
+- Decisão: introduzir classificacao `aiTier` (`basic|smart|elite`) na estrutura de inimigos apenas como base de evolucao futura, sem ativar comportamentos avancados nesta fase.
+- Motivo: permitir evolucao de IA por etapas sem refatoracao estrutural posterior.
+- Impacto: baixo
+- Score: 15/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -36,3 +50,5 @@
 
 - [2026-04-14] Power-up D com velocidade de tiro diferenciada
 - [2026-04-14] Power-up D com velocidade de tiro diferenciada (update)
+- [2026-04-14] Controle de saturacao no spawn de inimigos
+- [2026-04-14] Preparacao de IA por nivel para inimigos

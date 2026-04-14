@@ -170,3 +170,26 @@ Normal.
 - `.agents` disponivel e utilizado.
 - Serena disponivel e usada para validar estrutura real.
 - Limitacao registrada: ausencia de `docs/` no repositorio.
+
+---
+
+## Plano Fase 2 - IA por nivel (proxima iteracao)
+
+Objetivo:
+- Transformar `aiTier` (`basic|smart|elite`) em comportamento real de gameplay, mantendo justica e legibilidade.
+
+Status de execucao:
+- [x] Tarefa 1 - Parametros de IA por tier no `constants.ts`
+- [x] Tarefa 2 - Tiro por tier no `EnemyManager.update`
+- [x] Tarefa 3 - Movimento por tier com limites no `EnemyManager.update`
+- [x] Tarefa 4 - Ajustes de spawn por tier no `EnemyManager.spawn`
+- [x] Tarefa 5 - Testes de regressao e comportamento por tier
+
+Escopo desta fase:
+- Implementar agressividade de tiro por tier.
+- Implementar ajuste de movimento por tier para inimigos que se movem horizontalmente.
+- Preservar controles de saturacao ja implementados (cap total, cap por tipo, burst por ciclo e densidade espacial).
+
+Fora de escopo desta fase:
+- IA adaptativa global por estado completo do jogador (diretor dinamico completo).
+- Novos tipos de inimigo.

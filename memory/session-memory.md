@@ -21,3 +21,8 @@
 - Testes cobertos para decisão: double shot com velocidade maior e tiro normal mantendo velocidade base.
 - Decisão registrada no dashboard `memory/decisions.md` na categoria Técnicas com score 15/100 e impacto baixo.
 - Dashboard atualizado com versionamento de decisão equivalente usando sufixo `(update)`.
+- Nova entrega concluida: melhoria do `EnemyManager` para controle de saturacao com cap total dinamico, cap por tipo e limite de spawn por ciclo.
+- Regra anti-encavalamento adicionada via validacao de densidade espacial com gaps minimos em X/Y no spawn.
+- Preparacao de fase futura de IA realizada com campo `aiTier` nos inimigos (`basic|smart|elite`) sem alterar comportamento avancado nesta iteracao.
+- Testes ampliados para garantir limites de spawn, cap por tipo e protecao contra encavalamento.
+- Fluxo completo executado com PR e merge concluidos (`#1`), branch principal sincronizada ao remoto.

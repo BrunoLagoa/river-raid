@@ -10,6 +10,16 @@ import {
   ENEMY_SPAWN_MAX_PER_CYCLE_BASE, ENEMY_SPAWN_MAX_PER_CYCLE_GROWTH_PER_SECOND,
   ENEMY_SPAWN_MAX_PER_CYCLE_MAX, ENEMY_SPAWN_MIN_Y_GAP, ENEMY_SPAWN_MIN_X_GAP,
   ENEMY_SPAWN_MAX_POSITION_TRIES,
+  ENEMY_TIER_BASIC_SHOOT_INTERVAL_MULT, ENEMY_TIER_SMART_SHOOT_INTERVAL_MULT,
+  ENEMY_TIER_ELITE_SHOOT_INTERVAL_MULT, ENEMY_TIER_BASIC_BULLET_SPEED_MULT,
+  ENEMY_TIER_SMART_BULLET_SPEED_MULT, ENEMY_TIER_ELITE_BULLET_SPEED_MULT,
+  ENEMY_TIER_BASIC_SHOOT_RANDOM_MULT, ENEMY_TIER_SMART_SHOOT_RANDOM_MULT,
+  ENEMY_TIER_ELITE_SHOOT_RANDOM_MULT, ENEMY_TIER_BASIC_PHASE_SPEED_MULT,
+  ENEMY_TIER_SMART_PHASE_SPEED_MULT, ENEMY_TIER_ELITE_PHASE_SPEED_MULT,
+  ENEMY_TIER_BASIC_AMPLITUDE_MULT, ENEMY_TIER_SMART_AMPLITUDE_MULT,
+  ENEMY_TIER_ELITE_AMPLITUDE_MULT, ENEMY_TIER_SMART_STRAFE_SPEED,
+  ENEMY_TIER_ELITE_STRAFE_SPEED, ENEMY_TIER_SMART_STRAFE_FREQ,
+  ENEMY_TIER_ELITE_STRAFE_FREQ,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 
@@ -182,14 +192,33 @@ export class EnemyManager {
     for (const enemy of this.enemies) {
       enemy.y += scrollSpeed * dt * (enemy.type === 'bridge' ? 1 : 0.3)
 
+      const tierPhaseMult = this.getTierPhaseSpeedMult(enemy.aiTier)
+      const tierAmplitudeMult = this.getTierAmplitudeMult(enemy.aiTier)
+
       if (enemy.type === 'helicopter') {
-        enemy.phase += enemy.phaseSpeed * dt
-        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude
+        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
+        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
       }
 
       if (enemy.type === 'boat') {
-        enemy.phase += enemy.phaseSpeed * dt
-        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude
+        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
+        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+      }
+
+      if (enemy.type === 'plane' || enemy.type === 'gunboat') {
+        const strafeSpeed = enemy.aiTier === 'elite'
+          ? ENEMY_TIER_ELITE_STRAFE_SPEED
+          : enemy.aiTier === 'smart'
+            ? ENEMY_TIER_SMART_STRAFE_SPEED
+            : 0
+        const strafeFreq = enemy.aiTier === 'elite'
+          ? ENEMY_TIER_ELITE_STRAFE_FREQ
+          : enemy.aiTier === 'smart'
+            ? ENEMY_TIER_SMART_STRAFE_FREQ
+            : 0
+        if (strafeSpeed > 0) {
+          enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+        }
       }
 
       if (enemy.type !== 'bridge') {
@@ -203,14 +232,17 @@ export class EnemyManager {
           enemy.shootCooldown -= dt
           if (enemy.shootCooldown <= 0) {
             const bullet = this.bulletPool.acquire()
-            const bulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : enemy.type === 'gunboat' ? 260 + this.gameTime * 0.5 : 220 + this.gameTime * 0.4
+            const baseBulletSpeed = enemy.type === 'plane' ? 350 + this.gameTime * 0.8 : enemy.type === 'gunboat' ? 260 + this.gameTime * 0.5 : 220 + this.gameTime * 0.4
+            const tierBulletSpeed = this.getTierBulletSpeedMult(enemy.aiTier)
             bullet.x = enemy.x
             bullet.y = enemy.y + enemy.height / 2
-            bullet.speed = bulletSpeed
+            bullet.speed = baseBulletSpeed * tierBulletSpeed
             bullet.width = enemy.type === 'plane' ? 5 : 4
             bullet.height = enemy.type === 'plane' ? 10 : 8
             bullet.fromPlane = enemy.type === 'plane'
-            enemy.shootCooldown = enemy.shootInterval + Math.random() * 0.3
+            const tierInterval = this.getTierShootIntervalMult(enemy.aiTier)
+            const tierRandom = this.getTierShootRandomMult(enemy.aiTier)
+            enemy.shootCooldown = enemy.shootInterval * tierInterval + Math.random() * 0.3 * tierRandom
           }
         }
       }
@@ -257,6 +289,36 @@ export class EnemyManager {
     if (type === 'bridge') return ENEMY_MAX_BRIDGES_ACTIVE
     if (type === 'tank') return ENEMY_MAX_TANKS_ACTIVE
     return ENEMY_MAX_GUNBOATS_ACTIVE
+  }
+
+  private getTierShootIntervalMult(tier: AiTier): number {
+    if (tier === 'smart') return ENEMY_TIER_SMART_SHOOT_INTERVAL_MULT
+    if (tier === 'elite') return ENEMY_TIER_ELITE_SHOOT_INTERVAL_MULT
+    return ENEMY_TIER_BASIC_SHOOT_INTERVAL_MULT
+  }
+
+  private getTierBulletSpeedMult(tier: AiTier): number {
+    if (tier === 'smart') return ENEMY_TIER_SMART_BULLET_SPEED_MULT
+    if (tier === 'elite') return ENEMY_TIER_ELITE_BULLET_SPEED_MULT
+    return ENEMY_TIER_BASIC_BULLET_SPEED_MULT
+  }
+
+  private getTierShootRandomMult(tier: AiTier): number {
+    if (tier === 'smart') return ENEMY_TIER_SMART_SHOOT_RANDOM_MULT
+    if (tier === 'elite') return ENEMY_TIER_ELITE_SHOOT_RANDOM_MULT
+    return ENEMY_TIER_BASIC_SHOOT_RANDOM_MULT
+  }
+
+  private getTierPhaseSpeedMult(tier: AiTier): number {
+    if (tier === 'smart') return ENEMY_TIER_SMART_PHASE_SPEED_MULT
+    if (tier === 'elite') return ENEMY_TIER_ELITE_PHASE_SPEED_MULT
+    return ENEMY_TIER_BASIC_PHASE_SPEED_MULT
+  }
+
+  private getTierAmplitudeMult(tier: AiTier): number {
+    if (tier === 'smart') return ENEMY_TIER_SMART_AMPLITUDE_MULT
+    if (tier === 'elite') return ENEMY_TIER_ELITE_AMPLITUDE_MULT
+    return ENEMY_TIER_BASIC_AMPLITUDE_MULT
   }
 
   private resolveAiTier(type: EnemyType): AiTier {
@@ -370,7 +432,7 @@ export class EnemyManager {
         points: config.points,
         canShoot: Math.random() < 0.5,
         shootCooldown: 1.0 + Math.random() * 2.0,
-        shootInterval: 2.0 + Math.random(),
+        shootInterval: (2.0 + Math.random()) * this.getTierShootIntervalMult(aiTier),
         originX: x,
         phase: Math.random() * Math.PI * 2,
         phaseSpeed: 2 + Math.random(),
@@ -392,7 +454,7 @@ export class EnemyManager {
         points: config.points,
         canShoot: Math.random() < 0.6,
         shootCooldown: 1.0 + Math.random() * 2.0,
-        shootInterval: 0.6 + Math.random() * 0.4,
+        shootInterval: (0.6 + Math.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
       } as PlaneEnemy)
       return true
     }
@@ -429,7 +491,7 @@ export class EnemyManager {
         points: config.points,
         canShoot: Math.random() < 0.8,
         shootCooldown: 0.8 + Math.random() * 1.2,
-        shootInterval: 1.0 + Math.random() * 0.5,
+        shootInterval: (1.0 + Math.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
       } as GunboatEnemy)
       return true
     }
