@@ -36,6 +36,18 @@
 - Impacto: baixo
 - Score: 15/100
 
+## [2026-04-14] Gunboat com variacao de comportamento
+
+- Decisão: gunboat agora tem comportamento variasi - 50% com movimento (oscilacao), 50% fixo; 80% chance de atirar.
+- Motivo: adicionar variedade e dinamica ao jogo.
+- Impacto: medio
+- Score: 30/100
+
+- Decisão: introduzir classificacao `aiTier` (`basic|smart|elite`) na estrutura de inimigos apenas como base de evolucao futura, sem ativar comportamentos avancados nesta fase.
+- Motivo: permitir evolucao de IA por etapas sem refatoracao estrutural posterior.
+- Impacto: baixo
+- Score: 15/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -52,3 +64,4 @@
 - [2026-04-14] Power-up D com velocidade de tiro diferenciada (update)
 - [2026-04-14] Controle de saturacao no spawn de inimigos
 - [2026-04-14] Preparacao de IA por nivel para inimigos
+- [2026-04-14] Gunboat com variacao de comportamento

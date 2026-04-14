@@ -94,6 +94,11 @@ export interface GunboatEnemy extends BaseEnemy {
   canShoot: boolean
   shootCooldown: number
   shootInterval: number
+  hasMovement: boolean
+  originX: number
+  phase: number
+  phaseSpeed: number
+  amplitude: number
 }
 
 export type Enemy = HelicopterEnemy | PlaneEnemy | BoatEnemy | BridgeEnemy | TankEnemy | GunboatEnemy
@@ -218,18 +223,23 @@ export class EnemyManager {
       }
 
       if (enemy.type === 'plane' || enemy.type === 'gunboat') {
-        const strafeSpeed = enemy.aiTier === 'elite'
-          ? ENEMY_TIER_ELITE_STRAFE_SPEED
-          : enemy.aiTier === 'smart'
-            ? ENEMY_TIER_SMART_STRAFE_SPEED
-            : 0
-        const strafeFreq = enemy.aiTier === 'elite'
-          ? ENEMY_TIER_ELITE_STRAFE_FREQ
-          : enemy.aiTier === 'smart'
-            ? ENEMY_TIER_SMART_STRAFE_FREQ
-            : 0
-        if (strafeSpeed > 0) {
-          enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+        if ((enemy as GunboatEnemy).hasMovement) {
+          enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
+          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        } else {
+          const strafeSpeed = enemy.aiTier === 'elite'
+            ? ENEMY_TIER_ELITE_STRAFE_SPEED
+            : enemy.aiTier === 'smart'
+              ? ENEMY_TIER_SMART_STRAFE_SPEED
+              : 0
+          const strafeFreq = enemy.aiTier === 'elite'
+            ? ENEMY_TIER_ELITE_STRAFE_FREQ
+            : enemy.aiTier === 'smart'
+              ? ENEMY_TIER_SMART_STRAFE_FREQ
+              : 0
+          if (strafeSpeed > 0) {
+            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+          }
         }
       }
 
@@ -491,6 +501,7 @@ export class EnemyManager {
     }
 
     if (type === 'gunboat') {
+      const hasMovement = Math.random() < 0.5
       Object.assign(enemy, {
         type: 'gunboat',
         aiTier,
@@ -504,6 +515,11 @@ export class EnemyManager {
         canShoot: Math.random() < 0.8,
         shootCooldown: 0.8 + Math.random() * 1.2,
         shootInterval: (1.0 + Math.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
+        hasMovement,
+        originX: x,
+        phase: Math.random() * Math.PI * 2,
+        phaseSpeed: 2 + Math.random(),
+        amplitude: hasMovement ? 20 + Math.random() * 20 : 0,
       } as GunboatEnemy)
       return true
     }
