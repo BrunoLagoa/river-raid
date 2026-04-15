@@ -238,6 +238,10 @@ export class Fx {
     this.reducedMotion = enabled
   }
 
+  getActiveParticleCount(): number {
+    return this.particles.filter(p => p.active).length
+  }
+
   reset(): void {
     this.freeStack.length = 0
     for (let i = 0; i < this.particles.length; i++) {

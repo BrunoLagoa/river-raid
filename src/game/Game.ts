@@ -12,6 +12,7 @@ import { Atmosphere } from './Atmosphere'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
+import { DebugPanel } from './DebugPanel'
 import {
   COMBO_SHOT_PENALTY,
   FUEL_LOW_THRESHOLD, FUEL_LOW_FLASH_INTERVAL, FUEL_RESPAWN_MIN,
@@ -41,6 +42,7 @@ export class Game {
   fx: Fx
   scenery: Scenery
   atmosphere: Atmosphere
+  private debugPanel = new DebugPanel()
 
   private onGameOver: GameCallback | null = null
   private gameOverTriggered = false
@@ -93,6 +95,7 @@ export class Game {
     if (e.key === 'm' || e.key === 'M') {
       this.sound.toggleMute()
     }
+    this.debugPanel.onKeyDown(e.key)
   }
 
   private bindGlobalInput(): void {
@@ -181,6 +184,7 @@ export class Game {
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
+    this.debugPanel.reset()
     this.start()
   }
 
@@ -343,6 +347,20 @@ export class Game {
     }
 
     this.fx.update(dt)
+
+    this.debugPanel.updateMetrics({
+      entityCounts: {
+        enemies: this.enemyManager.enemies.filter(e => e.active).length,
+        fuelTanks: this.fuelSystem.tanks.filter(t => t.active).length,
+        powerUps: this.powerUpSystem.powerUps.filter(p => p.active).length,
+        bullets: this.player.bullets.length,
+        particles: this.fx.getActiveParticleCount?.() ?? 0,
+      },
+      scrollSpeed: this.scrollSpeed,
+      gameTime: this.gameTime,
+      playerX: this.player.x,
+      playerY: this.player.y,
+    })
   }
 
   private collectActiveEntities<T extends { x: number; y: number; active: boolean }>(
@@ -397,6 +415,8 @@ export class Game {
       { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
       this.lives
     )
+
+    this.debugPanel.render(this.ctx, this.canvas.width)
 
     // CRT scanlines — screen-space overlay applied last, over everything including HUD
     this.atmosphere.renderScanlines(this.ctx, this.canvas.width, this.canvas.height)
