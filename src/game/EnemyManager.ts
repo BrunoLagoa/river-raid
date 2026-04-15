@@ -156,6 +156,14 @@ export class EnemyManager {
     return this.bulletPool.activeItems
   }
 
+  get activeEnemyCount(): number {
+    return this.enemies.length
+  }
+
+  get activeBulletCount(): number {
+    return this.bullets.length
+  }
+
   private renderer = new EnemyRenderer()
   private spawnTimer = 0
   private spawnInterval = ENEMY_SPAWN_INTERVAL_START

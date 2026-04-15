@@ -48,6 +48,9 @@ export class World {
   private waveX: number[] = []
   private waveBase: number[] = []
   private visibleSegmentsCache: Array<{ y: number; left: number; right: number; width: number; centerX: number }> = []
+  private depthGradient: CanvasGradient | null = null
+  private depthGradientCanvasH = 0
+  private lastPaletteDepth = ''
   // generation-time bank positions (updated as we push new segments upward)
   private genLeft: number
   private genRight: number
@@ -335,6 +338,9 @@ export class World {
     const depth      = palette?.waterDepth     ?? 'rgba(0, 10, 40, 0.15)'
     const shimmerC   = palette?.shimmer        ?? 'rgba(100, 160, 255, 0.08)'
 
+    // Invalidate cached gradient when palette changes
+    this.lastPaletteDepth = depth
+
     // Background land
     ctx.fillStyle = land
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
@@ -376,11 +382,19 @@ export class World {
       ctx.stroke()
     }
 
-    // Depth gradient — water gets darker toward the top
-    const depthGrad = ctx.createLinearGradient(0, 0, 0, this.canvasHeight)
-    depthGrad.addColorStop(0, depth)
-    depthGrad.addColorStop(1, 'rgba(0, 0, 0, 0)')
-    ctx.fillStyle = depthGrad
+    // Depth gradient — water gets darker toward the top (cached)
+    if (
+      !this.depthGradient ||
+      this.depthGradientCanvasH !== this.canvasHeight ||
+      this.lastPaletteDepth !== depth
+    ) {
+      this.depthGradient = ctx.createLinearGradient(0, 0, 0, this.canvasHeight)
+      this.depthGradient.addColorStop(0, depth)
+      this.depthGradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
+      this.depthGradientCanvasH = this.canvasHeight
+      this.lastPaletteDepth = depth
+    }
+    ctx.fillStyle = this.depthGradient
     ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
 
     ctx.restore()
@@ -465,6 +479,7 @@ export class World {
     this.stepAccum = 0
 
     this.segments = []
+    this.depthGradient = null
     this.rebuildWaveSamples()
     this.generateInitialSegments()
     this.rebuildVisibleSegmentsCache()

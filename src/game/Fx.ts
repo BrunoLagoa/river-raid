@@ -197,35 +197,46 @@ export class Fx {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
+    const colorGroups = new Map<string, Particle[]>()
     for (const p of this.particles) {
       if (!p.active) continue
-      const alpha = Math.max(0, p.life / p.maxLife)
-      ctx.save()
-      ctx.globalAlpha = alpha
-      ctx.fillStyle = p.color
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-      ctx.restore()
+      const alpha = p.life / p.maxLife
+      if (alpha <= 0) continue
+      const groups = colorGroups.get(p.color)
+      if (groups) {
+        groups.push(p)
+      } else {
+        colorGroups.set(p.color, [p])
+      }
     }
 
+    for (const [color, particles] of colorGroups) {
+      ctx.fillStyle = color
+      for (const p of particles) {
+        const alpha = Math.max(0, p.life / p.maxLife)
+        ctx.globalAlpha = alpha
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+      }
+    }
+
+    ctx.globalAlpha = 1
+    ctx.font = 'bold 14px "Courier New", monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
     for (const popup of this.popups) {
       if (!popup.active) continue
       const alpha = Math.max(0, popup.life / popup.maxLife)
-      ctx.save()
+      if (alpha <= 0) continue
       ctx.globalAlpha = alpha
       ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 14px "Courier New", monospace'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
       ctx.fillText(popup.text, popup.x, popup.y)
-      ctx.restore()
     }
 
+    ctx.globalAlpha = 1
     if (this.flashAlpha > 0 && this.flashColor) {
-      ctx.save()
       ctx.globalAlpha = this.flashAlpha * 0.3
       ctx.fillStyle = this.flashColor
       ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height)
-      ctx.restore()
     }
   }
 
@@ -240,6 +251,10 @@ export class Fx {
 
   getActiveParticleCount(): number {
     return this.particles.filter(p => p.active).length
+  }
+
+  get activeCount(): number {
+    return this.getActiveParticleCount()
   }
 
   reset(): void {

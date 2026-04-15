@@ -48,6 +48,10 @@ export class Scenery {
     this.canvasHeight = h
   }
 
+  get activeCount(): number {
+    return this.objects.filter(o => o.active).length
+  }
+
   update(
     dt: number,
     scrollSpeed: number,
@@ -124,33 +128,40 @@ export class Scenery {
   }
 
   render(ctx: CanvasRenderingContext2D, brightness = 1.0): void {
+    const byType = new Map<SceneryType, SceneryObject[]>()
     for (const obj of this.objects) {
       if (obj.y < -obj.height || obj.y > this.canvasHeight + obj.height) continue
-      ctx.save()
-      // Apply night-cycle dimming to decorative scenery only
-      if (brightness < 0.99) ctx.globalAlpha = brightness
-      switch (obj.type) {
+      const arr = byType.get(obj.type)
+      if (arr) arr.push(obj)
+      else byType.set(obj.type, [obj])
+    }
+
+    ctx.save()
+    if (brightness < 0.99) ctx.globalAlpha = brightness
+
+    for (const [type, list] of byType) {
+      switch (type) {
         case 'palm':
-          this.renderPalm(ctx, obj)
+          for (const o of list) this.renderPalm(ctx, o)
           break
         case 'tree':
-          this.renderTree(ctx, obj)
+          for (const o of list) this.renderTree(ctx, o)
           break
         case 'house':
-          this.renderHouse(ctx, obj)
+          for (const o of list) this.renderHouse(ctx, o)
           break
         case 'bush':
-          this.renderBush(ctx, obj)
+          for (const o of list) this.renderBush(ctx, o)
           break
         case 'rock':
-          this.renderRock(ctx, obj)
+          for (const o of list) this.renderRock(ctx, o)
           break
         case 'fueltank':
-          this.renderFuelTank(ctx, obj)
+          for (const o of list) this.renderFuelTank(ctx, o)
           break
       }
-      ctx.restore()
     }
+    ctx.restore()
   }
 
   // ─── Pixel-art renderers (Atari 2600 style) ─────────────────────────────────

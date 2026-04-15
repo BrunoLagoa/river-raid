@@ -350,11 +350,11 @@ export class Game {
 
     this.debugPanel.updateMetrics({
       entityCounts: {
-        enemies: this.enemyManager.enemies.filter(e => e.active).length,
+        enemies: this.enemyManager.activeEnemyCount,
         fuelTanks: this.fuelSystem.tanks.filter(t => t.active).length,
         powerUps: this.powerUpSystem.powerUps.filter(p => p.active).length,
         bullets: this.player.bullets.length,
-        particles: this.fx.getActiveParticleCount?.() ?? 0,
+        particles: this.fx.activeCount,
       },
       scrollSpeed: this.scrollSpeed,
       gameTime: this.gameTime,

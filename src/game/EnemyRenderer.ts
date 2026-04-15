@@ -2,45 +2,64 @@ import type { Enemy, EnemyBullet } from './EnemyManager'
 
 export class EnemyRenderer {
   render(ctx: CanvasRenderingContext2D, enemies: Enemy[], bullets: EnemyBullet[], gameTime: number): void {
+    const byType = new Map<string, Enemy[]>()
     for (const enemy of enemies) {
-      ctx.save()
-      switch (enemy.type) {
-        case 'helicopter':
-          this.renderHelicopter(ctx, enemy, gameTime)
-          break
-        case 'plane':
-          this.renderPlane(ctx, enemy)
-          break
-        case 'boat':
-          this.renderBoat(ctx, enemy)
-          break
-        case 'bridge':
-          this.renderBridge(ctx, enemy)
-          break
-        case 'tank':
-          this.renderTank(ctx, enemy)
-          break
-        case 'gunboat':
-          this.renderGunboat(ctx, enemy)
-          break
-      }
-      ctx.restore()
+      if (!enemy.active) continue
+      const arr = byType.get(enemy.type)
+      if (arr) arr.push(enemy)
+      else byType.set(enemy.type, [enemy])
     }
 
+    for (const [type, list] of byType) {
+      switch (type) {
+        case 'helicopter':
+          for (const e of list) this.renderHelicopter(ctx, e, gameTime)
+          break
+        case 'plane':
+          for (const e of list) this.renderPlane(ctx, e)
+          break
+        case 'boat':
+          for (const e of list) this.renderBoat(ctx, e)
+          break
+        case 'bridge':
+          for (const e of list) this.renderBridge(ctx, e)
+          break
+        case 'tank':
+          for (const e of list) this.renderTank(ctx, e)
+          break
+        case 'gunboat':
+          for (const e of list) this.renderGunboat(ctx, e)
+          break
+      }
+    }
+
+    ctx.fillStyle = '#cc44ff'
     for (const bullet of bullets) {
-      ctx.save()
+      if (!bullet.active) continue
       if (bullet.fromPlane) {
-        ctx.fillStyle = '#cc44ff'
         ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
-        ctx.fillStyle = '#ee88ff'
-        ctx.fillRect(bullet.x - 1, bullet.y, 2, bullet.height * 0.5)
-      } else {
-        ctx.fillStyle = '#ff4444'
-        ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
-        ctx.fillStyle = '#ff8888'
+      }
+    }
+    ctx.fillStyle = '#ee88ff'
+    for (const bullet of bullets) {
+      if (!bullet.active) continue
+      if (bullet.fromPlane) {
         ctx.fillRect(bullet.x - 1, bullet.y, 2, bullet.height * 0.5)
       }
-      ctx.restore()
+    }
+    ctx.fillStyle = '#ff4444'
+    for (const bullet of bullets) {
+      if (!bullet.active) continue
+      if (!bullet.fromPlane) {
+        ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
+      }
+    }
+    ctx.fillStyle = '#ff8888'
+    for (const bullet of bullets) {
+      if (!bullet.active) continue
+      if (!bullet.fromPlane) {
+        ctx.fillRect(bullet.x - 1, bullet.y, 2, bullet.height * 0.5)
+      }
     }
   }
 

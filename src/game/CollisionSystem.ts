@@ -8,6 +8,9 @@ import type { World } from './World'
 import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE } from './constants'
 import { SpatialGrid } from './SpatialGrid'
 
+const enemyGrid = new SpatialGrid(64)
+const bulletGrid = new SpatialGrid(64)
+
 export interface Rect {
   x: number
   y: number
@@ -81,15 +84,15 @@ export class CollisionSystem {
   private static checkPlayerVsEnemies(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    const grid = new SpatialGrid(64)
+    enemyGrid.clear()
     for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
       const enemy = ctx.enemyManager.enemies[i]
       if (!enemy.active) continue
-      grid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
+      enemyGrid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
     }
 
     const candidates: number[] = []
-    grid.query(playerRect, candidates)
+    enemyGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
       const enemy = ctx.enemyManager.enemies[idx]
@@ -117,15 +120,15 @@ export class CollisionSystem {
   private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    const grid = new SpatialGrid(64)
+    bulletGrid.clear()
     for (let i = 0; i < ctx.enemyManager.bullets.length; i++) {
       const bullet = ctx.enemyManager.bullets[i]
       if (!bullet.active) continue
-      grid.insert(i, { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height })
+      bulletGrid.insert(i, { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height })
     }
 
     const candidates: number[] = []
-    grid.query(playerRect, candidates)
+    bulletGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
       const bullet = ctx.enemyManager.bullets[idx]
@@ -155,7 +158,7 @@ export class CollisionSystem {
   }
 
   private static checkBulletsVsEnemies(ctx: CollisionContext): void {
-    const enemyGrid = new SpatialGrid(64)
+    enemyGrid.clear()
     for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
       const enemy = ctx.enemyManager.enemies[i]
       if (!enemy.active) continue

@@ -20,15 +20,18 @@ describe('Fx', () => {
   })
 
   describe('explosion', () => {
-    it('cria particulas', () => {
+    it('cria partículas', () => {
       fx.explosion(400, 300, '#ff0000')
-      expect(fx.getActiveParticleCount()).toBeGreaterThan(0)
+      const before = fx.getActiveParticleCount()
+      fx.explosion(400, 300, '#ff0000')
+      const after = fx.getActiveParticleCount()
+      expect(after).toBeGreaterThan(before)
     })
   })
 
   describe('bigExplosion', () => {
-    it('cria mais particulas que explosion', () => {
-      fx.explosion(400, 300, '#ff0000')
+    it('cria mais partículas que explosion', () => {
+      fx.bigExplosion(400, 300, '#ff0000')
       const count1 = fx.getActiveParticleCount()
       fx.bigExplosion(400, 300, '#ff0000')
       const count2 = fx.getActiveParticleCount()

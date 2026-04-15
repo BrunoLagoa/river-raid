@@ -104,6 +104,7 @@ describe('update', () => {
       scenery.render(ctx, 0.5)
 
       expect(ctx.save).toHaveBeenCalled()
+      expect(ctx.restore).toHaveBeenCalled()
     })
   })
 
