@@ -4,6 +4,13 @@
 
 <!-- Decisões arquiteturais ou de stack com impacto duradouro -->
 
+## [2026-04-16] Pipeline de update em etapas e RNG deterministico injetavel
+
+- Decisão: refatorar o `Game.update` para pipeline em etapas privadas (estado, simulacao, colisao, pos-processamento e metricas) e padronizar injeção de `RandomSource` com fallback em `Math.random` nos sistemas `Game`, `EnemyManager`, `FuelSystem`, `PowerUpSystem` e `World`, com suporte a seed via `createSeededRandom`.
+- Motivo: reduzir acoplamento no loop principal, melhorar legibilidade/manutenibilidade e permitir testes reproduziveis sem alterar o comportamento padrao de runtime.
+- Impacto: alto
+- Score: 60/100
+
 ## Técnicas
 
 <!-- Decisões de implementação, padrões, ferramentas -->
@@ -48,6 +55,13 @@
 - Impacto: baixo
 - Score: 15/100
 
+## [2026-04-17] Cobertura orientada a branch sem alterar gameplay
+
+- Decisão: padronizar a evolucao de cobertura pelos caminhos de branch em `CollisionSystem`, `World` e `Game` via testes comportamentais e cenarios deterministas, evitando alterar regras de gameplay apenas para elevar metricas.
+- Motivo: aumentar confiabilidade de regressao e manter estabilidade funcional, equilibrando qualidade de testes com preservacao da experiencia de jogo.
+- Impacto: medio
+- Score: 30/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -65,3 +79,5 @@
 - [2026-04-14] Controle de saturacao no spawn de inimigos
 - [2026-04-14] Preparacao de IA por nivel para inimigos
 - [2026-04-14] Gunboat com variacao de comportamento
+- [2026-04-16] Pipeline de update em etapas e RNG deterministico injetavel
+- [2026-04-17] Cobertura orientada a branch sem alterar gameplay

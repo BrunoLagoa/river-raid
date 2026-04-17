@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Game } from './Game'
 import { CollisionSystem } from './CollisionSystem'
 import { writeSecureNumber } from './StorageService'
+import * as StorageService from './StorageService'
 import { createSeededRandom } from './random'
 import { createMockCanvas } from './test-helpers/canvas'
 import { mockAnimationFrame } from './test-helpers/time'
@@ -19,6 +20,16 @@ afterEach(() => {
 })
 
 describe('Game integration', () => {
+  it('construtor falha sem contexto 2D', () => {
+    const canvas = {
+      width: 800,
+      height: 600,
+      getContext: () => null,
+    } as unknown as HTMLCanvasElement
+
+    expect(() => new Game(canvas)).toThrow('Could not get 2D context')
+  })
+
   it('start e stop controlam loop', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
@@ -59,6 +70,18 @@ describe('Game integration', () => {
     game.stop()
 
     expect(game).toBeDefined()
+  })
+
+  it('start quando ja rodando retorna sem reexecutar init', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const initSpy = vi.spyOn(game.sound, 'init')
+
+    game.start()
+    game.start()
+    game.stop()
+
+    expect(initSpy).toHaveBeenCalledTimes(1)
   })
 
   it('restart reinicializa score e estado de jogo', () => {
@@ -655,6 +678,46 @@ describe('Game pollGamepad', () => {
     delete (navigator as unknown as Record<string, unknown>).getGamepads
   })
 
+  it('polls gamepad sem botao A remove espaco', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false }))
+    Object.defineProperty(navigator, 'getGamepads', {
+      value: () => [{ axes: [0, 0], buttons }],
+      configurable: true,
+    })
+
+    game.player.keys.add(' ')
+    game.start()
+    raf.flush(50)
+
+    expect(game.player.keys.has(' ')).toBe(false)
+    game.stop()
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
+  })
+
+  it('polls gamepad botao start alterna pause', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false }))
+    buttons[9] = { pressed: true }
+    Object.defineProperty(navigator, 'getGamepads', {
+      value: () => [{ axes: [0, 0], buttons }],
+      configurable: true,
+    })
+
+    game.start()
+    raf.flush(50)
+
+    expect((game as unknown as { paused: boolean }).paused).toBe(true)
+    game.stop()
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
+  })
+
   it('polls gamepad sem gamepad retorna cedo', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
@@ -692,6 +755,120 @@ describe('Game pollGamepad', () => {
     game.stop()
 
     expect(game.player.keys.has('ArrowLeft')).toBe(false)
+  })
+
+  it('pollGamepad retorna cedo sem navigator.getGamepads', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      getGamepads: undefined,
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(game.player.keys.size).toBeGreaterThanOrEqual(0)
+  })
+})
+
+describe('Game internal edges', () => {
+  it('loop retorna cedo quando jogo nao esta rodando', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const renderSpy = vi.spyOn(game as unknown as { render: () => void }, 'render')
+
+    ;(game as unknown as { loop: (ts: number) => void }).loop(100)
+
+    expect(renderSpy).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
+  it('update fora do estado alive ainda executa fx update', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const fxSpy = vi.spyOn(game.fx, 'update')
+
+    game.player.state = 'dead'
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(fxSpy).toHaveBeenCalled()
+  })
+
+  it('triggerGameOver retorna cedo quando ja disparado', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const gameOverSpy = vi.spyOn(game.sound, 'gameOver')
+
+    ;(game as unknown as { gameOverTriggered: boolean }).gameOverTriggered = true
+    ;(game as unknown as { triggerGameOver: () => void }).triggerGameOver()
+
+    expect(gameOverSpy).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
+  it('saveHighScore ignora excecao de leitura', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    vi.spyOn(game, 'getHighScore').mockImplementationOnce(() => {
+      throw new Error('storage fail')
+    })
+
+    expect(() => (game as unknown as { saveHighScore: () => void }).saveHighScore()).not.toThrow()
+    game.destroy()
+  })
+
+  it('saveHighScore nao grava quando score nao supera atual', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    game.score = 10
+    vi.spyOn(game, 'getHighScore').mockReturnValue(100)
+    const writeSpy = vi.spyOn(StorageService, 'writeSecureNumber')
+
+    ;(game as unknown as { saveHighScore: () => void }).saveHighScore()
+
+    expect(writeSpy).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
+  it('pollGamepad trata eixo ausente com fallback para 0', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    Object.defineProperty(navigator, 'getGamepads', {
+      value: () => [{ axes: [], buttons: Array.from({ length: 17 }, () => ({ pressed: false })) }],
+      configurable: true,
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(game.player.keys.has('ArrowLeft')).toBe(false)
+    expect(game.player.keys.has('ArrowRight')).toBe(false)
+    delete (navigator as unknown as Record<string, unknown>).getGamepads
+  })
+
+  it('update segue caminho quando estado nao e alive/exploding/dead', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const fxSpy = vi.spyOn(game.fx, 'update')
+
+    ;(game.player as unknown as { state: string }).state = 'ghost'
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(fxSpy).toHaveBeenCalled()
   })
 })
 

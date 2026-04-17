@@ -1,5 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { CollisionSystem, type CollisionContext } from './CollisionSystem'
+import { SpatialGrid } from './SpatialGrid'
+import { ENEMY_COLORS } from './EnemyManager'
 
 function makeCtx() {
   const player = {
@@ -291,5 +293,241 @@ describe('CollisionSystem', () => {
 
     expect(ctx.fuelSystem.spawnAt).not.toHaveBeenCalled()
     expect(ctx.powerUpSystem.trySpawnAt).toHaveBeenCalled()
+  })
+
+  it('ignora bala do player inativa em bullets vs enemies', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: false })
+    ctx.enemyManager.enemies.push({
+      type: 'plane',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 100,
+      speed: 200,
+      canShoot: false,
+      shootCooldown: 0,
+      shootInterval: 1,
+      active: true,
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.addScore).not.toHaveBeenCalled()
+  })
+
+  it('ignora candidato inativo apos kill no mesmo frame', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'plane',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 100,
+      speed: 200,
+      canShoot: false,
+      shootCooldown: 0,
+      shootInterval: 1,
+      active: true,
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.addScore).toHaveBeenCalledTimes(1)
+  })
+
+  it('inimigo no candidate sem overlap nao pontua', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'plane',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 100,
+      speed: 200,
+      canShoot: false,
+      shootCooldown: 0,
+      shootInterval: 1,
+      active: true,
+    })
+
+    const aabbSpy = vi.spyOn(CollisionSystem, 'checkAABB')
+    aabbSpy.mockReturnValueOnce(false)
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.addScore).not.toHaveBeenCalled()
+  })
+
+  it('ignora power-up inativo e power-up sem overlap', () => {
+    const ctx = makeCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'shield', x: 100, y: 100, width: 16, height: 16, active: false })
+    ctx.powerUpSystem.powerUps.push({ type: 'slow_motion', x: 500, y: 500, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.activateSlowMotion).not.toHaveBeenCalled()
+    expect(ctx.addScore).not.toHaveBeenCalled()
+  })
+
+  it('checkPlayerVsEnemies cobre candidatos invalidos e sem overlap', () => {
+    const ctx = makeCtx()
+    ctx.enemyManager.enemies.push(
+      {
+        type: 'plane', aiTier: 'basic', x: 300, y: 300, width: 20, height: 20,
+        points: 100, speed: 200, canShoot: false, shootCooldown: 0, shootInterval: 1, active: true,
+      },
+      {
+        type: 'plane', aiTier: 'basic', x: 110, y: 110, width: 20, height: 20,
+        points: 100, speed: 200, canShoot: false, shootCooldown: 0, shootInterval: 1, active: false,
+      },
+    )
+
+    const querySpy = vi.spyOn(SpatialGrid.prototype, 'query').mockImplementation((_r, out) => {
+      out.push(999, 1, 0)
+      return out
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    querySpy.mockRestore()
+  })
+
+  it('checkPlayerVsEnemyBullets cobre candidatos invalidos e sem overlap', () => {
+    const ctx = makeCtx()
+    ctx.enemyManager.bullets.push(
+      { x: 300, y: 300, width: 4, height: 8, speed: 180, active: true, fromPlane: false },
+      { x: 100, y: 100, width: 4, height: 8, speed: 180, active: false, fromPlane: false },
+    )
+
+    const querySpy = vi.spyOn(SpatialGrid.prototype, 'query').mockImplementation((_r, out) => {
+      out.push(999, 1, 0)
+      return out
+    })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    querySpy.mockRestore()
+  })
+
+  it('usa fallback de cor para inimigo desconhecido em explosao normal', () => {
+    const ctx = makeCtx()
+    ctx.player.y = 300
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'mystery',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 100,
+      speed: 0,
+      active: true,
+    } as unknown as (typeof ctx.enemyManager.enemies)[number])
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.explosion).toHaveBeenCalledWith(100, 100, '#ffffff')
+  })
+
+  it('executa caminho bridge em checkBulletsVsEnemies', () => {
+    const ctx = makeCtx()
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'bridge',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 16,
+      points: 500,
+      speed: 0,
+      active: true,
+    })
+
+    ;(CollisionSystem as unknown as { checkBulletsVsEnemies: (c: CollisionContext) => void }).checkBulletsVsEnemies(ctx)
+
+    expect(ctx.fx.bigExplosion).toHaveBeenCalled()
+  })
+
+  it('player com escudo colidindo com tipo desconhecido usa fallback de cor', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    ctx.enemyManager.enemies.push({
+      type: 'mystery',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 10,
+      speed: 0,
+      active: true,
+    } as unknown as (typeof ctx.enemyManager.enemies)[number])
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.explosion).toHaveBeenCalledWith(100, 100, '#ffffff')
+  })
+
+  it('player sem escudo colidindo com tipo desconhecido usa fallback de cor', () => {
+    const ctx = makeCtx()
+    ctx.enemyManager.enemies.push({
+      type: 'mystery',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 20,
+      height: 20,
+      points: 10,
+      speed: 0,
+      active: true,
+    } as unknown as (typeof ctx.enemyManager.enemies)[number])
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.explosion).toHaveBeenCalledWith(100, 100, '#ffffff')
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+  })
+
+  it('bridge sem cor definida usa fallback no bigExplosion', () => {
+    const ctx = makeCtx()
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'bridge',
+      aiTier: 'basic',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 16,
+      points: 500,
+      speed: 0,
+      active: true,
+    })
+
+    const colors = ENEMY_COLORS as unknown as Record<string, string | undefined>
+    const prevBridgeColor = colors.bridge
+    colors.bridge = undefined
+
+    try {
+      ;(CollisionSystem as unknown as { checkBulletsVsEnemies: (c: CollisionContext) => void }).checkBulletsVsEnemies(ctx)
+      expect(ctx.fx.bigExplosion).toHaveBeenCalledWith(100, 100, '#ffffff')
+    } finally {
+      colors.bridge = prevBridgeColor
+    }
   })
 })
