@@ -11,6 +11,7 @@ interface GameCanvasProps {
 export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
+  const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
 
   const handleSwipePosition = useCallback((x: number | null) => {
     gameRef.current?.setTouchPosition(x)
@@ -38,7 +39,7 @@ export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
 
     resize()
 
-    const game = new Game(canvas)
+    const game = new Game(canvas, Math.random, initialObjectiveProfileRef.current)
     gameRef.current = game
     game.setOnGameOver((score, highScore) => {
       onGameOver(score, highScore)

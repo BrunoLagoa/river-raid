@@ -118,6 +118,17 @@ describe('Game integration', () => {
     expect(spy).toHaveBeenCalledWith('aggressive')
   })
 
+  it('construtor aplica perfil de objetivos na primeira missao', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas, () => 0, 'aggressive')
+    const objectiveState = game.objectives as unknown as {
+      current: { type: string; target: number }
+    }
+
+    expect(objectiveState.current.type).toBe('enemy_kills')
+    expect(objectiveState.current.target).toBe(6)
+  })
+
   it('objetivos sao expostos ao HUD', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()

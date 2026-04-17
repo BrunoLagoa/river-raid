@@ -73,7 +73,11 @@ export class Game {
   get comboAnimTimer(): number { return this.scoring.comboAnimTimer }
   get comboLevelTimer(): number { return this.scoring.comboLevelTimer }
 
-  constructor(canvas: HTMLCanvasElement, random: RandomSource = Math.random) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    random: RandomSource = Math.random,
+    objectiveProfile: ObjectiveBalanceProfile = 'conservative'
+  ) {
     this.random = random
     this.canvas = canvas
     const ctx = canvas.getContext('2d')
@@ -92,7 +96,7 @@ export class Game {
     this.atmosphere = new Atmosphere(canvas.width, canvas.height)
     this.objectives = new ObjectiveSystem(this.random, (points) => {
       this.scoring.addScore(points)
-    })
+    }, objectiveProfile)
 
     this.bindGlobalInput()
   }
