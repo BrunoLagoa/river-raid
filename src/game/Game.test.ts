@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Game } from './Game'
+import { CollisionSystem } from './CollisionSystem'
+import { writeSecureNumber } from './StorageService'
 import { createMockCanvas } from './test-helpers/canvas'
 import { mockAnimationFrame } from './test-helpers/time'
 import { mockAudioContext } from './test-helpers/audio'
@@ -377,6 +379,86 @@ describe('Game update paths', () => {
     game.stop()
 
     expect(cb).toHaveBeenCalled()
+  })
+
+  it('encaminha triggerGameOver no contexto de colisao', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+    game.setOnGameOver(cb)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementationOnce((ctx) => {
+      ctx.triggerGameOver()
+    })
+
+    game.start()
+    raf.flush(50)
+    vi.advanceTimersByTime(1300)
+    game.stop()
+
+    expect(cb).toHaveBeenCalled()
+  })
+
+  it('chama addScore do contexto de colisao', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementationOnce((ctx) => {
+      ctx.addScore(42)
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(game.score).toBe(42)
+  })
+
+  it('gera trilha de fumaca com cor de aceleracao', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const smokeSpy = vi.spyOn(game.fx, 'smokeTrail')
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.1)
+    game.player.keys.add('ArrowUp')
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(smokeSpy).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), '#aa7744')
+  })
+
+  it('gera trilha de fumaca com cor de frenagem', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const smokeSpy = vi.spyOn(game.fx, 'smokeTrail')
+
+    vi.spyOn(Math, 'random').mockReturnValue(0.1)
+    game.player.keys.add('ArrowDown')
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(smokeSpy).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), '#555555')
+  })
+
+  it('nao salva high score quando score atual e menor ou igual ao salvo', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const key = (Game as unknown as { HIGH_SCORE_KEY_STATIC: string }).HIGH_SCORE_KEY_STATIC
+    writeSecureNumber(key, 9999)
+
+    game.score = 100
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    vi.advanceTimersByTime(1300)
+
+    expect(game.getHighScore()).toBe(9999)
   })
 })
 

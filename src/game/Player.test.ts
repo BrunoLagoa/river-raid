@@ -297,10 +297,11 @@ describe('Player edge cases', () => {
 
   it('touch movement precisa se proximo do alvo', () => {
     const p = new Player(800, 600)
+    const startX = p.x
     p.setTouchTarget(p.x + 1)
 
     p.update(0.1, 0, 800)
 
-    expect(p.x).toBe(p.x)
+    expect(p.x).toBeGreaterThan(startX)
   })
 })

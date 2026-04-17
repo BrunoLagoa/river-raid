@@ -198,6 +198,46 @@ describe('EnemyManager', () => {
     expect(b.active).toBe(false)
   })
 
+  it('activeBulletCount reflete balas ativas', () => {
+    const em = new EnemyManager(800, 600)
+    const bulletPool = (em as unknown as { bulletPool: { acquire: () => Record<string, unknown> } }).bulletPool
+    const b = bulletPool.acquire()
+    Object.assign(b, { x: 300, y: 120, speed: 100, active: true, fromPlane: false })
+
+    expect(em.activeBulletCount).toBe(1)
+  })
+
+  it('gunboat com hasMovement true atualiza fase e posicao', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+
+    Object.assign(pool[0], {
+      type: 'gunboat',
+      aiTier: 'smart',
+      x: 400,
+      y: 120,
+      width: 28,
+      height: 18,
+      speed: 80,
+      active: true,
+      points: 160,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+      hasMovement: true,
+      originX: 400,
+      phase: 0,
+      phaseSpeed: 2,
+      amplitude: 20,
+    })
+
+    const beforeX = pool[0].x as number
+    em.update(0.25, world, segments, 120)
+    const afterX = pool[0].x as number
+
+    expect(afterX).not.toBe(beforeX)
+  })
+
   it('spawn com segments vazio nao cria inimigos', () => {
     const em = new EnemyManager(800, 600)
     em.update(2, world, [], 120)

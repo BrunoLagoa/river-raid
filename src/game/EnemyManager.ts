@@ -230,8 +230,8 @@ export class EnemyManager {
         enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
       }
 
-      if (enemy.type === 'plane' || enemy.type === 'gunboat') {
-        if ((enemy as GunboatEnemy).hasMovement) {
+      if (enemy.type === 'gunboat') {
+        if (enemy.hasMovement) {
           enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
           enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
         } else {
@@ -248,6 +248,22 @@ export class EnemyManager {
           if (strafeSpeed > 0) {
             enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
           }
+        }
+      }
+
+      if (enemy.type === 'plane') {
+        const strafeSpeed = enemy.aiTier === 'elite'
+          ? ENEMY_TIER_ELITE_STRAFE_SPEED
+          : enemy.aiTier === 'smart'
+            ? ENEMY_TIER_SMART_STRAFE_SPEED
+            : 0
+        const strafeFreq = enemy.aiTier === 'elite'
+          ? ENEMY_TIER_ELITE_STRAFE_FREQ
+          : enemy.aiTier === 'smart'
+            ? ENEMY_TIER_SMART_STRAFE_FREQ
+            : 0
+        if (strafeSpeed > 0) {
+          enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
         }
       }
 

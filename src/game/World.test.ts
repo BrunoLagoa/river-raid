@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { World } from './World'
 
 describe('World', () => {
@@ -39,5 +39,43 @@ describe('World', () => {
     w.reset(400, 300)
 
     expect(w.segments.length).toBeGreaterThan(0)
+  })
+
+  it('pickNewTarget garante largura minima quando target fica estreito', () => {
+    const w = new World(800, 600)
+    const randomSpy = vi.spyOn(Math, 'random')
+    randomSpy.mockReturnValue(0)
+
+    const state = w as unknown as {
+      genLeft: number
+      genRight: number
+      targetLeft: number
+      targetRight: number
+      pickNewTarget: () => void
+    }
+
+    state.genLeft = 200
+    state.genRight = 230
+    state.pickNewTarget()
+
+    expect(state.targetRight - state.targetLeft).toBeGreaterThanOrEqual(90)
+    randomSpy.mockRestore()
+  })
+
+  it('recicla waterline para topo com novo x aleatorio', () => {
+    const w = new World(800, 600)
+    const randomSpy = vi.spyOn(Math, 'random')
+    randomSpy.mockReturnValue(0.25)
+
+    const state = w as unknown as {
+      waterLines: Array<{ x: number; y: number; length: number; speedRatio: number }>
+    }
+
+    state.waterLines = [{ x: 10, y: 700, length: 10, speedRatio: 1 }]
+    w.update(0.1, 120)
+
+    expect(state.waterLines[0].y).toBe(-20)
+    expect(state.waterLines[0].x).toBeCloseTo(200)
+    randomSpy.mockRestore()
   })
 })
