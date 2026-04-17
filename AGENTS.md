@@ -5,6 +5,12 @@
 - Main runtime wiring: `src/main.tsx` -> `src/App.tsx` -> `src/components/GameCanvas.tsx` -> `src/game/Game.ts`.
 - Game loop and gameplay live in `src/game/*`; React is shell/menu/settings/gameover UI only.
 
+## Working agreement for agents
+- Only edit what is requested; avoid broad refactors in `src/game/*` when a UI-only change is asked.
+- Prefer minimal, targeted changes and keep public behavior stable unless the request explicitly asks for behavior changes.
+- When adding gameplay features, update tests in the same engine area (`src/game/*.test.ts`) in the same change.
+- If a new core gameplay file should count for coverage gates, also update coverage include config in `vite.config.ts`.
+
 ## Verified commands
 - Install: `npm install`
 - Dev server: `npm run dev`
@@ -15,6 +21,11 @@
 - Tests watch: `npm run test:watch`
 - Coverage: `npm run test:coverage`
 - Preview prod build: `npm run preview`
+
+## Suggested task flow
+1. Run `npm run typecheck` after code edits.
+2. Run focused tests (for touched files) with `npm test`.
+3. Run `npm run build` before finishing larger changes.
 
 ## Tooling quirks that matter
 - Node version drift exists: `.nvmrc` says `24`, GitHub Actions deploy uses Node `22` (`.github/workflows/deploy.yml`). Keep changes compatible with both unless intentionally updating runtime policy.
@@ -36,3 +47,10 @@
 ## Docs and spec sources
 - Product/spec docs are `Readme.md`, `prd.md`, `spec.md`, and `introducion.md`.
 - `introducion.md` filename is intentionally misspelled; use that exact name when searching/editing.
+
+## Link-first references
+- Product overview: [Readme.md](Readme.md)
+- Product requirements: [prd.md](prd.md)
+- Implementation spec: [spec.md](spec.md)
+- Planning notes: [plan.md](plan.md)
+- Extra suggestions: [sugest.md](sugest.md)
