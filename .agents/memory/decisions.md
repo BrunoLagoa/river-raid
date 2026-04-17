@@ -62,6 +62,13 @@
 - Impacto: medio
 - Score: 30/100
 
+## [2026-04-17] Sistema dinamico de objetivos por run
+
+- Decisão: introduzir um `ObjectiveSystem` leve e sequencial, com objetivos dinamicos de inimigos, fuel, ponte e combo, integrando score bonus e HUD em `Game`, `CollisionSystem`, `FuelSystem` e `UI`.
+- Motivo: aumentar retenção e dar mais propósito a cada run sem alterar o núcleo da engine ou o fluxo React + Canvas do projeto.
+- Impacto: medio
+- Score: 60/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -81,3 +88,4 @@
 - [2026-04-14] Gunboat com variacao de comportamento
 - [2026-04-16] Pipeline de update em etapas e RNG deterministico injetavel
 - [2026-04-17] Cobertura orientada a branch sem alterar gameplay
+- [2026-04-17] Sistema dinamico de objetivos por run

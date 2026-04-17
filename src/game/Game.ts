@@ -13,6 +13,7 @@ import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
 import { DebugPanel } from './DebugPanel'
+import { ObjectiveSystem } from './ObjectiveSystem'
 import type { RandomSource } from './random'
 import {
   COMBO_SHOT_PENALTY,
@@ -43,6 +44,7 @@ export class Game {
   fx: Fx
   scenery: Scenery
   atmosphere: Atmosphere
+  objectives: ObjectiveSystem
   private debugPanel = new DebugPanel()
 
   private onGameOver: GameCallback | null = null
@@ -87,6 +89,9 @@ export class Game {
     this.fx = new Fx()
     this.scenery = new Scenery(canvas.width, canvas.height)
     this.atmosphere = new Atmosphere(canvas.width, canvas.height)
+    this.objectives = new ObjectiveSystem(this.random, (points) => {
+      this.scoring.addScore(points)
+    })
 
     this.bindGlobalInput()
   }
@@ -188,6 +193,7 @@ export class Game {
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.debugPanel.reset()
+    this.objectives.reset()
     this.start()
   }
 
@@ -299,6 +305,7 @@ export class Game {
     this.state.updateTime(dt)
     const speedMod = this.state.updateSpeed(this.player.keys)
     this.scoring.update(dt)
+    this.objectives.update(dt, this.comboMultiplier)
     this.sound.updateEngine()
     return speedMod
   }
@@ -380,6 +387,12 @@ export class Game {
       },
       activateSlowMotion: () => {
         this.slowMotionTimer = SLOW_MOTION_DURATION
+      },
+      onEnemyDestroyed: (enemyType) => {
+        this.objectives.onEnemyDestroyed(enemyType)
+      },
+      onFuelCollected: (count) => {
+        this.objectives.onFuelCollected(count)
       }
     })
   }
@@ -450,6 +463,7 @@ export class Game {
       this.player.doubleShotTimer,
       this.slowMotionTimer,
       { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
+      this.objectives.getHudData(),
       this.lives
     )
 

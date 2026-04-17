@@ -1,5 +1,5 @@
 import type { Player } from './Player'
-import { ENEMY_COLORS, type EnemyManager } from './EnemyManager'
+import { ENEMY_COLORS, type EnemyManager, type EnemyType } from './EnemyManager'
 import type { FuelSystem } from './FuelSystem'
 import type { Fx } from './Fx'
 import type { PowerUpSystem } from './PowerUpSystem'
@@ -32,6 +32,8 @@ export interface CollisionContext {
   addScore: (points: number) => void
   activateSlowMotion: () => void
   registerHit: () => void
+  onEnemyDestroyed?: (enemyType: EnemyType) => void
+  onFuelCollected?: (count: number) => void
 }
 
 export class CollisionSystem {
@@ -202,6 +204,7 @@ export class CollisionSystem {
           ctx.addScore(scoredPoints)
           ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${scoredPoints}`)
           ctx.registerHit()
+          ctx.onEnemyDestroyed?.(enemy.type)
 
           if (enemy.type === 'bridge' && Math.random() < 0.5) {
             ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
@@ -217,8 +220,10 @@ export class CollisionSystem {
   }
 
   private static checkPlayerVsFuel(ctx: CollisionContext, playerRect: Rect): void {
-    if (ctx.fuelSystem.checkPickup(playerRect)) {
+    const collected = ctx.fuelSystem.checkPickup(playerRect)
+    if (collected) {
       ctx.sound.fuelCollect()
+      ctx.onFuelCollected?.(1)
     }
   }
 

@@ -107,6 +107,25 @@ describe('Game integration', () => {
 
     expect((game as unknown as { gamepadEnabled: boolean }).gamepadEnabled).toBe(false)
   })
+
+  it('objetivos sao expostos ao HUD', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const renderSpy = vi.spyOn(game.ui, 'render')
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(renderSpy).toHaveBeenCalled()
+    const lastCall = renderSpy.mock.calls.at(-1)
+    expect(lastCall?.[10]).toEqual(expect.objectContaining({
+      title: expect.any(String),
+      detail: expect.any(String),
+      progressText: expect.any(String),
+    }))
+  })
 })
 
 describe('Game update paths', () => {

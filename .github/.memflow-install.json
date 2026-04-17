@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "1",
+  "project": "memflow-command-system",
+  "version": "v1.1.15",
+  "scope": "local",
+  "target": "vscode",
+  "channel": "release",
+  "repo": "BrunoLagoa/memflow-command-system",
+  "os": "macos",
+  "installDir": "/Users/bruno/Dev/pocs/river-raid/.github/prompts",
+  "commandsRoot": "/Users/bruno/Dev/pocs/river-raid/.github",
+  "installedAt": "2026-04-17T17:14:03Z"
+}

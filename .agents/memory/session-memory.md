@@ -44,6 +44,14 @@
 - `7c93f79` — testes e cobertura adicional + ajuste de tipagem no `EnemyManager`.
 - `649cef0` — refactor do pipeline de update e RNG deterministico injetavel.
 
+## Execução atual
+
+- Implementado `ObjectiveSystem` para objetivos dinamicos por run, com tipos de alvo para inimigos, fuel, ponte e combo.
+- Integracao feita em `Game`, `CollisionSystem`, `FuelSystem` e `UI`, com HUD exibindo progresso, recompensa e estado de conclusao.
+- Testes adicionados para `ObjectiveSystem` e validacao de integracao no `Game`.
+- Validacao executada com sucesso: `npm test -- --run src/game/ObjectiveSystem.test.ts src/game/Game.test.ts` e `npm run typecheck`.
+- Diretriz mantida: melhorar retenção sem mexer no loop central de gameplay ou na separação React shell + Canvas engine.
+
 ## Proximo contexto util
 
 - Revisoes apontaram estado aprovado.

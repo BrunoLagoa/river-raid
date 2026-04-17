@@ -17,6 +17,16 @@ interface MinimapData {
   powerUps: MinimapEntity[]
 }
 
+interface ObjectiveData {
+  title: string
+  detail: string
+  progressText: string
+  progressRatio: number
+  statusText: string
+  rewardText: string
+  completed: boolean
+}
+
 export class UI {
   render(
     ctx: CanvasRenderingContext2D,
@@ -29,6 +39,7 @@ export class UI {
     doubleShotTimer = 0,
     slowMotionTimer = 0,
     comboData?: { multiplier: number; timer: number; maxTimer: number },
+    objectiveData?: ObjectiveData | null,
     lives = 3
   ): void {
     ctx.save()
@@ -146,6 +157,53 @@ export class UI {
       }
       ctx.fillText(text, 14, activeY + (pulse/2))
       ctx.restore()
+      activeY += 18
+    }
+
+    if (objectiveData) {
+      ctx.save()
+      ctx.fillStyle = objectiveData.completed ? 'rgba(0, 40, 20, 0.78)' : 'rgba(10, 18, 34, 0.78)'
+      ctx.strokeStyle = objectiveData.completed ? '#44dd88' : '#4d6a8f'
+      ctx.lineWidth = 1
+      const boxW = 240
+      const boxH = 42
+      const boxX = 14
+      const boxY = activeY
+      ctx.fillRect(boxX, boxY, boxW, boxH)
+      ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1)
+
+      ctx.fillStyle = objectiveData.completed ? '#88ffbb' : '#cfe4ff'
+      ctx.font = 'bold 10px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(objectiveData.title, boxX + 8, boxY + 13)
+
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.fillText(objectiveData.detail, boxX + 8, boxY + 27)
+
+      const progressWidth = 88
+      const progressHeight = 6
+      const progressX = boxX + boxW - progressWidth - 10
+      const progressY = boxY + 11
+      ctx.fillStyle = '#1a2432'
+      ctx.fillRect(progressX, progressY, progressWidth, progressHeight)
+      ctx.fillStyle = objectiveData.completed ? '#44dd88' : '#55aaff'
+      ctx.fillRect(progressX, progressY, Math.max(2, progressWidth * Math.max(0, Math.min(1, objectiveData.progressRatio))), progressHeight)
+      ctx.strokeStyle = '#334455'
+      ctx.strokeRect(progressX + 0.5, progressY + 0.5, progressWidth - 1, progressHeight - 1)
+
+      ctx.font = '9px "Courier New", monospace'
+      ctx.fillStyle = '#a9bed8'
+      ctx.textAlign = 'left'
+      ctx.fillText(objectiveData.progressText, boxX + 8, boxY + 39)
+      ctx.fillStyle = objectiveData.completed ? '#88ffbb' : '#ffcc66'
+      ctx.textAlign = 'right'
+      ctx.fillText(objectiveData.statusText, boxX + boxW - 10, boxY + 39)
+      ctx.fillStyle = '#8899aa'
+      ctx.textAlign = 'right'
+      ctx.fillText(objectiveData.rewardText, progressX + progressWidth, boxY + 28)
+      ctx.restore()
+      activeY += boxH + 6
     }
 
     if (paused) {

@@ -80,7 +80,7 @@ describe('UI', () => {
 
     it('renderiza com lives', () => {
       const ctx = createMockCtx({ textAlign: 'left' as const })
-      expect(() => ui.render(ctx, 1000, 80, 800, false, false, undefined, 0, 0, undefined, 5)).not.toThrow()
+      expect(() => ui.render(ctx, 1000, 80, 800, false, false, undefined, 0, 0, undefined, undefined, 5)).not.toThrow()
     })
   })
 
