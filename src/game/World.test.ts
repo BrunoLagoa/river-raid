@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { World } from './World'
+import { createSeededRandom } from './random'
 
 describe('World', () => {
   it('retorna bounds validos', () => {
@@ -63,9 +64,7 @@ describe('World', () => {
   })
 
   it('recicla waterline para topo com novo x aleatorio', () => {
-    const w = new World(800, 600)
-    const randomSpy = vi.spyOn(Math, 'random')
-    randomSpy.mockReturnValue(0.25)
+    const w = new World(800, 600, () => 0.25)
 
     const state = w as unknown as {
       waterLines: Array<{ x: number; y: number; length: number; speedRatio: number }>
@@ -76,6 +75,16 @@ describe('World', () => {
 
     expect(state.waterLines[0].y).toBe(-20)
     expect(state.waterLines[0].x).toBeCloseTo(200)
-    randomSpy.mockRestore()
+  })
+
+  it('gera estado deterministico com seed fixa', () => {
+    const a = new World(800, 600, createSeededRandom(99))
+    const b = new World(800, 600, createSeededRandom(99))
+
+    a.update(0.25, 120)
+    b.update(0.25, 120)
+
+    expect(a.segments[0]?.centerX).toBeCloseTo(b.segments[0]?.centerX ?? 0, 6)
+    expect(a.segments[0]?.width).toBeCloseTo(b.segments[0]?.width ?? 0, 6)
   })
 })

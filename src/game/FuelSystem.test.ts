@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { FuelSystem } from './FuelSystem'
+import { createSeededRandom } from './random'
 
 describe('FuelSystem', () => {
   it('drena combustivel ao atualizar', () => {
@@ -90,5 +91,19 @@ describe('FuelSystem', () => {
     fs.update(1, { getBoundsAtY: () => ({ left: 0, right: 800 }) }, [], 120)
 
     expect(fs.tanks.length).toBe(0)
+  })
+
+  it('spawn usa random injetado para posicao deterministica', () => {
+    const fsA = new FuelSystem(800, 600, createSeededRandom(42))
+    const fsB = new FuelSystem(800, 600, createSeededRandom(42))
+    const world = { getBoundsAtY: () => ({ left: 0, right: 800 }) }
+    const segments = [{ centerX: 400, width: 300, y: 0 }]
+
+    ;(fsA as unknown as Record<string, unknown>).spawnTimer = -1
+    ;(fsB as unknown as Record<string, unknown>).spawnTimer = -1
+    fsA.update(0.016, world, segments, 120)
+    fsB.update(0.016, world, segments, 120)
+
+    expect(fsA.tanks[0]?.x).toBeCloseTo(fsB.tanks[0]?.x ?? 0, 6)
   })
 })

@@ -1,5 +1,6 @@
 import { compactArray } from './utils'
 import { POWERUP_DROP_CHANCE, POWERUP_SIZE } from './constants'
+import type { RandomSource } from './random'
 
 export type PowerUpType = 'double_shot' | 'shield' | 'slow_motion'
 
@@ -14,10 +15,12 @@ export interface PowerUp {
 
 export class PowerUpSystem {
   powerUps: PowerUp[] = []
+  private random: RandomSource
   private canvasHeight: number
 
-  constructor(_canvasWidth: number, canvasHeight: number) {
+  constructor(_canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasHeight = canvasHeight
+    this.random = random
   }
 
   setCanvasHeight(h: number): void {
@@ -26,10 +29,10 @@ export class PowerUpSystem {
 
   trySpawnAt(x: number, y: number): void {
     // 8% drop chance
-    if (Math.random() > POWERUP_DROP_CHANCE) return
+    if (this.random() > POWERUP_DROP_CHANCE) return
 
     const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
-    const type = types[Math.floor(Math.random() * types.length)]
+    const type = types[Math.floor(this.random() * types.length)]
 
     this.powerUps.push({
       type,

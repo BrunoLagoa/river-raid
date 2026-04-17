@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { EnemyManager } from './EnemyManager'
+import { createSeededRandom } from './random'
 import {
   ENEMY_ACTIVE_CAP_MAX,
   ENEMY_MAX_HELICOPTERS_ACTIVE,
@@ -64,16 +65,9 @@ describe('EnemyManager', () => {
   })
 
   it('evita encavalamento de mesmo tipo no mesmo corredor de spawn', () => {
-    const em = new EnemyManager(800, 600)
-    const originalRandom = Math.random
-    Math.random = () => 0
-
-    try {
-      for (let i = 0; i < 120; i++) {
-        em.update(0.5, world, segments, 0)
-      }
-    } finally {
-      Math.random = originalRandom
+    const em = new EnemyManager(800, 600, () => 0)
+    for (let i = 0; i < 120; i++) {
+      em.update(0.5, world, segments, 0)
     }
 
     const helicopters = em.enemies.filter((e) => e.type === 'helicopter')
@@ -257,5 +251,22 @@ describe('EnemyManager', () => {
     em.update(5, world, segments, 120)
 
     expect(em.enemies.length).toBeLessThanOrEqual(beforeCount + 3)
+  })
+
+  it('spawn e reproducivel com seed fixa', () => {
+    const emA = new EnemyManager(800, 600, createSeededRandom(1234))
+    const emB = new EnemyManager(800, 600, createSeededRandom(1234))
+
+    for (let i = 0; i < 6; i++) {
+      emA.update(0.7, world, segments, 120)
+      emB.update(0.7, world, segments, 120)
+    }
+
+    expect(emA.enemies.length).toBe(emB.enemies.length)
+    if (emA.enemies.length > 0 && emB.enemies.length > 0) {
+      expect(emA.enemies[0].type).toBe(emB.enemies[0].type)
+      expect(emA.enemies[0].x).toBeCloseTo(emB.enemies[0].x, 6)
+      expect(emA.enemies[0].y).toBeCloseTo(emB.enemies[0].y, 6)
+    }
   })
 })

@@ -13,6 +13,7 @@ import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
 import { DebugPanel } from './DebugPanel'
+import type { RandomSource } from './random'
 import {
   COMBO_SHOT_PENALTY,
   FUEL_LOW_THRESHOLD, FUEL_LOW_FLASH_INTERVAL, FUEL_RESPAWN_MIN,
@@ -46,6 +47,7 @@ export class Game {
 
   private onGameOver: GameCallback | null = null
   private gameOverTriggered = false
+  private random: RandomSource
 
   private scoring = new ScoringSystem()
   private state = new GameState()
@@ -68,18 +70,19 @@ export class Game {
   get comboAnimTimer(): number { return this.scoring.comboAnimTimer }
   get comboLevelTimer(): number { return this.scoring.comboLevelTimer }
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, random: RandomSource = Math.random) {
+    this.random = random
     this.canvas = canvas
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get 2D context')
     this.ctx = ctx
 
     this.player = new Player(canvas.width, canvas.height)
-    this.world = new World(canvas.width, canvas.height)
+    this.world = new World(canvas.width, canvas.height, this.random)
     this.ui = new UI()
-    this.enemyManager = new EnemyManager(canvas.width, canvas.height)
-    this.fuelSystem = new FuelSystem(canvas.width, canvas.height)
-    this.powerUpSystem = new PowerUpSystem(canvas.width, canvas.height)
+    this.enemyManager = new EnemyManager(canvas.width, canvas.height, this.random)
+    this.fuelSystem = new FuelSystem(canvas.width, canvas.height, this.random)
+    this.powerUpSystem = new PowerUpSystem(canvas.width, canvas.height, this.random)
     this.sound = new SoundManager()
     this.fx = new Fx()
     this.scenery = new Scenery(canvas.width, canvas.height)
@@ -258,96 +261,130 @@ export class Game {
   }
 
   private update(dt: number): void {
+    if (this.updateNonInteractiveStates(dt)) return
+
+    const speedMod = this.updateFrameState(dt)
+    const envDt = this.state.getEnvDt(dt)
+
+    this.updateWorldAndPlayer(dt, envDt)
+    this.updateGameplaySystems(envDt)
+
+    if (this.player.state === 'alive') {
+      if (this.handleAliveState(dt, speedMod)) return
+    }
+
+    this.fx.update(dt)
+    this.updateDebugMetrics()
+  }
+
+  private updateNonInteractiveStates(dt: number): boolean {
     if (this.player.state === 'exploding') {
       this.player.update(dt, 0, this.canvas.width)
       this.fx.update(dt)
       this.atmosphere.update(dt, this.scrollSpeed)
-      return
+      return true
     }
+
     if (this.player.state === 'dead') {
       this.fx.update(dt)
       this.atmosphere.update(dt, this.scrollSpeed)
-      return
+      return true
     }
 
+    return false
+  }
+
+  private updateFrameState(dt: number): number {
     this.pollGamepad()
     this.state.updateTime(dt)
     const speedMod = this.state.updateSpeed(this.player.keys)
     this.scoring.update(dt)
     this.sound.updateEngine()
+    return speedMod
+  }
 
-    const envDt = this.state.getEnvDt(dt)
-
+  private updateWorldAndPlayer(dt: number, envDt: number): void {
     this.world.update(envDt, this.scrollSpeed)
     this.atmosphere.update(dt, this.scrollSpeed)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
+  }
 
+  private updateGameplaySystems(envDt: number): void {
     this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
+  }
 
-    if (this.player.state === 'alive') {
-      if (Math.random() < 0.5) {
-        let trailColor = '#888888'
-        if (speedMod > 1.2) trailColor = '#aa7744'
-        else if (speedMod < 0.6) trailColor = '#555555'
-        this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
-      }
+  private handleAliveState(dt: number, speedMod: number): boolean {
+    this.renderSmokeTrail(speedMod)
+    this.resolveGameplayCollisions()
 
-      CollisionSystem.resolveCollisions({
-        player: this.player,
-        enemyManager: this.enemyManager,
-        fuelSystem: this.fuelSystem,
-        powerUpSystem: this.powerUpSystem,
-        fx: this.fx,
-        sound: this.sound,
-        world: this.world,
-        comboMultiplier: this.comboMultiplier,
-        triggerGameOver: () => this.triggerGameOver(),
-        handlePlayerDeath: () => this.handlePlayerDeath(),
-        addScore: (points) => {
-          this.scoring.addScore(points)
-        },
-        registerHit: () => {
-          this.registerHit()
-        },
-        activateSlowMotion: () => {
-          this.slowMotionTimer = SLOW_MOTION_DURATION
-        }
-      })
-
-      if (this.player.justShot) {
-        this.sound.shoot()
-        this.player.justShot = false
-        if (this.comboMultiplier > 1) {
-          this.scoring.comboLevelTimer -= COMBO_SHOT_PENALTY
-        }
-      }
-
-      if (this.fuelSystem.fuel < FUEL_LOW_THRESHOLD) {
-        this.state.fuelFlashTimer += dt
-        if (this.state.fuelFlashTimer > FUEL_LOW_FLASH_INTERVAL) {
-          this.state.fuelFlashTimer = 0
-          this.fx.flash('#ff2200', 0.15)
-          this.sound.lowFuelBeep()
-        }
-      }
-
-      if (this.fuelSystem.isOutOfFuel()) {
-        this.player.explode()
-        this.fx.explosion(this.player.x, this.player.y, '#ff4400')
-        this.fx.flash('#ff0000', 0.4)
-        this.sound.explosion()
-        this.handlePlayerDeath()
-        return
+    if (this.player.justShot) {
+      this.sound.shoot()
+      this.player.justShot = false
+      if (this.comboMultiplier > 1) {
+        this.scoring.comboLevelTimer -= COMBO_SHOT_PENALTY
       }
     }
 
-    this.fx.update(dt)
+    if (this.fuelSystem.fuel < FUEL_LOW_THRESHOLD) {
+      this.state.fuelFlashTimer += dt
+      if (this.state.fuelFlashTimer > FUEL_LOW_FLASH_INTERVAL) {
+        this.state.fuelFlashTimer = 0
+        this.fx.flash('#ff2200', 0.15)
+        this.sound.lowFuelBeep()
+      }
+    }
 
+    if (this.fuelSystem.isOutOfFuel()) {
+      this.player.explode()
+      this.fx.explosion(this.player.x, this.player.y, '#ff4400')
+      this.fx.flash('#ff0000', 0.4)
+      this.sound.explosion()
+      this.handlePlayerDeath()
+      return true
+    }
+
+    return false
+  }
+
+  private renderSmokeTrail(speedMod: number): void {
+    if (this.random() >= 0.5) return
+
+    let trailColor = '#888888'
+    if (speedMod > 1.2) trailColor = '#aa7744'
+    else if (speedMod < 0.6) trailColor = '#555555'
+    this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
+  }
+
+  private resolveGameplayCollisions(): void {
+    CollisionSystem.resolveCollisions({
+      player: this.player,
+      enemyManager: this.enemyManager,
+      fuelSystem: this.fuelSystem,
+      powerUpSystem: this.powerUpSystem,
+      fx: this.fx,
+      sound: this.sound,
+      world: this.world,
+      comboMultiplier: this.comboMultiplier,
+      triggerGameOver: () => this.triggerGameOver(),
+      handlePlayerDeath: () => this.handlePlayerDeath(),
+      addScore: (points) => {
+        this.scoring.addScore(points)
+      },
+      registerHit: () => {
+        this.registerHit()
+      },
+      activateSlowMotion: () => {
+        this.slowMotionTimer = SLOW_MOTION_DURATION
+      }
+    })
+  }
+
+  private updateDebugMetrics(): void {
     this.debugPanel.updateMetrics({
       entityCounts: {
         enemies: this.enemyManager.activeEnemyCount,

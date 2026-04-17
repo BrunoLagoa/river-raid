@@ -1,4 +1,5 @@
 import type { ColorPalette } from './Atmosphere'
+import type { RandomSource } from './random'
 
 export interface RiverSegment {
   y: number
@@ -39,6 +40,7 @@ export class World {
   segments: RiverSegment[] = []
   scrollOffset = 0
   segmentHeight = SEG_H
+  private random: RandomSource
   canvasWidth: number
   canvasHeight: number
 
@@ -64,9 +66,10 @@ export class World {
   private genRemaining = 0      // px remaining in current phase
   private stepAccum = 0         // accumulated px toward next step
 
-  constructor(canvasWidth: number, canvasHeight: number) {
+  constructor(canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
+    this.random = random
 
     const maxWidth = Math.min(canvasWidth * MAX_WIDTH_RATIO, 480)
     const startWidth = Math.min(maxWidth, 320)
@@ -181,7 +184,7 @@ export class World {
 
   private beginHold(): void {
     this.genPhase = 'hold'
-    this.genRemaining = MIN_HOLD + Math.random() * (MAX_HOLD - MIN_HOLD)
+    this.genRemaining = MIN_HOLD + this.random() * (MAX_HOLD - MIN_HOLD)
     this.stepAccum = 0
   }
 
@@ -209,18 +212,18 @@ export class World {
     const margin = 16
 
     // New river width: bias toward a variety of widths
-    const newWidth = MIN_WIDTH + Math.random() * (maxW - MIN_WIDTH)
+    const newWidth = MIN_WIDTH + this.random() * (maxW - MIN_WIDTH)
 
     // New center: allow it to drift, but keep within bounds
     const maxCenter = this.canvasWidth - margin - newWidth / 2
     const minCenter = margin + newWidth / 2
     // Bias center toward middle of canvas with some drift
-    const drift = (Math.random() - 0.5) * this.canvasWidth * 0.35
+    const drift = (this.random() - 0.5) * this.canvasWidth * 0.35
     const newCenter = Math.max(minCenter, Math.min(maxCenter, this.canvasWidth / 2 + drift))
 
     // Allow asymmetric bank movement for more variety
     // Each bank can move independently within plausible limits
-    const role = Math.random()
+    const role = this.random()
     let tLeft: number
     let tRight: number
 
@@ -290,7 +293,7 @@ export class World {
       if (wl.y > this.canvasHeight + 20) {
         // Recycle to top
         wl.y = -20
-        wl.x = Math.random() * this.canvasWidth
+        wl.x = this.random() * this.canvasWidth
       }
     }
 
@@ -298,10 +301,10 @@ export class World {
     if (this.waterLines.length === 0) {
       for (let i = 0; i < 40; i++) {
         this.waterLines.push({
-          x: Math.random() * this.canvasWidth,
-          y: Math.random() * this.canvasHeight,
-          length: 5 + Math.random() * 15,
-          speedRatio: 1.05 + Math.random() * 0.15,
+          x: this.random() * this.canvasWidth,
+          y: this.random() * this.canvasHeight,
+          length: 5 + this.random() * 15,
+          speedRatio: 1.05 + this.random() * 0.15,
         })
       }
     }

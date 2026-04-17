@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { PowerUpSystem } from './PowerUpSystem'
 import type { PowerUp, PowerUpType } from './PowerUpSystem'
+import { createSeededRandom } from './random'
 
 describe('PowerUpSystem', () => {
   let system: PowerUpSystem
@@ -11,19 +12,19 @@ describe('PowerUpSystem', () => {
 
   describe('spawn', () => {
     it('nao spawna se chance aleatoria maior que chance configurada', () => {
-      vi.spyOn(Math, 'random').mockReturnValue(1)
+      system = new PowerUpSystem(800, 600, () => 1)
       system.trySpawnAt(400, -50)
       expect(system.powerUps.length).toBe(0)
     })
 
     it('spawna powerup quando random menor que chance configurada', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, -50)
       expect(system.powerUps.length).toBe(1)
     })
 
     it('spawna com posicao correta', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, -50)
       const p = system.powerUps[0]
       expect(p.x).toBe(400)
@@ -32,24 +33,23 @@ describe('PowerUpSystem', () => {
 
     it('seleciona tipo aleatorio entre os disponiveis', () => {
       const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
-      
-      // Direct test: verify all types exist in the implementation
-      const system = new PowerUpSystem(800, 600)
-      const allTypes = new Set<PowerUpType>()
-      
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
-      system.trySpawnAt(400, -50)
-      if (system.powerUps[0]) {
-        allTypes.add(system.powerUps[0].type)
+
+      const typeRandoms = [0, 0.4, 0.9]
+      for (const r of typeRandoms) {
+        let calls = 0
+        const deterministic = new PowerUpSystem(800, 600, () => {
+          calls += 1
+          return calls === 1 ? 0 : r
+        })
+        deterministic.trySpawnAt(400, -50)
+        expect(types).toContain(deterministic.powerUps[0]?.type)
       }
-      
-      expect(types).toContain(system.powerUps[0]?.type)
     })
   })
 
   describe('update', () => {
     it('move powerups para baixo baseado em scrollSpeed e dt', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, 0)
 
       const world = { getBoundsAtY: () => ({ left: 100, right: 700 }) }
@@ -59,7 +59,7 @@ describe('PowerUpSystem', () => {
     })
 
     it('desativa powerups que saem da tela', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, 580)
 
       const world = { getBoundsAtY: () => ({ left: 100, right: 700 }) }
@@ -74,7 +74,7 @@ describe('PowerUpSystem', () => {
     })
 
     it('mantem powerups dentro dos limites do mundo', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(50, 100)
 
       const world = { getBoundsAtY: () => ({ left: 100, right: 700 }) }
@@ -101,7 +101,7 @@ describe('PowerUpSystem', () => {
         textBaseline: 'middle' as const,
       } as unknown as CanvasRenderingContext2D
 
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, 100)
       system.render(ctx)
 
@@ -146,7 +146,7 @@ describe('PowerUpSystem', () => {
 
   describe('reset', () => {
     it('limpa powerups e redefine altura', () => {
-      vi.spyOn(Math, 'random').mockImplementation(() => 0.01)
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.trySpawnAt(400, 100)
 
       system.reset(800, 600)
@@ -157,6 +157,7 @@ describe('PowerUpSystem', () => {
 
   describe('setCanvasHeight', () => {
     it('atualiza canvasHeight', () => {
+      system = new PowerUpSystem(800, 600, () => 0.01)
       system.setCanvasHeight(800)
       system.trySpawnAt(400, 700)
 
@@ -181,5 +182,24 @@ describe('PowerUp type guards', () => {
 
     expect(powerUp.type).toBe('double_shot')
     expect(powerUp.active).toBe(true)
+  })
+
+  it('trySpawnAt usa random injetado de forma deterministica', () => {
+    const rngA = createSeededRandom(7)
+    const rngB = createSeededRandom(7)
+    const a = new PowerUpSystem(800, 600, rngA)
+    const b = new PowerUpSystem(800, 600, rngB)
+
+    for (let i = 0; i < 6; i++) {
+      a.trySpawnAt(100 + i, 50)
+      b.trySpawnAt(100 + i, 50)
+    }
+
+    expect(a.powerUps.length).toBe(b.powerUps.length)
+    if (a.powerUps.length > 0 && b.powerUps.length > 0) {
+      expect(a.powerUps[0].type).toBe(b.powerUps[0].type)
+      expect(a.powerUps[0].x).toBe(b.powerUps[0].x)
+      expect(a.powerUps[0].y).toBe(b.powerUps[0].y)
+    }
   })
 })

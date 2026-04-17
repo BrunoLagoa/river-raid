@@ -5,6 +5,7 @@ import {
   FUEL_INITIAL, FUEL_DRAIN_RATE, FUEL_DRAIN_SPEED_FACTOR,
   FUEL_SPAWN_INTERVAL, FUEL_TANK_W, FUEL_TANK_H, FUEL_PICKUP_AMOUNT, FUEL_MAX,
 } from './constants'
+import type { RandomSource } from './random'
 
 export interface FuelTank {
   x: number
@@ -18,12 +19,14 @@ export class FuelSystem {
   tanks: FuelTank[] = []
   fuel = FUEL_INITIAL
   drainRate = FUEL_DRAIN_RATE
+  private random: RandomSource
   private spawnTimer = 0
   private spawnInterval = FUEL_SPAWN_INTERVAL
   private canvasHeight: number
 
-  constructor(_canvasWidth: number, canvasHeight: number) {
+  constructor(_canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasHeight = canvasHeight
+    this.random = random
   }
 
   setCanvasHeight(h: number): void {
@@ -61,7 +64,7 @@ export class FuelSystem {
     const seg = riverSegments[riverSegments.length - 1]
     const leftBound = seg.centerX - seg.width / 2 + 20
     const rightBound = seg.centerX + seg.width / 2 - 20
-    const x = leftBound + Math.random() * (rightBound - leftBound)
+    const x = leftBound + this.random() * (rightBound - leftBound)
 
     this.tanks.push({
       x,

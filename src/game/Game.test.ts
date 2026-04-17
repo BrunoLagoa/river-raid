@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Game } from './Game'
 import { CollisionSystem } from './CollisionSystem'
 import { writeSecureNumber } from './StorageService'
+import { createSeededRandom } from './random'
 import { createMockCanvas } from './test-helpers/canvas'
 import { mockAnimationFrame } from './test-helpers/time'
 import { mockAudioContext } from './test-helpers/audio'
@@ -419,10 +420,9 @@ describe('Game update paths', () => {
   it('gera trilha de fumaca com cor de aceleracao', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
-    const game = new Game(canvas)
+    const game = new Game(canvas, () => 0.1)
     const smokeSpy = vi.spyOn(game.fx, 'smokeTrail')
 
-    vi.spyOn(Math, 'random').mockReturnValue(0.1)
     game.player.keys.add('ArrowUp')
     game.start()
     raf.flush(50)
@@ -434,10 +434,9 @@ describe('Game update paths', () => {
   it('gera trilha de fumaca com cor de frenagem', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
-    const game = new Game(canvas)
+    const game = new Game(canvas, () => 0.1)
     const smokeSpy = vi.spyOn(game.fx, 'smokeTrail')
 
-    vi.spyOn(Math, 'random').mockReturnValue(0.1)
     game.player.keys.add('ArrowDown')
     game.start()
     raf.flush(50)
@@ -459,6 +458,24 @@ describe('Game update paths', () => {
     vi.advanceTimersByTime(1300)
 
     expect(game.getHighScore()).toBe(9999)
+  })
+
+  it('usa random injetado para trilha de fumaca de forma deterministica', () => {
+    const canvasA = createMockCanvas()
+    const canvasB = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const gameA = new Game(canvasA, createSeededRandom(77))
+    const gameB = new Game(canvasB, createSeededRandom(77))
+    const smokeA = vi.spyOn(gameA.fx, 'smokeTrail')
+    const smokeB = vi.spyOn(gameB.fx, 'smokeTrail')
+
+    gameA.start()
+    gameB.start()
+    raf.flush(50)
+    gameA.stop()
+    gameB.stop()
+
+    expect(smokeA.mock.calls.length).toBe(smokeB.mock.calls.length)
   })
 })
 

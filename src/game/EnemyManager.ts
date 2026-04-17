@@ -22,6 +22,7 @@ import {
   ENEMY_TIER_ELITE_STRAFE_FREQ,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
+import type { RandomSource } from './random'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge' | 'tank' | 'gunboat'
 export type AiTier = 'basic' | 'smart' | 'elite'
@@ -122,6 +123,7 @@ export const ENEMY_COLORS: Record<EnemyType, string> = {
 }
 
 export class EnemyManager {
+  private random: RandomSource
   private enemyPool = new ObjectPool<Enemy>(
     60,
     () => ({
@@ -170,8 +172,9 @@ export class EnemyManager {
   private gameTime = 0
   private canvasHeight: number
 
-  constructor(_canvasWidth: number, canvasHeight: number) {
+  constructor(_canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasHeight = canvasHeight
+    this.random = random
   }
 
   setCanvasHeight(h: number): void {
@@ -186,13 +189,13 @@ export class EnemyManager {
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) {
       const spawnRequests: number[] = [0]
-      if (this.gameTime > ENEMY_SPAWN_DUAL_TIME && Math.random() < ENEMY_SPAWN_DUAL_CHANCE) {
+      if (this.gameTime > ENEMY_SPAWN_DUAL_TIME && this.random() < ENEMY_SPAWN_DUAL_CHANCE) {
         spawnRequests.push(-60)
       }
-      if (this.gameTime > ENEMY_SPAWN_TRIPLE_TIME && Math.random() < ENEMY_SPAWN_TRIPLE_CHANCE) {
+      if (this.gameTime > ENEMY_SPAWN_TRIPLE_TIME && this.random() < ENEMY_SPAWN_TRIPLE_CHANCE) {
         spawnRequests.push(-120)
       }
-      if (this.gameTime > ENEMY_SPAWN_QUAD_TIME && Math.random() < ENEMY_SPAWN_QUAD_CHANCE) {
+      if (this.gameTime > ENEMY_SPAWN_QUAD_TIME && this.random() < ENEMY_SPAWN_QUAD_CHANCE) {
         spawnRequests.push(-180)
       }
 
@@ -288,7 +291,7 @@ export class EnemyManager {
             bullet.fromPlane = enemy.type === 'plane'
             const tierInterval = this.getTierShootIntervalMult(enemy.aiTier)
             const tierRandom = this.getTierShootRandomMult(enemy.aiTier)
-            enemy.shootCooldown = enemy.shootInterval * tierInterval + Math.random() * 0.3 * tierRandom
+            enemy.shootCooldown = enemy.shootInterval * tierInterval + this.random() * 0.3 * tierRandom
           }
         }
       }
@@ -371,10 +374,10 @@ export class EnemyManager {
     if (this.gameTime < 40) return 'basic'
     if (this.gameTime < 100) {
       if (type === 'plane' || type === 'gunboat') return 'smart'
-      return Math.random() < 0.35 ? 'smart' : 'basic'
+      return this.random() < 0.35 ? 'smart' : 'basic'
     }
-    if (type === 'plane' || type === 'gunboat') return Math.random() < 0.5 ? 'elite' : 'smart'
-    return Math.random() < 0.25 ? 'elite' : 'smart'
+    if (type === 'plane' || type === 'gunboat') return this.random() < 0.5 ? 'elite' : 'smart'
+    return this.random() < 0.25 ? 'elite' : 'smart'
   }
 
   private hasSpawnSpace(type: EnemyType, x: number, y: number, width: number): boolean {
@@ -425,7 +428,7 @@ export class EnemyManager {
 
     let type: EnemyType = 'helicopter'
     for (let i = 0; i < ENEMY_SPAWN_MAX_POSITION_TRIES; i++) {
-      const roll = Math.random() * 100
+      const roll = this.random() * 100
       let cumulative = 0
       type = 'helicopter'
       for (const [t, w] of weights) {
@@ -453,7 +456,7 @@ export class EnemyManager {
       const rightBound = topSegment.centerX + topSegment.width / 2 - config.width
       let found = false
       for (let i = 0; i < ENEMY_SPAWN_MAX_POSITION_TRIES; i++) {
-        x = leftBound + Math.random() * (rightBound - leftBound)
+        x = leftBound + this.random() * (rightBound - leftBound)
         if (this.hasSpawnSpace(type, x, y, width)) {
           found = true
           break
@@ -476,13 +479,13 @@ export class EnemyManager {
         speed: 80,
         active: true,
         points: config.points,
-        canShoot: Math.random() < 0.5,
-        shootCooldown: 1.0 + Math.random() * 2.0,
-        shootInterval: (2.0 + Math.random()) * this.getTierShootIntervalMult(aiTier),
+        canShoot: this.random() < 0.5,
+        shootCooldown: 1.0 + this.random() * 2.0,
+        shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
         originX: x,
-        phase: Math.random() * Math.PI * 2,
-        phaseSpeed: 2 + Math.random(),
-        amplitude: 30 + Math.random() * 40,
+        phase: this.random() * Math.PI * 2,
+        phaseSpeed: 2 + this.random(),
+        amplitude: 30 + this.random() * 40,
       } as HelicopterEnemy)
       return true
     }
@@ -498,9 +501,9 @@ export class EnemyManager {
         speed: 200,
         active: true,
         points: config.points,
-        canShoot: Math.random() < 0.6,
-        shootCooldown: 1.0 + Math.random() * 2.0,
-        shootInterval: (0.6 + Math.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
+        canShoot: this.random() < 0.6,
+        shootCooldown: 1.0 + this.random() * 2.0,
+        shootInterval: (0.6 + this.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
       } as PlaneEnemy)
       return true
     }
@@ -517,15 +520,15 @@ export class EnemyManager {
         active: true,
         points: config.points,
         originX: x,
-        phase: Math.random() * Math.PI * 2,
-        phaseSpeed: 0.8 + Math.random() * 0.5,
-        amplitude: 20 + Math.random() * 20,
+        phase: this.random() * Math.PI * 2,
+        phaseSpeed: 0.8 + this.random() * 0.5,
+        amplitude: 20 + this.random() * 20,
       } as BoatEnemy)
       return true
     }
 
     if (type === 'gunboat') {
-      const hasMovement = Math.random() < 0.5
+      const hasMovement = this.random() < 0.5
       Object.assign(enemy, {
         type: 'gunboat',
         aiTier,
@@ -536,14 +539,14 @@ export class EnemyManager {
         speed: 70,
         active: true,
         points: config.points,
-        canShoot: Math.random() < 0.8,
-        shootCooldown: 0.8 + Math.random() * 1.2,
-        shootInterval: (1.0 + Math.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
+        canShoot: this.random() < 0.8,
+        shootCooldown: 0.8 + this.random() * 1.2,
+        shootInterval: (1.0 + this.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
         hasMovement,
         originX: x,
-        phase: Math.random() * Math.PI * 2,
-        phaseSpeed: 2 + Math.random(),
-        amplitude: hasMovement ? 20 + Math.random() * 20 : 0,
+        phase: this.random() * Math.PI * 2,
+        phaseSpeed: 2 + this.random(),
+        amplitude: hasMovement ? 20 + this.random() * 20 : 0,
       } as GunboatEnemy)
       return true
     }
@@ -559,13 +562,13 @@ export class EnemyManager {
         speed: 55,
         active: true,
         points: config.points,
-        canShoot: Math.random() < 0.5,
-        shootCooldown: 1.0 + Math.random() * 2.0,
-        shootInterval: (2.0 + Math.random()) * this.getTierShootIntervalMult(aiTier),
+        canShoot: this.random() < 0.5,
+        shootCooldown: 1.0 + this.random() * 2.0,
+        shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
         originX: x,
-        phase: Math.random() * Math.PI * 2,
-        phaseSpeed: 2 + Math.random(),
-        amplitude: 30 + Math.random() * 40,
+        phase: this.random() * Math.PI * 2,
+        phaseSpeed: 2 + this.random(),
+        amplitude: 30 + this.random() * 40,
       } as TankEnemy)
       return true
     }
