@@ -24,6 +24,7 @@ interface ObjectiveData {
   progressRatio: number
   statusText: string
   rewardText: string
+  timeLeftText?: string
   completed: boolean
 }
 
@@ -166,7 +167,7 @@ export class UI {
       ctx.strokeStyle = objectiveData.completed ? '#44dd88' : '#4d6a8f'
       ctx.lineWidth = 1
       const boxW = 240
-      const boxH = 42
+      const boxH = 52
       const boxX = 14
       const boxY = activeY
       ctx.fillRect(boxX, boxY, boxW, boxH)
@@ -195,10 +196,13 @@ export class UI {
       ctx.font = '9px "Courier New", monospace'
       ctx.fillStyle = '#a9bed8'
       ctx.textAlign = 'left'
-      ctx.fillText(objectiveData.progressText, boxX + 8, boxY + 39)
+      if (objectiveData.timeLeftText) {
+        ctx.fillText(objectiveData.timeLeftText, boxX + 8, boxY + 38)
+      }
+      ctx.fillText(objectiveData.progressText, boxX + 8, boxY + 48)
       ctx.fillStyle = objectiveData.completed ? '#88ffbb' : '#ffcc66'
       ctx.textAlign = 'right'
-      ctx.fillText(objectiveData.statusText, boxX + boxW - 10, boxY + 39)
+      ctx.fillText(objectiveData.statusText, boxX + boxW - 10, boxY + 48)
       ctx.fillStyle = '#8899aa'
       ctx.textAlign = 'right'
       ctx.fillText(objectiveData.rewardText, progressX + progressWidth, boxY + 28)

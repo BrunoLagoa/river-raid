@@ -59,6 +59,7 @@ export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
     gameRef.current.setReducedMotion(settings.reducedMotion)
     gameRef.current.setMasterVolume(settings.masterVolume)
     gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
+    gameRef.current.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)
     const isMuted = gameRef.current.sound.isMuted()
     if (settings.muted !== isMuted) {
       gameRef.current.sound.toggleMute()

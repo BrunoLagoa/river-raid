@@ -14,6 +14,7 @@ import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
 import { DebugPanel } from './DebugPanel'
 import { ObjectiveSystem } from './ObjectiveSystem'
+import type { ObjectiveBalanceProfile } from './ObjectiveSystem'
 import type { RandomSource } from './random'
 import {
   COMBO_SHOT_PENALTY,
@@ -174,6 +175,10 @@ export class Game {
     this.gamepadEnabled = enabled
   }
 
+  setObjectiveBalanceProfile(profile: ObjectiveBalanceProfile): void {
+    this.objectives.setProfile(profile)
+  }
+
   destroy(): void {
     this.stop()
     window.removeEventListener('keydown', this.globalKeyHandler)
@@ -316,6 +321,9 @@ export class Game {
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
+    const halfWidth = this.player.width / 2
+    const isInsideRiver = (this.player.x - halfWidth) >= bounds.left + 4 && (this.player.x + halfWidth) <= bounds.right - 4
+    this.objectives.onRiverFrame(dt, isInsideRiver)
   }
 
   private updateGameplaySystems(envDt: number): void {
@@ -381,6 +389,7 @@ export class Game {
       handlePlayerDeath: () => this.handlePlayerDeath(),
       addScore: (points) => {
         this.scoring.addScore(points)
+        this.objectives.onScoreGained(points)
       },
       registerHit: () => {
         this.registerHit()

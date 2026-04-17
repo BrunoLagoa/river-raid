@@ -69,6 +69,13 @@
 - Impacto: medio
 - Score: 60/100
 
+## [2026-04-17] Sistema dinamico de objetivos por run (update)
+
+- Decisão: evoluir o `ObjectiveSystem` com perfis de balanceamento (`conservative` e `aggressive`), pesos de sorteio por perfil e novos tipos de missao (`timed_enemy_kills`, `score_target`, `river_survival`), com configuracao persistida em settings e integracao no HUD/engine.
+- Motivo: diferenciar ritmo de jogo por perfil e ampliar variedade de objetivos sem quebrar a arquitetura React shell + Canvas engine.
+- Impacto: alto
+- Score: 60/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -89,3 +96,4 @@
 - [2026-04-16] Pipeline de update em etapas e RNG deterministico injetavel
 - [2026-04-17] Cobertura orientada a branch sem alterar gameplay
 - [2026-04-17] Sistema dinamico de objetivos por run
+- [2026-04-17] Sistema dinamico de objetivos por run (update)

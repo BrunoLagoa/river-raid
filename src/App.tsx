@@ -162,6 +162,18 @@ export default function App() {
               <input type="checkbox" checked={settings.gamepadEnabled} onChange={(e) => updateSettings({ gamepadEnabled: e.target.checked })} /> Enable gamepad
             </label>
 
+            <label style={{ display: 'block', marginBottom: 16 }}>
+              Objective Profile
+              <select
+                value={settings.objectiveBalanceProfile}
+                onChange={(e) => updateSettings({ objectiveBalanceProfile: e.target.value as GameSettings['objectiveBalanceProfile'] })}
+                style={{ width: '100%', marginTop: 6 }}
+              >
+                <option value="conservative">Conservative</option>
+                <option value="aggressive">Aggressive</option>
+              </select>
+            </label>
+
             <div className="label" style={{ marginBottom: 8 }}>ACHIEVEMENTS</div>
             <div className="ranking-container" style={{ width: '100%', marginBottom: 16 }}>
               {achievements.map((a) => (

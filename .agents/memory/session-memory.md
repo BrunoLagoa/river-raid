@@ -4,56 +4,42 @@
 
 ## Sessao Atual
 
-- Data: 2026-04-16
-- Contexto: evolucao incremental da engine com foco em confiabilidade (testes), legibilidade do loop principal e reprodutibilidade de runtime.
-- Escopo executado: concluir trilha D -> B -> A e avancar na frente pendente de cobertura por branch em modulos criticos.
+- Data: 2026-04-17
+- Contexto: evolucao do sistema de objetivos com perfis configuraveis, novos tipos de missao e integracao entre settings, engine e HUD.
+- Escopo executado: implementar plano de objetivos (balanceamento conservador/agressivo + missoes temporais e por trecho), validar com testes e revisar aderencia.
 
 ## Estado consolidado
 
-- D (cobertura): suite expandida em `Game`, `EnemyManager`, `World`, `FuelSystem`, `PowerUpSystem` e ajustes em `Player` para reduzir fragilidade de asserts.
-- B (estrutura): `Game.update` foi quebrado em etapas privadas orientadas a pipeline (estado, simulacao, sistemas, fluxo alive, pos-processamento e metricas), mantendo API publica e comportamento padrao.
-- A (determinismo): foi introduzido `RandomSource` com fallback em `Math.random` e utilitario `createSeededRandom` em `src/game/random.ts`.
-- Injeção de RNG aplicada em `Game`, `EnemyManager`, `FuelSystem`, `PowerUpSystem` e `World` para permitir cenarios reproduziveis em testes sem alterar o jogo em runtime real.
-- Fase seguinte executada: cobertura orientada a branch com novos testes em `CollisionSystem`, `World` e `Game`, sem mudancas de regra de gameplay.
-- Regra operacional reafirmada na pratica: priorizar testes comportamentais/deterministicos e evitar alterar implementacao apenas para "forcar" percentual.
+- `ObjectiveSystem` expandido para suportar perfis de balanceamento (`conservative`/`aggressive`) e pesos por perfil.
+- Novos tipos de missao implementados: `timed_enemy_kills`, `score_target`, `river_survival`.
+- Integracao concluida em `Game` para eventos de score ganho e permanencia no trecho do rio.
+- Settings com novo campo persistido (`objectiveBalanceProfile`) e controle exposto na tela de configuracoes.
+- HUD atualizado para exibir tempo restante em objetivos temporais.
+- Decisao funcional adotada: troca de perfil em runtime aplica na proxima missao (sem reiniciar objetivo atual).
 
 ## Arquivos centrais alterados
 
-- Engine: `src/game/Game.ts`, `src/game/EnemyManager.ts`, `src/game/FuelSystem.ts`, `src/game/PowerUpSystem.ts`, `src/game/World.ts`, `src/game/random.ts`.
-- Testes (incremento mais recente): `src/game/CollisionSystem.test.ts`, `src/game/Game.test.ts`, `src/game/World.test.ts`.
+- Engine/UI: `src/game/ObjectiveSystem.ts`, `src/game/Game.ts`, `src/game/UI.ts`.
+- Settings/bridge: `src/game/SettingsService.ts`, `src/components/GameCanvas.tsx`, `src/App.tsx`.
+- Testes: `src/game/ObjectiveSystem.test.ts`, `src/game/SettingsService.test.ts`, `src/game/Game.test.ts`.
 
 ## Validacao tecnica
 
-- Comandos executados e aprovados apos estabilizacao:
-  - `npm run lint`
-  - `npm run typecheck`
-  - `npm test` (258 testes)
-  - `npm run test:coverage`
-  - `npm run build`
-- Cobertura final observada nesta sessao: 98.98% statements, 94.98% branches, 99.3% functions, 100% lines.
-- Objetivo de tentar 100% foi perseguido; 100% de linhas foi atingido, com branches ainda abaixo de 100% em alguns modulos.
+- Comandos executados e aprovados: `npm run typecheck`, `npm test -- src/game/ObjectiveSystem.test.ts src/game/SettingsService.test.ts src/game/Game.test.ts`, `npm run build`.
+- Resultado dos focados: 75 testes passando.
 
 ## Fluxo e compliance
 
-- Fluxo respeitado: houve planejamento previo antes de implementacoes de media/alta complexidade.
-- Sem bypass de sistema e sem alteracao de stack/arquitetura React shell + Canvas engine.
-- Sem evidencias de exposicao de segredo.
+- Fluxo respeitado: `/workflow` -> `/execute` -> `/review`.
+- Revisao principal retornou reprovacao por um desvio funcional especifico (primeiro objetivo pode nascer em perfil conservador quando o jogador inicia com perfil agressivo persistido).
+- Sem evidencia de exposicao de segredo e sem mudanca de stack.
 
-## Commits da sessao
+## Pendencias abertas
 
-- `7c93f79` — testes e cobertura adicional + ajuste de tipagem no `EnemyManager`.
-- `649cef0` — refactor do pipeline de update e RNG deterministico injetavel.
-
-## Execução atual
-
-- Implementado `ObjectiveSystem` para objetivos dinamicos por run, com tipos de alvo para inimigos, fuel, ponte e combo.
-- Integracao feita em `Game`, `CollisionSystem`, `FuelSystem` e `UI`, com HUD exibindo progresso, recompensa e estado de conclusao.
-- Testes adicionados para `ObjectiveSystem` e validacao de integracao no `Game`.
-- Validacao executada com sucesso: `npm test -- --run src/game/ObjectiveSystem.test.ts src/game/Game.test.ts` e `npm run typecheck`.
-- Diretriz mantida: melhorar retenção sem mexer no loop central de gameplay ou na separação React shell + Canvas engine.
+- Corrigir inicializacao do primeiro objetivo da run para respeitar imediatamente o perfil persistido no inicio da partida.
+- Reexecutar `/review` apos o ajuste.
 
 ## Proximo contexto util
 
-- Revisoes apontaram estado aprovado.
-- Diretriz util para continuidade: fechar branches remanescentes mantendo a regra de nao alterar gameplay por metrica.
-- Proximo passo natural: revisar apenas ramos de colisao e condicoes de borda restantes com testes de baixo acoplamento.
+- Manter coerencia entre perfil de objetivos salvo e primeira missao gerada no inicio da run.
+- Apos correção, validar novamente com typecheck, testes focados e build.

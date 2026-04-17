@@ -108,6 +108,16 @@ describe('Game integration', () => {
     expect((game as unknown as { gamepadEnabled: boolean }).gamepadEnabled).toBe(false)
   })
 
+  it('setObjectiveBalanceProfile repassa para ObjectiveSystem', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const spy = vi.spyOn(game.objectives, 'setProfile')
+
+    game.setObjectiveBalanceProfile('aggressive')
+
+    expect(spy).toHaveBeenCalledWith('aggressive')
+  })
+
   it('objetivos sao expostos ao HUD', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()

@@ -1,10 +1,12 @@
 import { readSecureJSON, writeSecureJSON } from './StorageService'
+import { isObjectiveBalanceProfile, type ObjectiveBalanceProfile } from './ObjectiveSystem'
 
 export interface GameSettings {
   masterVolume: number
   muted: boolean
   reducedMotion: boolean
   gamepadEnabled: boolean
+  objectiveBalanceProfile: ObjectiveBalanceProfile
 }
 
 const SETTINGS_KEY = 'river-raid-settings'
@@ -14,6 +16,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   muted: false,
   reducedMotion: false,
   gamepadEnabled: true,
+  objectiveBalanceProfile: 'conservative',
 }
 
 export function getStoredSettings(): GameSettings {
@@ -23,6 +26,9 @@ export function getStoredSettings(): GameSettings {
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
     gamepadEnabled: typeof raw.gamepadEnabled === 'boolean' ? raw.gamepadEnabled : DEFAULT_SETTINGS.gamepadEnabled,
+    objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
+      ? raw.objectiveBalanceProfile
+      : DEFAULT_SETTINGS.objectiveBalanceProfile,
   }
 }
 
@@ -32,6 +38,9 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     muted: !!next.muted,
     reducedMotion: !!next.reducedMotion,
     gamepadEnabled: !!next.gamepadEnabled,
+    objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)
+      ? next.objectiveBalanceProfile
+      : DEFAULT_SETTINGS.objectiveBalanceProfile,
   }
   writeSecureJSON(SETTINGS_KEY, normalized)
   return normalized
