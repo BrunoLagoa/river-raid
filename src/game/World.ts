@@ -416,14 +416,17 @@ export class World {
       ctx.fillRect(right - 2, seg.y, 2, SEG_H)
     }
 
-    // Subtle water shimmer
+    // Subtle water shimmer (more transparent + smoother motion)
+    ctx.save()
+    ctx.globalAlpha = 0.35
     ctx.fillStyle = shimmerC
-    for (let i = 0; i < this.visibleSegmentsCache.length; i += 8) {
+    for (let i = 0; i < this.visibleSegmentsCache.length; i += 10) {
       const seg = this.visibleSegmentsCache[i]
       if (!seg) continue
-      const shimmerX = seg.left + ((this.scrollOffset * 0.25 + seg.y * 9) % Math.max(1, seg.width))
-      ctx.fillRect(shimmerX, seg.y, 16, SEG_H * 4)
+      const shimmerX = seg.left + ((this.scrollOffset * 0.12 + seg.y * 4) % Math.max(1, seg.width))
+      ctx.fillRect(shimmerX, seg.y, 12, SEG_H * 3)
     }
+    ctx.restore()
   }
 
   // ── Bounds queries (unchanged interface) ─────────────────────────────────────
