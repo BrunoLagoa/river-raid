@@ -59,3 +59,19 @@
 ## Pendencias abertas (update)
 
 - Executar `/review` para validacao final de risco/regressao da mudanca de IA.
+
+## Atualizacao 2026-04-17 (IA borda + spawn risco)
+
+- Evolucao implementada em `src/game/EnemyManager.ts`: recuperacao curta ao tocar borda, histerese anti-serrilha e push para centro por tier.
+- Spawn agora considera risco local de curva/estreitamento para reduzir peso de tipos agressivos e diminuir amplitude inicial de movimento.
+- Compatibilidade preservada: campos de recuperacao no tipo base ficaram opcionais para nao quebrar testes que montam inimigos manualmente.
+- Testes novos em `src/game/EnemyManager.test.ts`: recuperacao de borda e spawn em curva de alto risco.
+
+## Validacao tecnica (update 2)
+
+- Comandos executados e aprovados: `npm run typecheck`, `npm test -- src/game/EnemyManager.test.ts`, `npm run build`.
+- Resultado focado atual: 17/17 testes do `EnemyManager` passando.
+
+## Pendencias abertas (update 2)
+
+- Rodar `/review` final para validar aderencia completa apos esta segunda iteracao da IA.

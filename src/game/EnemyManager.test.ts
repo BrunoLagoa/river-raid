@@ -274,6 +274,73 @@ describe('EnemyManager', () => {
     expect(plane.x as number).toBeLessThan(safeRight)
   })
 
+  it('entra em recuperacao ao tocar borda e se afasta do limite', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+
+    Object.assign(pool[0], {
+      type: 'plane',
+      aiTier: 'smart',
+      x: 674,
+      y: 150,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      bankRecoverTimer: 0,
+      bankRecoverCooldown: 0,
+      bankRecoverDir: 0,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    em.update(0.016, world, segments, 0)
+    const timerAfterFirstFrame = pool[0].bankRecoverTimer as number
+    const dirAfterFirstFrame = pool[0].bankRecoverDir as number
+    for (let i = 0; i < 8; i++) {
+      em.update(0.016, world, segments, 0)
+    }
+
+    const after = pool[0].x as number
+    const safeRight = 700 - 32 / 2 - 8
+
+    expect(after).toBeLessThan(safeRight - 1)
+    expect(timerAfterFirstFrame).toBeGreaterThan(0)
+    expect(dirAfterFirstFrame).toBe(-1)
+  })
+
+  it('reduz amplitude inicial de movimento quando spawn ocorre em curva de alto risco', () => {
+    const straightSegments = [
+      { centerX: 400, width: 300, y: -80 },
+      { centerX: 402, width: 300, y: -60 },
+      { centerX: 404, width: 300, y: -40 },
+      { centerX: 406, width: 300, y: -20 },
+      { centerX: 408, width: 300, y: 0 },
+    ]
+    const hardCurveSegments = [
+      { centerX: 320, width: 150, y: -80 },
+      { centerX: 330, width: 150, y: -60 },
+      { centerX: 340, width: 150, y: -40 },
+      { centerX: 350, width: 150, y: -20 },
+      { centerX: 380, width: 150, y: 0 },
+    ]
+
+    const emStraight = new EnemyManager(800, 600, () => 0)
+    const emHardCurve = new EnemyManager(800, 600, () => 0)
+
+    emStraight.update(2, world, straightSegments, 0)
+    emHardCurve.update(2, world, hardCurveSegments, 0)
+
+    const h1 = emStraight.enemies.find((e) => e.type === 'helicopter')
+    const h2 = emHardCurve.enemies.find((e) => e.type === 'helicopter')
+
+    expect(h1).toBeDefined()
+    expect(h2).toBeDefined()
+    expect((h2 as { amplitude: number }).amplitude).toBeLessThan((h1 as { amplitude: number }).amplitude)
+  })
+
   it('bala inimiga que sai da tela e desativada', () => {
     const em = new EnemyManager(800, 600)
     const bulletPool = (em as unknown as { bulletPool: { acquire: () => Record<string, unknown> } }).bulletPool

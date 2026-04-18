@@ -83,6 +83,13 @@
 - Impacto: medio
 - Score: 35/100
 
+## [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas (update)
+
+- Decisão: adicionar estado curto de recuperacao de borda com histerese (anti-serrilha), empurrao temporario para o centro por `aiTier` e ajuste de risco no spawn (reduzir peso de tipos agressivos e amplitude inicial em curvas/estreitamentos).
+- Motivo: melhorar a experiencia quando inimigos tocam margens, evitando que fiquem "arrastando" na borda e reduzindo casos ruins ja na entrada do mapa.
+- Impacto: medio
+- Score: 45/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -105,3 +112,4 @@
 - [2026-04-17] Sistema dinamico de objetivos por run
 - [2026-04-17] Sistema dinamico de objetivos por run (update)
 - [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas
+- [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas (update)

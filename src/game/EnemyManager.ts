@@ -47,6 +47,9 @@ export interface BaseEnemy {
   speed: number
   active: boolean
   points: number
+  bankRecoverTimer?: number
+  bankRecoverCooldown?: number
+  bankRecoverDir?: number
 }
 
 export interface HelicopterEnemy extends BaseEnemy {
@@ -131,8 +134,21 @@ export class EnemyManager {
   private static readonly AI_ORIGIN_RECENTER_SMART = 1.4
   private static readonly AI_ORIGIN_RECENTER_ELITE = 2.0
   private static readonly AI_ENEMY_BANK_MARGIN = 8
+  private static readonly AI_BANK_HYSTERESIS = 5
+  private static readonly AI_BANK_RECOVER_TIME = 0.2
+  private static readonly AI_BANK_RECOVER_COOLDOWN = 0.16
+  private static readonly AI_BANK_RECOVER_PUSH_BASIC = 46
+  private static readonly AI_BANK_RECOVER_PUSH_SMART = 66
+  private static readonly AI_BANK_RECOVER_PUSH_ELITE = 84
+  private static readonly AI_RECOVER_STRAFE_DAMP = 0.25
+  private static readonly SPAWN_CURVE_SAMPLE_STEPS = 22
+  private static readonly SPAWN_CURVE_DRIFT_THRESHOLD = 28
+  private static readonly SPAWN_NARROW_WIDTH_THRESHOLD = 170
+  private static readonly SPAWN_AGGRESSIVE_WEIGHT_MULT = 0.62
+  private static readonly SPAWN_MOVEMENT_AMPLITUDE_MULT = 0.72
 
   private random: RandomSource
+  private canvasWidth: number
   private enemyPool = new ObjectPool<Enemy>(
     60,
     () => ({
@@ -145,6 +161,9 @@ export class EnemyManager {
       speed: 0,
       active: false,
       points: ENEMY_CONFIGS.bridge.points,
+      bankRecoverTimer: 0,
+      bankRecoverCooldown: 0,
+      bankRecoverDir: 0,
     }),
     (enemy) => {
       enemy.active = true
@@ -181,7 +200,8 @@ export class EnemyManager {
   private gameTime = 0
   private canvasHeight: number
 
-  constructor(_canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
+  constructor(canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
+    this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
     this.random = random
   }
@@ -223,19 +243,39 @@ export class EnemyManager {
 
     for (const enemy of this.enemies) {
       enemy.y += scrollSpeed * dt * (enemy.type === 'bridge' ? 1 : 0.3)
+      enemy.bankRecoverCooldown = Math.max(0, (enemy.bankRecoverCooldown ?? 0) - dt)
+      enemy.bankRecoverTimer = Math.max(0, (enemy.bankRecoverTimer ?? 0) - dt)
 
       const tierPhaseMult = this.getTierPhaseSpeedMult(enemy.aiTier)
       const tierAmplitudeMult = this.getTierAmplitudeMult(enemy.aiTier)
       const shouldUseRiverSteering = enemy.y > 0
       const halfWidth = enemy.width / 2
       const safe = this.getSafeBounds(world, enemy.y, halfWidth + EnemyManager.AI_ENEMY_BANK_MARGIN)
+      const isRecovering = (enemy.bankRecoverTimer ?? 0) > 0
+
+      if (shouldUseRiverSteering && enemy.type !== 'bridge') {
+        const hitLeft = enemy.x <= safe.left + EnemyManager.AI_BANK_HYSTERESIS
+        const hitRight = enemy.x >= safe.right - EnemyManager.AI_BANK_HYSTERESIS
+        if ((enemy.bankRecoverCooldown ?? 0) <= 0 && (hitLeft || hitRight)) {
+          enemy.bankRecoverTimer = EnemyManager.AI_BANK_RECOVER_TIME
+          enemy.bankRecoverCooldown = EnemyManager.AI_BANK_RECOVER_COOLDOWN
+          enemy.bankRecoverDir = hitLeft ? 1 : -1
+        }
+
+        if ((enemy.bankRecoverTimer ?? 0) > 0) {
+          enemy.x += (enemy.bankRecoverDir ?? 0) * this.getTierRecoverPush(enemy.aiTier) * dt
+        }
+      }
+
+      const recoverStrafeFactor = isRecovering ? EnemyManager.AI_RECOVER_STRAFE_DAMP : 1
 
       if (enemy.type === 'helicopter') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
+          enemy.originX += (safe.center - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult,
+            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
           )
           const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
@@ -248,9 +288,10 @@ export class EnemyManager {
       if (enemy.type === 'boat') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
+          enemy.originX += (safe.center - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult,
+            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
           )
           const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
@@ -263,9 +304,10 @@ export class EnemyManager {
       if (enemy.type === 'tank') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
+          enemy.originX += (safe.center - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult,
+            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
           )
           const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
@@ -279,9 +321,10 @@ export class EnemyManager {
         if (enemy.hasMovement) {
           enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
           if (shouldUseRiverSteering) {
-            enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+            const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
+            enemy.originX += (safe.center - enemy.originX) * recenter * dt
             const effectiveAmplitude = Math.min(
-              enemy.amplitude * tierAmplitudeMult,
+              enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
               Math.max(6, safe.halfSpan - 6),
             )
             const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
@@ -304,7 +347,7 @@ export class EnemyManager {
             if (shouldUseRiverSteering) {
               const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
               const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
-              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * dt
+              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
               enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
             } else {
               enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
@@ -328,7 +371,7 @@ export class EnemyManager {
           if (shouldUseRiverSteering) {
             const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
             const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
-            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * dt
+            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
             enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
           } else {
             enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
@@ -451,6 +494,12 @@ export class EnemyManager {
     return EnemyManager.AI_ORIGIN_RECENTER_BASIC
   }
 
+  private getTierRecoverPush(tier: AiTier): number {
+    if (tier === 'smart') return EnemyManager.AI_BANK_RECOVER_PUSH_SMART
+    if (tier === 'elite') return EnemyManager.AI_BANK_RECOVER_PUSH_ELITE
+    return EnemyManager.AI_BANK_RECOVER_PUSH_BASIC
+  }
+
   private getSafeBounds(
     world: { getBoundsAtY: (y: number) => { left: number; right: number } },
     y: number,
@@ -504,6 +553,7 @@ export class EnemyManager {
     if (!this.canSpawnAnyMore()) return false
 
     const topSegment = riverSegments[riverSegments.length - 1]
+    const spawnRisk = this.getSpawnRisk(riverSegments)
 
     const zone = this.gameTime < 35 ? 0 : this.gameTime < 90 ? 1 : 2
     const weights: [EnemyType, number][] = zone === 0
@@ -531,12 +581,20 @@ export class EnemyManager {
             ['gunboat', 16],
           ]
 
+    const adjustedWeights: [EnemyType, number][] = weights.map(([t, w]) => {
+      if (spawnRisk.high && (t === 'plane' || t === 'gunboat')) {
+        return [t, w * EnemyManager.SPAWN_AGGRESSIVE_WEIGHT_MULT]
+      }
+      return [t, w]
+    })
+    const totalWeight = adjustedWeights.reduce((acc, [, w]) => acc + w, 0)
+
     let type: EnemyType = 'helicopter'
     for (let i = 0; i < ENEMY_SPAWN_MAX_POSITION_TRIES; i++) {
-      const roll = this.random() * 100
+      const roll = this.random() * totalWeight
       let cumulative = 0
       type = 'helicopter'
-      for (const [t, w] of weights) {
+      for (const [t, w] of adjustedWeights) {
         cumulative += w
         if (roll < cumulative) {
           type = t
@@ -572,6 +630,7 @@ export class EnemyManager {
 
     const aiTier = this.resolveAiTier(type)
     const enemy = this.enemyPool.acquire()
+    const movementAmplitudeMult = spawnRisk.high ? EnemyManager.SPAWN_MOVEMENT_AMPLITUDE_MULT : 1
 
     if (type === 'helicopter') {
       Object.assign(enemy, {
@@ -584,13 +643,16 @@ export class EnemyManager {
         speed: 80,
         active: true,
         points: config.points,
+        bankRecoverTimer: 0,
+        bankRecoverCooldown: 0,
+        bankRecoverDir: 0,
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
-        amplitude: 30 + this.random() * 40,
+        amplitude: (30 + this.random() * 40) * movementAmplitudeMult,
       } as HelicopterEnemy)
       return true
     }
@@ -606,6 +668,9 @@ export class EnemyManager {
         speed: 200,
         active: true,
         points: config.points,
+        bankRecoverTimer: 0,
+        bankRecoverCooldown: 0,
+        bankRecoverDir: 0,
         canShoot: this.random() < 0.6,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (0.6 + this.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
@@ -624,10 +689,13 @@ export class EnemyManager {
         speed: 40,
         active: true,
         points: config.points,
+        bankRecoverTimer: 0,
+        bankRecoverCooldown: 0,
+        bankRecoverDir: 0,
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 0.8 + this.random() * 0.5,
-        amplitude: 20 + this.random() * 20,
+        amplitude: (20 + this.random() * 20) * movementAmplitudeMult,
       } as BoatEnemy)
       return true
     }
@@ -644,6 +712,9 @@ export class EnemyManager {
         speed: 70,
         active: true,
         points: config.points,
+        bankRecoverTimer: 0,
+        bankRecoverCooldown: 0,
+        bankRecoverDir: 0,
         canShoot: this.random() < 0.8,
         shootCooldown: 0.8 + this.random() * 1.2,
         shootInterval: (1.0 + this.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
@@ -651,7 +722,7 @@ export class EnemyManager {
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
-        amplitude: hasMovement ? 20 + this.random() * 20 : 0,
+        amplitude: hasMovement ? (20 + this.random() * 20) * movementAmplitudeMult : 0,
       } as GunboatEnemy)
       return true
     }
@@ -667,13 +738,16 @@ export class EnemyManager {
         speed: 55,
         active: true,
         points: config.points,
+        bankRecoverTimer: 0,
+        bankRecoverCooldown: 0,
+        bankRecoverDir: 0,
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
-        amplitude: 30 + this.random() * 40,
+        amplitude: (30 + this.random() * 40) * movementAmplitudeMult,
       } as TankEnemy)
       return true
     }
@@ -688,15 +762,31 @@ export class EnemyManager {
       speed: 0,
       active: true,
       points: config.points,
+      bankRecoverTimer: 0,
+      bankRecoverCooldown: 0,
+      bankRecoverDir: 0,
     } as BridgeEnemy)
     return true
+  }
+
+  private getSpawnRisk(riverSegments: { centerX: number; width: number; y: number }[]): { high: boolean } {
+    if (riverSegments.length === 0) return { high: false }
+    const topIdx = riverSegments.length - 1
+    const sampleIdx = Math.max(0, topIdx - EnemyManager.SPAWN_CURVE_SAMPLE_STEPS)
+    const top = riverSegments[topIdx]
+    const sample = riverSegments[sampleIdx]
+    const centerDrift = Math.abs(top.centerX - sample.centerX)
+    const narrow = top.width <= Math.min(EnemyManager.SPAWN_NARROW_WIDTH_THRESHOLD, this.canvasWidth * 0.38)
+    const highCurve = centerDrift >= EnemyManager.SPAWN_CURVE_DRIFT_THRESHOLD
+    return { high: narrow || highCurve }
   }
 
   render(ctx: CanvasRenderingContext2D): void {
     this.renderer.render(ctx, this.enemies, this.bullets, this.gameTime)
   }
 
-  reset(_canvasWidth: number, canvasHeight: number): void {
+  reset(canvasWidth: number, canvasHeight: number): void {
+    this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
     this.enemyPool.resetAll()
     this.bulletPool.resetAll()
