@@ -309,6 +309,80 @@ describe('EnemyManager', () => {
     expect(after).toBeLessThan(safeRight - 1)
     expect(timerAfterFirstFrame).toBeGreaterThan(0)
     expect(dirAfterFirstFrame).toBe(-1)
+    expect((pool[0].aiState as string)).toBe('recover')
+
+    for (let i = 0; i < 40; i++) {
+      em.update(0.016, world, segments, 0)
+    }
+
+    expect((pool[0].aiState as string)).not.toBe('recover')
+  })
+
+  it('redistribui intencao de faixa quando corredor lateral esta congestionado', () => {
+    const em = new EnemyManager(800, 600, () => 0)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+
+    Object.assign(pool[0], {
+      type: 'plane',
+      aiTier: 'smart',
+      x: 610,
+      y: 130,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      laneIntent: 1,
+      laneCooldown: 0,
+      aiState: 'patrol',
+      stateTimer: 0,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    Object.assign(pool[1], {
+      type: 'plane',
+      aiTier: 'smart',
+      x: 630,
+      y: 130,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      laneIntent: 1,
+      laneCooldown: 0.6,
+      aiState: 'patrol',
+      stateTimer: 0,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    Object.assign(pool[2], {
+      type: 'plane',
+      aiTier: 'smart',
+      x: 650,
+      y: 130,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      laneIntent: 1,
+      laneCooldown: 0.6,
+      aiState: 'patrol',
+      stateTimer: 0,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    em.update(0.016, world, segments, 0)
+
+    expect((pool[0].laneIntent as number)).not.toBe(1)
+    expect((pool[0].aiState as string)).toBe('reposition')
   })
 
   it('reduz amplitude inicial de movimento quando spawn ocorre em curva de alto risco', () => {

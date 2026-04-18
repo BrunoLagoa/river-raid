@@ -26,6 +26,8 @@ import type { RandomSource } from './random'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'bridge' | 'tank' | 'gunboat'
 export type AiTier = 'basic' | 'smart' | 'elite'
+export type EnemyBehaviorState = 'patrol' | 'recover' | 'reposition'
+export type LaneIntent = -1 | 0 | 1
 
 export interface EnemyBullet {
   x: number
@@ -50,6 +52,10 @@ export interface BaseEnemy {
   bankRecoverTimer?: number
   bankRecoverCooldown?: number
   bankRecoverDir?: number
+  aiState?: EnemyBehaviorState
+  stateTimer?: number
+  laneIntent?: LaneIntent
+  laneCooldown?: number
 }
 
 export interface HelicopterEnemy extends BaseEnemy {
@@ -146,6 +152,13 @@ export class EnemyManager {
   private static readonly SPAWN_NARROW_WIDTH_THRESHOLD = 170
   private static readonly SPAWN_AGGRESSIVE_WEIGHT_MULT = 0.62
   private static readonly SPAWN_MOVEMENT_AMPLITUDE_MULT = 0.72
+  private static readonly AI_LANE_COOLDOWN_MIN = 0.45
+  private static readonly AI_LANE_COOLDOWN_MAX = 0.95
+  private static readonly AI_LANE_TARGET_RATIO = 0.48
+  private static readonly AI_LANE_CENTER_BAND = 18
+  private static readonly AI_LANE_NEARBY_Y = 70
+  private static readonly AI_REPOSITION_TIME = 0.45
+  private static readonly AI_REPOSITION_STEER_MULT = 1.35
 
   private random: RandomSource
   private canvasWidth: number
@@ -164,6 +177,10 @@ export class EnemyManager {
       bankRecoverTimer: 0,
       bankRecoverCooldown: 0,
       bankRecoverDir: 0,
+      aiState: 'patrol',
+      stateTimer: 0,
+      laneIntent: 0,
+      laneCooldown: 0,
     }),
     (enemy) => {
       enemy.active = true
@@ -253,6 +270,28 @@ export class EnemyManager {
       const safe = this.getSafeBounds(world, enemy.y, halfWidth + EnemyManager.AI_ENEMY_BANK_MARGIN)
       const isRecovering = (enemy.bankRecoverTimer ?? 0) > 0
 
+      enemy.stateTimer = Math.max(0, (enemy.stateTimer ?? 0) - dt)
+      if ((enemy.aiState ?? 'patrol') === 'reposition' && (enemy.stateTimer ?? 0) <= 0) {
+        enemy.aiState = 'patrol'
+      }
+
+      if (shouldUseRiverSteering && enemy.type !== 'bridge') {
+        if (enemy.laneIntent === undefined) {
+          enemy.laneIntent = this.resolveLaneFromX(enemy.x, safe)
+        }
+        enemy.laneCooldown = Math.max(0, (enemy.laneCooldown ?? 0) - dt)
+        if ((enemy.laneCooldown ?? 0) <= 0) {
+          const previousLane = enemy.laneIntent
+          const nextLane = this.chooseLaneIntent(enemy, safe)
+          enemy.laneIntent = nextLane
+          enemy.laneCooldown = this.getNextLaneCooldown()
+          if (previousLane !== undefined && previousLane !== nextLane && !isRecovering) {
+            enemy.aiState = 'reposition'
+            enemy.stateTimer = EnemyManager.AI_REPOSITION_TIME
+          }
+        }
+      }
+
       if (shouldUseRiverSteering && enemy.type !== 'bridge') {
         const hitLeft = enemy.x <= safe.left + EnemyManager.AI_BANK_HYSTERESIS
         const hitRight = enemy.x >= safe.right - EnemyManager.AI_BANK_HYSTERESIS
@@ -260,20 +299,32 @@ export class EnemyManager {
           enemy.bankRecoverTimer = EnemyManager.AI_BANK_RECOVER_TIME
           enemy.bankRecoverCooldown = EnemyManager.AI_BANK_RECOVER_COOLDOWN
           enemy.bankRecoverDir = hitLeft ? 1 : -1
+          enemy.aiState = 'recover'
+          enemy.stateTimer = EnemyManager.AI_BANK_RECOVER_TIME
         }
 
         if ((enemy.bankRecoverTimer ?? 0) > 0) {
           enemy.x += (enemy.bankRecoverDir ?? 0) * this.getTierRecoverPush(enemy.aiTier) * dt
+        } else if ((enemy.aiState ?? 'patrol') === 'recover') {
+          enemy.aiState = 'reposition'
+          enemy.stateTimer = EnemyManager.AI_REPOSITION_TIME
         }
       }
 
+      const laneTargetX = this.getLaneTargetX(enemy, safe)
+      const isRepositioning = (enemy.aiState ?? 'patrol') === 'reposition'
       const recoverStrafeFactor = isRecovering ? EnemyManager.AI_RECOVER_STRAFE_DAMP : 1
+      const repositionSteerFactor = isRepositioning ? EnemyManager.AI_REPOSITION_STEER_MULT : 1
 
       if (enemy.type === 'helicopter') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
-          enemy.originX += (safe.center - enemy.originX) * recenter * dt
+          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
+          const anchorX = isRecovering
+            ? safe.center
+            : safe.center + (laneTargetX - safe.center) * laneWeight
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
+          enemy.originX += (anchorX - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
             enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
@@ -288,8 +339,12 @@ export class EnemyManager {
       if (enemy.type === 'boat') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
-          enemy.originX += (safe.center - enemy.originX) * recenter * dt
+          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
+          const anchorX = isRecovering
+            ? safe.center
+            : safe.center + (laneTargetX - safe.center) * laneWeight
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
+          enemy.originX += (anchorX - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
             enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
@@ -304,8 +359,12 @@ export class EnemyManager {
       if (enemy.type === 'tank') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
         if (shouldUseRiverSteering) {
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
-          enemy.originX += (safe.center - enemy.originX) * recenter * dt
+          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
+          const anchorX = isRecovering
+            ? safe.center
+            : safe.center + (laneTargetX - safe.center) * laneWeight
+          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
+          enemy.originX += (anchorX - enemy.originX) * recenter * dt
           const effectiveAmplitude = Math.min(
             enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
             Math.max(6, safe.halfSpan - 6),
@@ -321,8 +380,12 @@ export class EnemyManager {
         if (enemy.hasMovement) {
           enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
           if (shouldUseRiverSteering) {
-            const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : 1)
-            enemy.originX += (safe.center - enemy.originX) * recenter * dt
+            const laneWeight = this.getTierLaneWeight(enemy.aiTier)
+            const anchorX = isRecovering
+              ? safe.center
+              : safe.center + (laneTargetX - safe.center) * laneWeight
+            const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
+            enemy.originX += (anchorX - enemy.originX) * recenter * dt
             const effectiveAmplitude = Math.min(
               enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
               Math.max(6, safe.halfSpan - 6),
@@ -348,7 +411,7 @@ export class EnemyManager {
               const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
               const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
               enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
-              enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+              enemy.x += (laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * repositionSteerFactor * dt
             } else {
               enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
             }
@@ -372,7 +435,7 @@ export class EnemyManager {
             const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
             const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
             enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
-            enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+            enemy.x += (laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * repositionSteerFactor * dt
           } else {
             enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
           }
@@ -498,6 +561,54 @@ export class EnemyManager {
     if (tier === 'smart') return EnemyManager.AI_BANK_RECOVER_PUSH_SMART
     if (tier === 'elite') return EnemyManager.AI_BANK_RECOVER_PUSH_ELITE
     return EnemyManager.AI_BANK_RECOVER_PUSH_BASIC
+  }
+
+  private getTierLaneWeight(tier: AiTier): number {
+    if (tier === 'smart') return 0.42
+    if (tier === 'elite') return 0.58
+    return 0.24
+  }
+
+  private getNextLaneCooldown(): number {
+    return EnemyManager.AI_LANE_COOLDOWN_MIN + this.random() * (EnemyManager.AI_LANE_COOLDOWN_MAX - EnemyManager.AI_LANE_COOLDOWN_MIN)
+  }
+
+  private resolveLaneFromX(x: number, safe: { left: number; right: number; center: number }): LaneIntent {
+    if (x < safe.center - EnemyManager.AI_LANE_CENTER_BAND) return -1
+    if (x > safe.center + EnemyManager.AI_LANE_CENTER_BAND) return 1
+    return 0
+  }
+
+  private getLaneTargetX(enemy: Enemy, safe: { left: number; right: number; center: number; halfSpan: number }): number {
+    const lane = enemy.laneIntent ?? 0
+    const target = safe.center + lane * safe.halfSpan * EnemyManager.AI_LANE_TARGET_RATIO
+    return this.clampToSafeBounds(target, safe)
+  }
+
+  private chooseLaneIntent(enemy: Enemy, safe: { left: number; right: number; center: number }): LaneIntent {
+    const lanes: LaneIntent[] = [-1, 0, 1]
+    const counts = new Map<LaneIntent, number>([
+      [-1, 0],
+      [0, 0],
+      [1, 0],
+    ])
+
+    for (const other of this.enemies) {
+      if (other === enemy || !other.active || other.type === 'bridge') continue
+      if (Math.abs(other.y - enemy.y) > EnemyManager.AI_LANE_NEARBY_Y) continue
+      const lane = this.resolveLaneFromX(other.x, safe)
+      counts.set(lane, (counts.get(lane) ?? 0) + 1)
+    }
+
+    if (enemy.x < safe.left + 24) counts.set(-1, (counts.get(-1) ?? 0) + 2)
+    if (enemy.x > safe.right - 24) counts.set(1, (counts.get(1) ?? 0) + 2)
+
+    let best = Number.POSITIVE_INFINITY
+    for (const lane of lanes) {
+      best = Math.min(best, counts.get(lane) ?? 0)
+    }
+    const candidates = lanes.filter((lane) => (counts.get(lane) ?? 0) === best)
+    return candidates[Math.floor(this.random() * candidates.length)] ?? 0
   }
 
   private getSafeBounds(
@@ -646,6 +757,10 @@ export class EnemyManager {
         bankRecoverTimer: 0,
         bankRecoverCooldown: 0,
         bankRecoverDir: 0,
+        aiState: 'patrol',
+        stateTimer: 0,
+        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
+        laneCooldown: this.getNextLaneCooldown(),
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
@@ -671,6 +786,10 @@ export class EnemyManager {
         bankRecoverTimer: 0,
         bankRecoverCooldown: 0,
         bankRecoverDir: 0,
+        aiState: 'patrol',
+        stateTimer: 0,
+        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
+        laneCooldown: this.getNextLaneCooldown(),
         canShoot: this.random() < 0.6,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (0.6 + this.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
@@ -692,6 +811,10 @@ export class EnemyManager {
         bankRecoverTimer: 0,
         bankRecoverCooldown: 0,
         bankRecoverDir: 0,
+        aiState: 'patrol',
+        stateTimer: 0,
+        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
+        laneCooldown: this.getNextLaneCooldown(),
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 0.8 + this.random() * 0.5,
@@ -715,6 +838,10 @@ export class EnemyManager {
         bankRecoverTimer: 0,
         bankRecoverCooldown: 0,
         bankRecoverDir: 0,
+        aiState: 'patrol',
+        stateTimer: 0,
+        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
+        laneCooldown: this.getNextLaneCooldown(),
         canShoot: this.random() < 0.8,
         shootCooldown: 0.8 + this.random() * 1.2,
         shootInterval: (1.0 + this.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
@@ -741,6 +868,10 @@ export class EnemyManager {
         bankRecoverTimer: 0,
         bankRecoverCooldown: 0,
         bankRecoverDir: 0,
+        aiState: 'patrol',
+        stateTimer: 0,
+        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
+        laneCooldown: this.getNextLaneCooldown(),
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
@@ -765,6 +896,10 @@ export class EnemyManager {
       bankRecoverTimer: 0,
       bankRecoverCooldown: 0,
       bankRecoverDir: 0,
+      aiState: 'patrol',
+      stateTimer: 0,
+      laneIntent: 0,
+      laneCooldown: this.getNextLaneCooldown(),
     } as BridgeEnemy)
     return true
   }
