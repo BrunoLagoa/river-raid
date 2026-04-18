@@ -123,6 +123,15 @@ export const ENEMY_COLORS: Record<EnemyType, string> = {
 }
 
 export class EnemyManager {
+  private static readonly AI_EDGE_SOFT_ZONE = 36
+  private static readonly AI_CENTER_STEER_BASIC = 0.4
+  private static readonly AI_CENTER_STEER_SMART = 1.2
+  private static readonly AI_CENTER_STEER_ELITE = 1.8
+  private static readonly AI_ORIGIN_RECENTER_BASIC = 0.9
+  private static readonly AI_ORIGIN_RECENTER_SMART = 1.4
+  private static readonly AI_ORIGIN_RECENTER_ELITE = 2.0
+  private static readonly AI_ENEMY_BANK_MARGIN = 8
+
   private random: RandomSource
   private enemyPool = new ObjectPool<Enemy>(
     60,
@@ -217,26 +226,69 @@ export class EnemyManager {
 
       const tierPhaseMult = this.getTierPhaseSpeedMult(enemy.aiTier)
       const tierAmplitudeMult = this.getTierAmplitudeMult(enemy.aiTier)
+      const shouldUseRiverSteering = enemy.y > 0
+      const halfWidth = enemy.width / 2
+      const safe = this.getSafeBounds(world, enemy.y, halfWidth + EnemyManager.AI_ENEMY_BANK_MARGIN)
 
       if (enemy.type === 'helicopter') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        if (shouldUseRiverSteering) {
+          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const effectiveAmplitude = Math.min(
+            enemy.amplitude * tierAmplitudeMult,
+            Math.max(6, safe.halfSpan - 6),
+          )
+          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
+          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+        } else {
+          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        }
       }
 
       if (enemy.type === 'boat') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        if (shouldUseRiverSteering) {
+          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const effectiveAmplitude = Math.min(
+            enemy.amplitude * tierAmplitudeMult,
+            Math.max(6, safe.halfSpan - 6),
+          )
+          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
+          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+        } else {
+          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        }
       }
 
       if (enemy.type === 'tank') {
         enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        if (shouldUseRiverSteering) {
+          enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+          const effectiveAmplitude = Math.min(
+            enemy.amplitude * tierAmplitudeMult,
+            Math.max(6, safe.halfSpan - 6),
+          )
+          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
+          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+        } else {
+          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+        }
       }
 
       if (enemy.type === 'gunboat') {
         if (enemy.hasMovement) {
           enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+          if (shouldUseRiverSteering) {
+            enemy.originX += (safe.center - enemy.originX) * this.getTierOriginRecenter(enemy.aiTier) * dt
+            const effectiveAmplitude = Math.min(
+              enemy.amplitude * tierAmplitudeMult,
+              Math.max(6, safe.halfSpan - 6),
+            )
+            const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
+            enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+          } else {
+            enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
+          }
         } else {
           const strafeSpeed = enemy.aiTier === 'elite'
             ? ENEMY_TIER_ELITE_STRAFE_SPEED
@@ -249,7 +301,14 @@ export class EnemyManager {
               ? ENEMY_TIER_SMART_STRAFE_FREQ
               : 0
           if (strafeSpeed > 0) {
-            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+            if (shouldUseRiverSteering) {
+              const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
+              const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
+              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * dt
+              enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+            } else {
+              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+            }
           }
         }
       }
@@ -266,14 +325,24 @@ export class EnemyManager {
             ? ENEMY_TIER_SMART_STRAFE_FREQ
             : 0
         if (strafeSpeed > 0) {
-          enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+          if (shouldUseRiverSteering) {
+            const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
+            const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
+            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * dt
+            enemy.x += (safe.center - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+          } else {
+            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
+          }
         }
       }
 
       if (enemy.type !== 'bridge') {
-        const bounds = world.getBoundsAtY(enemy.y)
-        const hw = enemy.width / 2
-        enemy.x = Math.max(bounds.left + hw + 2, Math.min(bounds.right - hw - 2, enemy.x))
+        if (shouldUseRiverSteering) {
+          enemy.x = this.clampToSafeBounds(enemy.x, safe)
+        } else {
+          const bounds = world.getBoundsAtY(enemy.y)
+          enemy.x = Math.max(bounds.left + halfWidth + 2, Math.min(bounds.right - halfWidth - 2, enemy.x))
+        }
       }
 
       if (enemy.type === 'helicopter' || enemy.type === 'plane' || enemy.type === 'gunboat' || enemy.type === 'tank') {
@@ -368,6 +437,42 @@ export class EnemyManager {
     if (tier === 'smart') return ENEMY_TIER_SMART_AMPLITUDE_MULT
     if (tier === 'elite') return ENEMY_TIER_ELITE_AMPLITUDE_MULT
     return ENEMY_TIER_BASIC_AMPLITUDE_MULT
+  }
+
+  private getTierCenterSteer(tier: AiTier): number {
+    if (tier === 'smart') return EnemyManager.AI_CENTER_STEER_SMART
+    if (tier === 'elite') return EnemyManager.AI_CENTER_STEER_ELITE
+    return EnemyManager.AI_CENTER_STEER_BASIC
+  }
+
+  private getTierOriginRecenter(tier: AiTier): number {
+    if (tier === 'smart') return EnemyManager.AI_ORIGIN_RECENTER_SMART
+    if (tier === 'elite') return EnemyManager.AI_ORIGIN_RECENTER_ELITE
+    return EnemyManager.AI_ORIGIN_RECENTER_BASIC
+  }
+
+  private getSafeBounds(
+    world: { getBoundsAtY: (y: number) => { left: number; right: number } },
+    y: number,
+    padding: number,
+  ): { left: number; right: number; center: number; halfSpan: number } {
+    const bounds = world.getBoundsAtY(y)
+    const left = bounds.left + padding
+    const right = bounds.right - padding
+    if (right <= left) {
+      const center = (bounds.left + bounds.right) / 2
+      return { left: center, right: center, center, halfSpan: 0 }
+    }
+    return {
+      left,
+      right,
+      center: (left + right) / 2,
+      halfSpan: (right - left) / 2,
+    }
+  }
+
+  private clampToSafeBounds(x: number, safe: { left: number; right: number }): number {
+    return Math.max(safe.left, Math.min(safe.right, x))
   }
 
   private resolveAiTier(type: EnemyType): AiTier {

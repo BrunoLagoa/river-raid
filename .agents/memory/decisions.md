@@ -76,6 +76,13 @@
 - Impacto: alto
 - Score: 60/100
 
+## [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas
+
+- Decisão: aplicar steering lateral com recentralizacao dinamica por `aiTier` e zona de desaceleracao perto das margens no `EnemyManager`, mantendo fallback de movimento preexistente para inimigos ainda fora da area visivel (`y <= 0`) para preservar distribuicao de spawn.
+- Motivo: eliminar o efeito de inimigos "grudados" nas bordas em curvas sem quebrar regras de spawn/espacamento e sem alterar a arquitetura da engine.
+- Impacto: medio
+- Score: 35/100
+
 ## UI/UX
 
 <!-- Decisões de interface e experiência do usuário -->
@@ -97,3 +104,4 @@
 - [2026-04-17] Cobertura orientada a branch sem alterar gameplay
 - [2026-04-17] Sistema dinamico de objetivos por run
 - [2026-04-17] Sistema dinamico de objetivos por run (update)
+- [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas

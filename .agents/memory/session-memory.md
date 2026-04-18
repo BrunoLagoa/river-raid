@@ -43,3 +43,19 @@
 
 - Manter coerencia entre perfil de objetivos salvo e primeira missao gerada no inicio da run.
 - Apos correção, validar novamente com typecheck, testes focados e build.
+
+## Atualizacao 2026-04-17 (IA inimigos em curva)
+
+- Contexto: melhoria da inteligencia de movimento dos inimigos para evitar efeito de "grudar" nas margens quando o rio fecha/abre em curva.
+- Implementacao concluida em `src/game/EnemyManager.ts` com steering para centro seguro do corredor, recentralizacao de origem de oscilacao e desaceleracao de strafe perto de borda.
+- Regra de compatibilidade adotada: aplicar steering avancado apenas quando inimigo estiver visivel (`y > 0`), preservando comportamento de spawn fora da tela.
+- Testes adicionados em `src/game/EnemyManager.test.ts` cobrindo recentralizacao em bounds dinamicos e evitacao de borda para inimigo smart.
+
+## Validacao tecnica (update)
+
+- Comandos executados e aprovados: `npm run typecheck`, `npm test -- src/game/EnemyManager.test.ts`, `npm run build`.
+- Resultado focado: 15/15 testes do `EnemyManager` passando apos ajuste final.
+
+## Pendencias abertas (update)
+
+- Executar `/review` para validacao final de risco/regressao da mudanca de IA.

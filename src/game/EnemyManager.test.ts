@@ -181,6 +181,99 @@ describe('EnemyManager', () => {
     expect(Math.abs(eliteAfter - eliteBefore)).toBeGreaterThan(0)
   })
 
+  it('recentraliza origem de oscilacao quando o corredor do rio desloca em curva', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+    let frame = 0
+    const boundsForFrame = (f: number) => {
+      const t = Math.min(1, f / 180)
+      return {
+        left: 100 + 120 * t,
+        right: 700 - 120 * t,
+      }
+    }
+    const dynamicWorld = {
+      getBoundsAtY: () => {
+        frame += 1
+        return boundsForFrame(frame)
+      },
+    }
+
+    Object.assign(pool[0], {
+      type: 'helicopter',
+      aiTier: 'smart',
+      x: 620,
+      y: 120,
+      width: 28,
+      height: 20,
+      speed: 80,
+      active: true,
+      points: 60,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+      originX: 620,
+      phase: Math.PI / 2,
+      phaseSpeed: 2,
+      amplitude: 36,
+    })
+
+    for (let i = 0; i < 120; i++) {
+      em.update(0.016, dynamicWorld, segments, 0)
+    }
+
+    const helicopter = pool[0]
+    const finalBounds = boundsForFrame(frame)
+    const safeRight = finalBounds.right - (helicopter.width as number) / 2 - 8
+
+    expect(helicopter.originX as number).toBeLessThan(610)
+    expect(helicopter.x as number).toBeLessThan(safeRight)
+  })
+
+  it('inimigo smart com strafe evita ficar colado na borda em curva fechando', () => {
+    const em = new EnemyManager(800, 600)
+    const pool = (em as unknown as { enemyPool: { all: Array<Record<string, unknown>> } }).enemyPool.all
+    let frame = 0
+    const boundsForFrame = (f: number) => {
+      const t = Math.min(1, f / 220)
+      return {
+        left: 120 + 90 * t,
+        right: 690 - 150 * t,
+      }
+    }
+    const dynamicWorld = {
+      getBoundsAtY: () => {
+        frame += 1
+        return boundsForFrame(frame)
+      },
+    }
+
+    Object.assign(pool[0], {
+      type: 'plane',
+      aiTier: 'smart',
+      x: 655,
+      y: 140,
+      width: 32,
+      height: 28,
+      speed: 200,
+      active: true,
+      points: 100,
+      canShoot: false,
+      shootCooldown: 1,
+      shootInterval: 1,
+    })
+
+    for (let i = 0; i < 140; i++) {
+      em.update(0.016, dynamicWorld, segments, 0)
+    }
+
+    const plane = pool[0]
+    const finalBounds = boundsForFrame(frame)
+    const safeRight = finalBounds.right - (plane.width as number) / 2 - 10
+
+    expect(plane.x as number).toBeLessThan(safeRight)
+  })
+
   it('bala inimiga que sai da tela e desativada', () => {
     const em = new EnemyManager(800, 600)
     const bulletPool = (em as unknown as { bulletPool: { acquire: () => Record<string, unknown> } }).bulletPool
