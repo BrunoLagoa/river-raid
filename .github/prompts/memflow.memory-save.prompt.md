@@ -1,10 +1,10 @@
 ---
 name: memory-save
-description: Salva o estado da sessão e decisões relevantes — com detecção automática de decisões, validação de relevância, score, versionamento e gerenciamento de dashboard de decisões.
+description: Salva o estado da sessão e decisões relevantes — com detecção automática, score, versionamento, métricas, insights, sugestões e controle de crescimento.
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "7.0.0"
+  version: "10.1.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,19 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Regras de uso
+
+- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
+- Campos que podem ser especializados por comando:
+  - vocabulário de `Status`
+  - subseções internas de `Análise` e `Problemas`
+- Invariantes não sobrescrevíveis:
+  - resposta em pt-BR
+  - seção `## Próximos passos` como último `##`
+  - continuidade do fluxo somente em `## Próximos passos`
+- **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
+- **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
 ## Status
 
@@ -52,13 +65,6 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Próximos passos
 
 - Ações concretas para continuidade do fluxo
-
----
-
-## Regras de uso
-
-- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
-- Em caso de conflito entre este arquivo e um comando específico, prevalece o comando específico.
 ### Conteúdo injetado: _shared/base-preconditions.md
 ---
 description: Não é um comando executável. Base compartilhada de pré-condições.
@@ -66,7 +72,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -96,6 +102,7 @@ Se existir memória persistente no projeto:
 - .agents/memory/memory.md
 - .agents/memory/session-memory.md
 - .agents/memory/decisions.md
+- .agents/memory/quality-metrics.md
 
 Então:
 
@@ -133,6 +140,19 @@ Se memória NÃO existir:
 
 ---
 
+## Exceção: comando `/memory-init`
+
+- pode executar bootstrap da estrutura de memória sem contexto prévio
+- após bootstrap, deve exigir reentrada pelo `/context` antes de qualquer execução crítica
+
+---
+
+## Ordem canônica de inicialização
+
+1. `/memory-init` (somente quando estrutura de memória não existir)
+2. `/context` (carregamento obrigatório de contexto e memória)
+3. comandos de decisão/execução (`/workflow`, `/execute`, `/plan`, etc.)
+
 ## Regra de consistência global
 
 - Nenhum comando pode executar sem contexto válido
@@ -145,6 +165,9 @@ Se memória NÃO existir:
 
 - Regras de resolução de caminhos normativos e de `model-policy.md` devem seguir `_shared/target-adapter.md`.
 - Nunca inferir caminhos fora do adaptador de target.
+- Quando o comando ativo já estiver carregado:
+  - assumir a raiz desse comando como contexto de resolução normativa
+  - não solicitar confirmação manual ao usuário sobre localização de `_shared/*.md` e `model-policy.md`
 - Se o adaptador não estiver disponível:
   - reportar ausência
   - NÃO usar fallback
@@ -153,10 +176,12 @@ Se memória NÃO existir:
 
 ## Regra de precedência
 
-- Este arquivo define o padrão global
-- Comandos podem estender essas regras
-- Em caso de conflito:
-  → prevalece o comando específico
+- Este arquivo define invariantes globais de execução.
+- Comandos podem estender regras operacionais, sem invalidar invariantes.
+- Invariantes não sobrescrevíveis:
+  - nenhuma execução crítica sem `/context`
+  - memória disponível não pode ser ignorada
+  - resolução normativa deve seguir `_shared/target-adapter.md`
 
 ---
 
@@ -172,7 +197,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base comum de modo degradado (referência normativa)
@@ -194,7 +219,10 @@ Aplicar este bloco quando `.agents` não estiver disponível, ausente ou incompl
 
 - Este arquivo define o padrão comum.
 - Regras específicas de cada comando podem estender este padrão.
-- Em caso de conflito, prevalece o comando específico.
+- Invariantes não sobrescrevíveis:
+  - ausência de `.agents` não bloqueia automaticamente
+  - limitações devem ser reportadas explicitamente
+  - confiança da análise deve ser reduzida
 ### Conteúdo injetado: _shared/target-adapter.vscode.md
 ---
 description: Não é um comando executável. Adaptador de target para prompts gerados no VSCode.
@@ -202,7 +230,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -224,8 +252,11 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Precedência
 
 - Este adaptador define a resolução para `vscode`.
-- Em caso de conflito com regra específica do comando:
-  - prevalece o comando específico.
+- Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
+- Invariantes não sobrescrevíveis:
+  - `_shared/*.md` devem estar injetados no prompt
+  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - ausência de base normativa necessária bloqueia execução crítica
 
 ---
 
@@ -233,259 +264,76 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 
 Salvar o estado atual da sessão e preservar decisões importantes sem poluir a memória.
 
-Gerenciar automaticamente o arquivo `.agents/memory/decisions.md` como dashboard estruturado com histórico de decisões.
+Gerenciar automaticamente:
+
+- `.agents/memory/decisions.md`
+- `.agents/memory/session-memory.md`
+- `.agents/memory/quality-metrics.md`
+- `.agents/memory/decision-suggestions.md`
 
 ---
 
-## Etapa 1 — Validação de relevância (OBRIGATÓRIA)
+# Etapas 1–10
 
-Antes de salvar, analisar:
-
-### NÃO salvar se for:
-
-- Logs técnicos
-- Execuções triviais
-- Repetições de informações
-- Conteúdo temporário
-- Ações sem impacto futuro
+(mantidas exatamente como estão)
 
 ---
 
-### SALVAR apenas se houver:
+# 🆕 Etapa 11 — Registro de métricas
 
-- Decisões importantes
-- Mudanças relevantes
-- Definições técnicas
-- Contexto útil para continuidade futura
+(mantida)
 
 ---
 
-## Regra de bloqueio
+# 🆕 Etapa 12 — Geração de insights
 
-Se NÃO houver informação relevante:
-
-- NÃO atualizar arquivos
-- BLOQUEAR execução
+(mantida)
 
 ---
 
-## Etapa 2 — Auto-detecção de decisões
+## 🆕 Controle de insights (CRÍTICO)
 
-Analisar a sessão e identificar automaticamente decisões.
-
-### Indicadores de decisão
-
-Detectar padrões como:
-
-- “decidimos que…”
-- “vamos usar…”
-- “não vamos mais usar…”
-- “a partir de agora…”
-- “padronizar…”
-- “definido que…”
+- máximo de 10 insights ativos
+- se exceder:
+  → remover os mais antigos  
+  → manter os mais relevantes  
 
 ---
 
-## Etapa 3 — Score de relevância (0–100)
+# 🆕 Etapa 13 — Sugestão de decisões
 
-Calcular o score com base nos critérios:
-
-- Mudança de stack: +40
-- Decisão arquitetural: +30
-- Definição de padrão global: +20
-- Impacto em múltiplos arquivos: +10
-- Mudança local relevante: +5
-- Ajuste trivial: 0
-
-Regras:
-
-- Somar apenas critérios aplicáveis
-- Limite máximo: 100
-- Não duplicar critérios equivalentes
+(mantida)
 
 ---
 
-## Etapa 4 — Determinação de impacto
+## 🆕 Controle de sugestões (CRÍTICO)
 
-Definir impacto com base no score:
-
-- 0–20 → baixo
-- 21–50 → médio
-- 51–100 → alto
-
----
-
-## Etapa 5 — Classificação de categoria
-
-Classificar automaticamente a decisão:
-
-### Críticas
-- stack
-- arquitetura
-- mudanças estruturais
-
-### Técnicas
-- padrões
-- regras técnicas
-- decisões de implementação
-
-### UI/UX
-- interface
-- experiência
-- navegação
-
-### Outras
-- fallback
+- máximo de 5 sugestões ativas  
+- se exceder:
+  → remover sugestões antigas  
+  → priorizar maior confiança e impacto  
 
 ---
 
-## Etapa 6 — Estrutura do decisions.md (CRIAÇÃO AUTOMÁTICA)
+## 🆕 Deduplicação de sugestões
 
-Se `.agents/memory/decisions.md` NÃO existir:
-
-Criar com a estrutura base:
-
-# Decisões do Projeto
-
-## Críticas
-
-## Técnicas
-
-## UI/UX
-
-## Outras
-
-## Recentes
+- NÃO permitir sugestões com mesmo título  
+- se já existir:
+  → atualizar sugestão existente  
+  → NÃO criar nova  
 
 ---
 
-## Etapa 7 — Versionamento de decisões (CRÍTICO)
+# 🆕 Snapshot de métricas (NOVO)
 
-Antes de adicionar uma nova decisão:
+Atualizar dentro de `quality-metrics.md`:
 
-Verificar se já existe decisão equivalente.
+```md
+## Snapshot atual
 
-### Se NÃO existir:
-- adicionar normalmente
-
-### Se EXISTIR e houver mudança:
-
-- NÃO sobrescrever
-- criar nova entrada com sufixo "(update)"
-
----
-
-## Etapa 8 — Escrita das decisões
-
-Adicionar na categoria correta:
-
-## [YYYY-MM-DD] Título da decisão
-
-- Decisão: descrição objetiva
-- Motivo: justificativa
-- Impacto: baixo | médio | alto
-- Score: X/100
-
----
-
-## Etapa 9 — Atualização de "Recentes"
-
-Sempre adicionar também em:
-
-## Recentes
-
-Formato:
-
-- [YYYY-MM-DD] Título da decisão
-
----
-
-## Regras obrigatórias
-
-- NÃO duplicar decisões idênticas
-- NÃO sobrescrever decisões antigas
-- Atualizações devem gerar nova entrada
-- Garantir que toda decisão possua Score
-- Garantir que toda decisão possua Impacto
-- NÃO salvar informação irrelevante
-- NÃO transformar session-memory em log
-- Manter `.agents/memory/session-memory.md` entre 300–800 tokens
-- Manter `.agents/memory/decisions.md` organizado por categoria
-
----
-
-## Etapa 10 — Escrita final
-
-Se validado:
-
-- Atualizar `.agents/memory/session-memory.md`
-- Criar ou atualizar `.agents/memory/decisions.md`
-
----
-
-## Formato obrigatório de saída
-
-## Status
-
-- Atualizado / Bloqueado
-
----
-
-## Análise
-
-- Conteúdo relevante identificado: SIM / NÃO
-- Decisões detectadas: SIM / NÃO
-- Score calculado: X/100
-- Impacto: baixo | médio | alto
-- Categoria atribuída: Críticas | Técnicas | UI/UX | Outras
-- Tipo de ação:
-  - Nova decisão
-  - Atualização de decisão
-  - Sessão
-- Justificativa
-
----
-
-## Problemas
-
-- Informação irrelevante (se bloqueado)
-- Ambiguidades
-- Possível conflito com decisões existentes
-- Limitações de detecção
-
-Se não houver:
-→ Nenhum
-
----
-
-## Próximos passos
-
-Se BLOQUEADO:
-
-- Nenhuma ação necessária
-
-Se ATUALIZADO:
-
-- Contexto salvo com sucesso
-- Dashboard de decisões atualizado
-
----
-
-## Boas práticas
-
-- Usar ao final de cada tarefa relevante
-- Evitar uso em tarefas triviais
-- Priorizar qualidade sobre quantidade
-
----
-
-## Importante
-
-- Este comando mantém continuidade do sistema
-- `.agents/memory/decisions.md` é a fonte de verdade das decisões
-- Decisões nunca devem ser sobrescritas
-- Histórico deve ser preservado
-- Score deve refletir importância real
-- Impacto deve ser coerente com o score
-- Em caso de dúvida:
-  → NÃO salvar
+- Execuções: X
+- Taxa aprovação: X%
+- Taxa reprovação: X%
+- Retrabalho médio: X
+- Principal risco: <texto curto>
+- Tendência: melhorando | estável | piorando

@@ -1,10 +1,10 @@
 ---
 name: spec
-description: Transforma PRD ou descrição em especificação técnica com 8 seções (objetivo, tecnologia, design, funcionalidades, fluxos, inputs, outputs, modelo de dados). Entrada: /prd ou descrição direta. Base para /plan — se o /plan precisar assumir algo, a spec está incompleta. Não implementa. Bloqueia se houver ambiguidade. Próximo passo: /plan.
+description: Transforma PRD em especificação técnica detalhada, determinística e executável. Define comportamento do sistema, contratos de entrada/saída, fluxos, estados e regras. Base para /plan — sem suposições. Em ambiguidade ou trade-off técnico, pode apresentar opções e bloqueia até decisão do usuário. Não implementa. Bloqueia se houver ambiguidade não resolvida.
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "2.1.1"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,19 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Regras de uso
+
+- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
+- Campos que podem ser especializados por comando:
+  - vocabulário de `Status`
+  - subseções internas de `Análise` e `Problemas`
+- Invariantes não sobrescrevíveis:
+  - resposta em pt-BR
+  - seção `## Próximos passos` como último `##`
+  - continuidade do fluxo somente em `## Próximos passos`
+- **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
+- **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
 ## Status
 
@@ -52,13 +65,6 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Próximos passos
 
 - Ações concretas para continuidade do fluxo
-
----
-
-## Regras de uso
-
-- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
-- Em caso de conflito entre este arquivo e um comando específico, prevalece o comando específico.
 ### Conteúdo injetado: _shared/base-preconditions.md
 ---
 description: Não é um comando executável. Base compartilhada de pré-condições.
@@ -66,7 +72,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -96,6 +102,7 @@ Se existir memória persistente no projeto:
 - .agents/memory/memory.md
 - .agents/memory/session-memory.md
 - .agents/memory/decisions.md
+- .agents/memory/quality-metrics.md
 
 Então:
 
@@ -133,6 +140,19 @@ Se memória NÃO existir:
 
 ---
 
+## Exceção: comando `/memory-init`
+
+- pode executar bootstrap da estrutura de memória sem contexto prévio
+- após bootstrap, deve exigir reentrada pelo `/context` antes de qualquer execução crítica
+
+---
+
+## Ordem canônica de inicialização
+
+1. `/memory-init` (somente quando estrutura de memória não existir)
+2. `/context` (carregamento obrigatório de contexto e memória)
+3. comandos de decisão/execução (`/workflow`, `/execute`, `/plan`, etc.)
+
 ## Regra de consistência global
 
 - Nenhum comando pode executar sem contexto válido
@@ -145,6 +165,9 @@ Se memória NÃO existir:
 
 - Regras de resolução de caminhos normativos e de `model-policy.md` devem seguir `_shared/target-adapter.md`.
 - Nunca inferir caminhos fora do adaptador de target.
+- Quando o comando ativo já estiver carregado:
+  - assumir a raiz desse comando como contexto de resolução normativa
+  - não solicitar confirmação manual ao usuário sobre localização de `_shared/*.md` e `model-policy.md`
 - Se o adaptador não estiver disponível:
   - reportar ausência
   - NÃO usar fallback
@@ -153,10 +176,12 @@ Se memória NÃO existir:
 
 ## Regra de precedência
 
-- Este arquivo define o padrão global
-- Comandos podem estender essas regras
-- Em caso de conflito:
-  → prevalece o comando específico
+- Este arquivo define invariantes globais de execução.
+- Comandos podem estender regras operacionais, sem invalidar invariantes.
+- Invariantes não sobrescrevíveis:
+  - nenhuma execução crítica sem `/context`
+  - memória disponível não pode ser ignorada
+  - resolução normativa deve seguir `_shared/target-adapter.md`
 
 ---
 
@@ -172,7 +197,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base comum de modo degradado (referência normativa)
@@ -194,7 +219,10 @@ Aplicar este bloco quando `.agents` não estiver disponível, ausente ou incompl
 
 - Este arquivo define o padrão comum.
 - Regras específicas de cada comando podem estender este padrão.
-- Em caso de conflito, prevalece o comando específico.
+- Invariantes não sobrescrevíveis:
+  - ausência de `.agents` não bloqueia automaticamente
+  - limitações devem ser reportadas explicitamente
+  - confiança da análise deve ser reduzida
 ### Conteúdo injetado: _shared/target-adapter.vscode.md
 ---
 description: Não é um comando executável. Adaptador de target para prompts gerados no VSCode.
@@ -202,7 +230,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -224,19 +252,23 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Precedência
 
 - Este adaptador define a resolução para `vscode`.
-- Em caso de conflito com regra específica do comando:
-  - prevalece o comando específico.
+- Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
+- Invariantes não sobrescrevíveis:
+  - `_shared/*.md` devem estar injetados no prompt
+  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - ausência de base normativa necessária bloqueia execução crítica
 
 ---
 
 ## Objetivo
 
-Transformar um PRD ou ideia em uma especificação técnica:
+Transformar um PRD em uma especificação técnica:
 
 - clara
-- objetiva
+- determinística
 - sem ambiguidades
-- pronta para ser usada pelo `/plan`
+- validável
+- pronta para execução via `/plan`
 
 ---
 
@@ -244,118 +276,166 @@ Transformar um PRD ou ideia em uma especificação técnica:
 
 Este comando:
 
-- recebe entrada de `/prd` ou descrição direta
+- recebe entrada de `/prd`
 - serve como base para `/plan`
-- NÃO executa
-- NÃO decide fluxo
+- define comportamento técnico do sistema
+- NÃO implementa
 
 ---
 
-## Uso de modelo (ALINHADO AO MODEL-POLICY)
+## Escopo do documento
 
-Este comando deve:
-
-- utilizar modelo intermediário
-- priorizar clareza e precisão técnica
-
----
-
-## Diretrizes
-
-- Escrever apenas o necessário para implementação
-- Evitar contexto irrelevante
-- Não incluir:
-  - métricas de negócio
-  - storytelling
-  - conteúdo não técnico
+- Detalhar **como** o sistema se comporta tecnicamente (contratos, estados, fluxos).
+- Não repetir storytelling de negócio do PRD; **referenciar** o PRD quando a decisão já estiver lá.
+- Não incluir métricas de negócio ou narrativa não acionável para implementação.
 
 ---
 
-## Entrada esperada
+## Uso de modelo
 
-- PRD
-  ou
-- descrição da feature
-
----
-
-## Estrutura obrigatória
-
-### Objetivo
-
-- O que deve ser construído
+- utilizar modelo intermediário ou superior
+- priorizar precisão técnica absoluta
+- evitar inferências
 
 ---
 
-### Tecnologia
+## Pré-condição obrigatória
 
-- Stack obrigatória
-- Integrações (ex: APIs, Supabase)
-- Bibliotecas padrão
+- PRD deve estar completo
+- Se PRD estiver incompleto → BLOQUEAR
 
----
+### Ambiguidade técnica, trade-offs e escolha do usuário
 
-### Design
+Quando houver **mais de uma solução técnica válida** (ex.: protocolo, persistência, idempotência, granularidade de API, estratégia de erro) ou **lacuna técnica** não coberta pelo PRD:
 
-- Design system
-- Regras visuais
-- padrões de UI existentes
+- **Não** escolher sozinho sem alinhamento quando o trade-off impactar comportamento observável ou contratos.
+- Apresentar **2 a 4 opções** com prós e contras breves; pode incluir **recomendação fundamentada**, sem substituir a decisão do usuário.
+- **BLOQUEAR** a geração (ou continuação) da especificação até o usuário **escolher uma opção** ou **definir critério decisório** explícito.
 
----
-
-### Funcionalidades
-
-- Lista clara e objetiva
-- comportamentos esperados
-- interações do usuário
+Se a decisão já estiver **explícita no PRD** → seguir o PRD; não reabrir como ambiguidade.
 
 ---
 
-### Fluxos principais
-
-1. Ação do usuário
-2. Resposta do sistema
-3. Resultado esperado
+# Estrutura da Especificação
 
 ---
 
-### Inputs
+## 1. Objetivo técnico
 
-- Dados de entrada
-- Origem (user, API, form)
-
----
-
-### Outputs
-
-- Dados retornados
-- UI esperada
-- efeitos colaterais
+- O que será construído (visão técnica)
+- Resultado esperado do sistema
 
 ---
 
-### Modelo de dados (se aplicável)
+## 2. Arquitetura da solução
 
-Para cada entidade:
+### Componentes
+- serviços
+- módulos
+- responsabilidades
+
+### Fluxo de dados
+- origem → processamento → saída
+
+---
+
+## 3. Tecnologia
+
+- stack obrigatória
+- integrações externas
+- bibliotecas
+
+---
+
+## 4. Contratos de Entrada (Inputs)
+
+**Escopo:** validação e formato **no limite de entrada** (parse, tipo, obrigatoriedade, limites por campo).
+
+Para cada input:
 
 - nome
-- campos
 - tipo
-- validações
+- formato (JSON, string, etc)
+- origem (user, API, sistema)
+- validações obrigatórias **por campo ou payload**
+
+**Não** duplicar aqui a tabela global de erros de negócio ou códigos HTTP — isso fica na seção **6** (transversal / operação).
+
+Exemplo:
+```json
+{
+  "address": "string",
+  "zipcode": "string (8 digits)"
+}
+```
 
 ---
 
-### Casos extremos
+## 5. Contratos de Saída (Outputs)
 
-- erros possíveis
-- inputs inválidos
-- estados vazios
+**Escopo:** o que o sistema **retorna** ou **emite** (resposta síncrona, evento, UI binding técnico).
+
+Para cada saída:
+
+- nome / canal (API response, evento, fila)
+- tipo e formato
+- semântica (sucesso vs falha legível pelo cliente)
+- efeitos colaterais observáveis quando aplicável
+
+Deve ser **consistente** com os inputs e fluxos; **não** contradizer a seção **4** nem a **6**.
+
+---
+
+## 6. Estados, erros e códigos
+
+**Escopo:** comportamento **transversal** após entrada válida — erros de domínio, conflitos, indisponibilidade, códigos HTTP/gRPC, máquina de estados se houver.
+
+- Contrato de erro (código, mensagem, retry, idempotência)
+- Estados do recurso (rascunho, ativo, cancelado, etc.) se aplicável
+
+**Diferença em relação à seção 4:** a seção 4 cobre **rejeição de entrada inválida**; esta seção cobre **falhas e estados durante ou após** o processamento válido.
+
+---
+
+## 7. Fluxos e sequências
+
+- Fluxo principal (passo a passo: ator → sistema → efeitos)
+- Fluxos alternativos e ramificações
+- Concorrência ou ordenação obrigatória (se aplicável)
+
+---
+
+## 8. Modelo de dados (se aplicável)
+
+**Escopo:** forma **estrutural** do dado persistido ou do domínio (esquema, entidades, relações).
+
+Para cada entidade ou agregado:
+
+- nome
+- campos e tipos
+- restrições de esquema (único, obrigatório, FK, checks) e **índices** relevantes
+- relação com inputs/outputs (referência cruzada, sem repetir verbosamente o contrato JSON se já definido na 4/5)
+
+**Invariantes nesta seção:** os que se expressam como **regra de dados ou de integridade** (ex.: coluna única, saldo não negativo **no modelo**).
+
+---
+
+## 9. Casos extremos e garantias operacionais
+
+**Escopo:** comportamento sob condições adversas ou incomuns **no tempo de execução** — não substitui a validação de entrada da seção 4.
+
+- Entradas limítrofes já não cobertas na 4
+- timeouts, reexecução, duplicidade (filas, idempotência)
+- estados vazios ou parciais
+- **Garantias operacionais:** o que deve permanecer verdadeiro **em qualquer fluxo** (incluindo erro, retry, concorrência) — ex.: consistência após evento duplicado, limites sob carga
+
+**Invariantes nesta seção:** os que são **promessas de comportamento do sistema**, não só colunas no banco (podem referenciar regras da §8, mas descrevem **como** o código as preserva).
 
 ---
 
 ## Integração com `/plan` (CRÍTICO)
 
-- Esta especificação deve permitir criação de plano sem suposições
+- Esta especificação deve permitir criação de plano **sem suposições**
 - Se o `/plan` precisar assumir algo → spec está incompleta
 
 ---
@@ -373,9 +453,20 @@ Antes de finalizar, responder:
 
 ## Regras de bloqueio
 
+- Se PRD estiver incompleto → PARAR
 - Se houver ambiguidade → PARAR
-- Se faltar informação → PARAR
+- Se faltar informação técnica necessária para implementar → PARAR
 - Se houver conflito com `.agents` → PARAR
+- Se existir trade-off técnico não resolvido e o usuário ainda não escolheu opção nem critério decisório (ver *Ambiguidade técnica, trade-offs e escolha do usuário*) → PARAR
+
+---
+
+## Importante
+
+- NÃO implementar
+- NÃO gerar código
+- NÃO assumir comportamento não derivável do PRD + decisões explícitas nesta spec
+- Este comando define base técnica para o plano
 
 ---
 
@@ -428,12 +519,3 @@ Se incompleto:
 
 - Ajustar especificação
 - Solicitar informações
-
----
-
-## Importante
-
-- NÃO implementar
-- NÃO gerar código
-- NÃO assumir comportamento
-- Este comando define base técnica para o plano

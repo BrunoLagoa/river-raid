@@ -1,10 +1,10 @@
 ---
 name: workflow
-description: Comando central do sistema — classifica a tarefa e decide execução, considerando decisões, score e possíveis conflitos na memória do projeto.
+description: Orquestrador central — decide execução, validação e adapta comportamento com base em decisões, métricas, insights e sugestões assistidas, com controle de previsibilidade e evolução. É a única fonte de decisão de estratégia para /execute.
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "4.0.0"
+  version: "9.2.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,19 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Regras de uso
+
+- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
+- Campos que podem ser especializados por comando:
+  - vocabulário de `Status`
+  - subseções internas de `Análise` e `Problemas`
+- Invariantes não sobrescrevíveis:
+  - resposta em pt-BR
+  - seção `## Próximos passos` como último `##`
+  - continuidade do fluxo somente em `## Próximos passos`
+- **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
+- **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
 ## Status
 
@@ -52,13 +65,6 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Próximos passos
 
 - Ações concretas para continuidade do fluxo
-
----
-
-## Regras de uso
-
-- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
-- Em caso de conflito entre este arquivo e um comando específico, prevalece o comando específico.
 ### Conteúdo injetado: _shared/base-preconditions.md
 ---
 description: Não é um comando executável. Base compartilhada de pré-condições.
@@ -66,7 +72,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -96,6 +102,7 @@ Se existir memória persistente no projeto:
 - .agents/memory/memory.md
 - .agents/memory/session-memory.md
 - .agents/memory/decisions.md
+- .agents/memory/quality-metrics.md
 
 Então:
 
@@ -133,6 +140,19 @@ Se memória NÃO existir:
 
 ---
 
+## Exceção: comando `/memory-init`
+
+- pode executar bootstrap da estrutura de memória sem contexto prévio
+- após bootstrap, deve exigir reentrada pelo `/context` antes de qualquer execução crítica
+
+---
+
+## Ordem canônica de inicialização
+
+1. `/memory-init` (somente quando estrutura de memória não existir)
+2. `/context` (carregamento obrigatório de contexto e memória)
+3. comandos de decisão/execução (`/workflow`, `/execute`, `/plan`, etc.)
+
 ## Regra de consistência global
 
 - Nenhum comando pode executar sem contexto válido
@@ -145,6 +165,9 @@ Se memória NÃO existir:
 
 - Regras de resolução de caminhos normativos e de `model-policy.md` devem seguir `_shared/target-adapter.md`.
 - Nunca inferir caminhos fora do adaptador de target.
+- Quando o comando ativo já estiver carregado:
+  - assumir a raiz desse comando como contexto de resolução normativa
+  - não solicitar confirmação manual ao usuário sobre localização de `_shared/*.md` e `model-policy.md`
 - Se o adaptador não estiver disponível:
   - reportar ausência
   - NÃO usar fallback
@@ -153,10 +176,12 @@ Se memória NÃO existir:
 
 ## Regra de precedência
 
-- Este arquivo define o padrão global
-- Comandos podem estender essas regras
-- Em caso de conflito:
-  → prevalece o comando específico
+- Este arquivo define invariantes globais de execução.
+- Comandos podem estender regras operacionais, sem invalidar invariantes.
+- Invariantes não sobrescrevíveis:
+  - nenhuma execução crítica sem `/context`
+  - memória disponível não pode ser ignorada
+  - resolução normativa deve seguir `_shared/target-adapter.md`
 
 ---
 
@@ -172,7 +197,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base comum de modo degradado (referência normativa)
@@ -194,7 +219,10 @@ Aplicar este bloco quando `.agents` não estiver disponível, ausente ou incompl
 
 - Este arquivo define o padrão comum.
 - Regras específicas de cada comando podem estender este padrão.
-- Em caso de conflito, prevalece o comando específico.
+- Invariantes não sobrescrevíveis:
+  - ausência de `.agents` não bloqueia automaticamente
+  - limitações devem ser reportadas explicitamente
+  - confiança da análise deve ser reduzida
 ### Conteúdo injetado: _shared/target-adapter.vscode.md
 ---
 description: Não é um comando executável. Adaptador de target para prompts gerados no VSCode.
@@ -202,7 +230,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -224,177 +252,309 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Precedência
 
 - Este adaptador define a resolução para `vscode`.
-- Em caso de conflito com regra específica do comando:
-  - prevalece o comando específico.
+- Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
+- Invariantes não sobrescrevíveis:
+  - `_shared/*.md` devem estar injetados no prompt
+  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - ausência de base normativa necessária bloqueia execução crítica
 
 ---
 
 ## Objetivo
 
-Decidir automaticamente:
+Decidir:
 
-1. Fluxo de execução:
-   - `/execute`
-   - `/plan`
-
-2. Modelo ideal
-
-3. Estratégia de execução
-
-4. Respeitar decisões já tomadas (memória)
-
-5. Priorizar decisões com base em score
-
-6. Detectar conflitos antes de decidir
+- execução (/execute ou /plan)
+- validação (/review, /review-code)
+- modelo
+- adaptação inteligente baseada em histórico
 
 ---
 
 ## Base de decisão
 
-Utilizar obrigatoriamente:
-
-- `.agents`
-- `docs`
-- `.agents/memory/decisions.md`
-- `model-policy.md` resolvido pelo target ativo (via `_shared/target-adapter.md`)
+- decisions.md
+- quality-metrics.md
+- decision-suggestions.md
+- model-policy
 
 ---
 
-## Etapa 0 — Verificação de decisões existentes (CRÍTICO)
+# 🆕 Prioridade de decisão (CRÍTICO)
 
-Antes de qualquer classificação:
+Ordem obrigatória:
 
-- Verificar `.agents/memory/decisions.md` (se existir)
-
-Pergunta obrigatória:
-
-> Já existe decisão registrada sobre este assunto?
-
----
-
-### Se SIM:
-
-#### Regra de versionamento
-
-Se houver múltiplas decisões sobre o mesmo tema:
-
-- priorizar a versão mais recente (pela data)
-- priorizar entradas com "(update)"
-- ignorar versões antigas
+1. **decisions.md (sempre prevalece)**
+2. **regras do workflow**
+3. **insights (ajuste leve)**
+4. **decision-suggestions (modo assistido)**
 
 ---
 
-#### Leitura de score
+## Regras
 
-Identificar o score da decisão mais recente.
-
----
-
-#### Regra de prioridade por score
-
-- Score 81–100:
-  - decisão crítica
-  - NÃO permitir redefinição
-
-- Score 51–80:
-  - decisão relevante
-  - evitar redefinição, salvo forte justificativa
-
-- Score 21–50:
-  - decisão fraca
-  - pode ser ajustada
-
-- Score 0–20:
-  - decisão irrelevante
-  - pode ser ignorada
+- decisões explícitas NUNCA podem ser sobrescritas  
+- insights apenas ajustam comportamento  
+- sugestões NUNCA executam automaticamente  
+- em caso de conflito → respeitar ordem acima  
+- `/workflow` é a única origem de decisão de estratégia (`/execute` vs `/plan`)
 
 ---
 
-#### Detecção de conflito
+# Etapa 0 — Decisões existentes
 
-Verificar se existem decisões incompatíveis sobre o mesmo tema.
-
-Exemplos:
-
-- múltiplas tecnologias conflitantes
-- definições divergentes de arquitetura
-- escolhas exclusivas entre si
+- verificar decisões anteriores  
+- priorizar por score  
+- detectar conflitos  
 
 ---
 
-### Se conflito detectado:
+# Etapa 0.5 — Métricas
 
-- NÃO decidir automaticamente
-- sinalizar inconsistência
-- recomendar revisão
+Se existir:
 
----
-
-### Ação (sem conflito)
-
-- reutilizar decisão mais recente conforme score
-- NÃO redefinir sem necessidade
+- taxa aprovação  
+- taxa reprovação  
+- retrabalho médio  
 
 ---
 
-### Se NÃO existir decisão:
+# Etapa 0.6 — Insights
 
-- seguir fluxo normal
+Detectar:
 
----
-
-## Priorização de skills
-
-(sem alteração)
-
----
-
-## Classificação da tarefa
-
-(sem alteração)
+- baixa clareza  
+- alta complexidade  
+- integrações externas  
+- alto retrabalho  
 
 ---
 
-## Decisão de fluxo
+# Etapa 0.7 — Decision Suggestions
 
-(sem alteração)
+Se existir:
 
----
-
-## Orquestração de modelo
-
-(sem alteração)
+.agents/memory/decision-suggestions.md
 
 ---
 
-## Controle de fluxo
+## Analisar sugestões
 
-(sem alteração)
+Para cada sugestão:
 
----
-
-## Integração com sistema
-
-- `/execute` deve respeitar esta decisão
-- `/plan` deve ser seguido quando necessário
+- título  
+- recomendação  
+- impacto  
+- confiança  
 
 ---
 
-## Regras de consistência
+## Critérios de ativação
 
-- NÃO redefinir decisões fortes (score alto)
-- SEMPRE verificar memória antes de decidir
-- SEMPRE utilizar a decisão mais recente
-- NÃO ignorar conflitos detectados
+- confiança ≥ média  
+- impacto ≥ médio  
 
 ---
 
-## Formato obrigatório de saída
+## 🆕 Limite de uso (CRÍTICO)
+
+- considerar no máximo **2 sugestões por execução**
+
+---
+
+## Modo assistido
+
+- NÃO aplicar automaticamente  
+- apenas sugerir  
+
+---
+
+# 🆕 Aplicação de sugestão (INLINE 🔥)
+
+Quando uma sugestão for apresentada:
+
+### O usuário pode decidir:
+
+- **aplicar**
+- **ignorar**
+
+---
+
+## Se aplicar:
+
+- converter recomendação em decisão  
+- registrar em `decisions.md`  
+- remover da lista de sugestões  
+- registrar via `/memory-save`  
+
+---
+
+## Se ignorar:
+
+- manter sugestão (ou permitir expiração natural)  
+
+---
+
+## Importante
+
+- aplicação deve ser explícita  
+- nunca automática  
+- deve gerar rastreabilidade  
+
+---
+
+## Resultado
+
+Adicionar no output:
+
+## Sugestões relevantes
+
+- título: <nome>
+- recomendação: <texto>
+- ação disponível:
+  - aplicar
+  - ignorar  
+
+---
+
+# Etapa 1 — Classificação da tarefa
+
+- Complexidade: baixa / média / alta  
+- Impacto: baixo / médio / alto  
+- Risco: baixo / médio / alto  
+- Clareza: alta / média / baixa  
+
+---
+
+# Etapa 2 — Decisão de execução
+
+---
+
+## EXECUÇÃO DIRETA
+
+- baixa complexidade  
+- baixo risco  
+- alta clareza  
+
+---
+
+## EXECUÇÃO COM /plan
+
+- média/alta complexidade  
+- risco médio/alto  
+- baixa clareza  
+
+---
+
+## Ajuste por insights
+
+- baixa clareza → FORÇAR /plan  
+- alta complexidade → priorizar /plan  
+- retrabalho alto → evitar execução direta  
+
+---
+
+# Etapa 3 — Estratégia de validação
+
+---
+
+## /review
+
+- SEMPRE obrigatório  
+
+---
+
+## /review-code
+
+Obrigatório quando:
+
+- código modificado  
+- risco ≥ médio  
+- integração externa  
+- mudança arquitetural  
+- sugestão indicar risco técnico  
+
+---
+
+## Ajuste por insights
+
+- integração externa → FORÇAR /review-code  
+- histórico de erro alto → reforçar validação  
+
+---
+
+# Etapa 4 — Gate de qualidade
+
+---
+
+## BLOQUEAR
+
+- review = Reprovado  
+- review-code = Reprovado  
+
+---
+
+## PERMITIR COM RESSALVAS
+
+- qualquer “com ressalvas”  
+
+---
+
+## APROVAR
+
+- ambos aprovados  
+
+---
+
+# Etapa 5 — Orquestração de modelo
+
+- modelo econômico por padrão  
+- escalar quando necessário  
+
+---
+
+# Etapa 6 — Controle de consistência
+
+- NÃO ignorar decisões  
+- NÃO ignorar métricas  
+- NÃO ignorar insights  
+- NÃO ignorar sugestões  
+- limitar influência de sugestões  
+
+---
+
+# Integração
+
+- /execute  
+- /review  
+- /review-code  
+- /memory-save  
+
+---
+
+# Regras
+
+- NÃO implementar  
+- NÃO permitir bypass  
+- NÃO ignorar risco  
+- exigir retorno ao `/workflow` se decisão estiver ausente
+
+---
+
+# Importante
+
+- decisões são soberanas  
+- insights ajustam  
+- sugestões orientam  
+- sistema deve permanecer previsível  
+
+---
+
+# Formato de saída
 
 ## Status
 
-- Decisão tomada
-- Bloqueado por conflito (se aplicável)
+- Decisão tomada  
 
 ---
 
@@ -409,100 +569,46 @@ Exemplos:
 
 ---
 
-### Memória
+### Métricas
 
-- Decisão existente detectada: SIM / NÃO
-- Score da decisão: X/100
-- Tipo de decisão:
-  - Atual
-  - Atualizada (update)
-- Conflito detectado: SIM / NÃO
-- Ação tomada:
-  - Reutilizada
-  - Ajustada
-  - Nova decisão
-  - Bloqueada
+- disponíveis: SIM / NÃO  
+- taxa_reprovação:
 
 ---
 
-### Avaliação geral
+### Insights
 
-- Interpretação da tarefa
-- Justificativa da decisão
-- Uso do score
-- Consideração de conflitos
-- Modo de operação
+- sinais detectados:
+
+---
+
+### Sugestões
+
+- lista de sugestões relevantes  
+- ações disponíveis: aplicar / ignorar  
+
+---
+
+### Estratégia
+
+- Execução: Direta / Planejada  
+- Validação:
 
 ---
 
 ## Problemas
 
-- Ambiguidades
-- Riscos
-- Conflitos detectados
-- Falta de contexto
+- ambiguidades  
+- riscos  
 
 Se não houver:
-→ Nenhum
+→ Nenhum  
 
 ---
 
 ## Próximos passos
 
-Se conflito:
-
-- Revisar decisões no `.agents/memory/decisions.md`
-
-Se EXECUTAR DIRETO:
-
-- Executar `/execute`
-
-Se PLANEJAR PRIMEIRO:
-
-- Executar `/plan`
-
----
-
-## Modelo recomendado
-
-- Nível:
-- Modelo principal:
-- Justificativa
-
-### Modelos alternativos (mesmo nível)
-
-- ...
-
-### Regra de fallback
-
-- Se o modelo principal não estiver disponível, usar a primeira alternativa disponível do mesmo nível.
-- Se nenhuma alternativa do mesmo nível estiver disponível, escalar de nível apenas quando risco/complexidade justificarem.
-- Ordem de tentativa recomendada: principal → alternativa 1 → alternativa 2.
-
----
-
-## Estratégia de execução
-
-- Direta / Planejada
-- Necessidade de escalada
-- Risco de falha
-
----
-
-## Regras
-
-- NÃO implementar
-- NÃO pular análise
-- NÃO ignorar decisões existentes
-- NÃO ignorar score
-- NÃO ignorar conflitos
-
----
-
-## Importante
-
-- Este comando é stateful
-- Deve respeitar memória do projeto
-- Evita decisões duplicadas
-- Usa score para priorização
-- Detecta conflitos antes de decidir
+1. /execute ou /plan  
+2. /review  
+3. /review-code  
+4. /memory-save  

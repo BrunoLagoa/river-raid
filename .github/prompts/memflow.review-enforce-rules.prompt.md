@@ -4,7 +4,7 @@ description: Validação rígida adicional (opcional/recomendada) para cenários
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 Valide rigorosamente qualquer código, plano, decisão ou execução contra as regras do projeto.
@@ -22,7 +22,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base de saída (referência normativa)
@@ -32,6 +32,19 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Regras de uso
+
+- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
+- Campos que podem ser especializados por comando:
+  - vocabulário de `Status`
+  - subseções internas de `Análise` e `Problemas`
+- Invariantes não sobrescrevíveis:
+  - resposta em pt-BR
+  - seção `## Próximos passos` como último `##`
+  - continuidade do fluxo somente em `## Próximos passos`
+- **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
+- **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
 ## Status
 
@@ -56,13 +69,6 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Próximos passos
 
 - Ações concretas para continuidade do fluxo
-
----
-
-## Regras de uso
-
-- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
-- Em caso de conflito entre este arquivo e um comando específico, prevalece o comando específico.
 ### Conteúdo injetado: _shared/base-preconditions.md
 ---
 description: Não é um comando executável. Base compartilhada de pré-condições.
@@ -70,7 +76,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -100,6 +106,7 @@ Se existir memória persistente no projeto:
 - .agents/memory/memory.md
 - .agents/memory/session-memory.md
 - .agents/memory/decisions.md
+- .agents/memory/quality-metrics.md
 
 Então:
 
@@ -137,6 +144,19 @@ Se memória NÃO existir:
 
 ---
 
+## Exceção: comando `/memory-init`
+
+- pode executar bootstrap da estrutura de memória sem contexto prévio
+- após bootstrap, deve exigir reentrada pelo `/context` antes de qualquer execução crítica
+
+---
+
+## Ordem canônica de inicialização
+
+1. `/memory-init` (somente quando estrutura de memória não existir)
+2. `/context` (carregamento obrigatório de contexto e memória)
+3. comandos de decisão/execução (`/workflow`, `/execute`, `/plan`, etc.)
+
 ## Regra de consistência global
 
 - Nenhum comando pode executar sem contexto válido
@@ -149,6 +169,9 @@ Se memória NÃO existir:
 
 - Regras de resolução de caminhos normativos e de `model-policy.md` devem seguir `_shared/target-adapter.md`.
 - Nunca inferir caminhos fora do adaptador de target.
+- Quando o comando ativo já estiver carregado:
+  - assumir a raiz desse comando como contexto de resolução normativa
+  - não solicitar confirmação manual ao usuário sobre localização de `_shared/*.md` e `model-policy.md`
 - Se o adaptador não estiver disponível:
   - reportar ausência
   - NÃO usar fallback
@@ -157,10 +180,12 @@ Se memória NÃO existir:
 
 ## Regra de precedência
 
-- Este arquivo define o padrão global
-- Comandos podem estender essas regras
-- Em caso de conflito:
-  → prevalece o comando específico
+- Este arquivo define invariantes globais de execução.
+- Comandos podem estender regras operacionais, sem invalidar invariantes.
+- Invariantes não sobrescrevíveis:
+  - nenhuma execução crítica sem `/context`
+  - memória disponível não pode ser ignorada
+  - resolução normativa deve seguir `_shared/target-adapter.md`
 
 ---
 
@@ -176,7 +201,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base comum de modo degradado (referência normativa)
@@ -198,7 +223,10 @@ Aplicar este bloco quando `.agents` não estiver disponível, ausente ou incompl
 
 - Este arquivo define o padrão comum.
 - Regras específicas de cada comando podem estender este padrão.
-- Em caso de conflito, prevalece o comando específico.
+- Invariantes não sobrescrevíveis:
+  - ausência de `.agents` não bloqueia automaticamente
+  - limitações devem ser reportadas explicitamente
+  - confiança da análise deve ser reduzida
 ### Conteúdo injetado: _shared/target-adapter.vscode.md
 ---
 description: Não é um comando executável. Adaptador de target para prompts gerados no VSCode.
@@ -206,7 +234,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -228,8 +256,11 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Precedência
 
 - Este adaptador define a resolução para `vscode`.
-- Em caso de conflito com regra específica do comando:
-  - prevalece o comando específico.
+- Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
+- Invariantes não sobrescrevíveis:
+  - `_shared/*.md` devem estar injetados no prompt
+  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - ausência de base normativa necessária bloqueia execução crítica
 
 ---
 
@@ -247,18 +278,15 @@ Este é um **gate rígido opcional**, recomendado antes da conclusão em tarefas
 
 ---
 
-## Formato obrigatório de saída
+## Importante
 
-Responda **sempre** com estes quatro títulos `##`, **nesta ordem** e **com estes nomes exatos**:
+- Este comando é uma validação rígida opcional
+- NÃO permitir continuidade com dúvidas
+- NÃO aprovar parcialmente
+- NÃO ignorar inconsistências
+- Deve garantir consistência total do sistema
 
-1. **Status** — somente `OK` ou `BLOQUEADO`
-2. **Análise** — síntese clara do que foi validado
-3. **Problemas** — lista objetiva de violações ou dúvidas
-4. **Próximos passos** — ações obrigatórias para correção
-
-Não omitir seções
-Não renomear títulos
-Não usar outros `##` principais
+Este comando complementa validações anteriores com um critério mais estrito.
 
 ---
 
@@ -321,6 +349,7 @@ Complementar:
 
 - `/workflow` foi utilizado?
 - A decisão foi respeitada?
+- `/execute` só iniciou após decisão explícita do `/workflow`?
 - `/plan` foi usado quando necessário?
 - `/execute` seguiu corretamente o fluxo?
 - Houve bypass do sistema?
@@ -371,45 +400,19 @@ Observação:
 
 ---
 
-## Problemas
+## Formato obrigatório de saída
 
-Listar:
+Responda **sempre** com estes quatro títulos `##`, **nesta ordem** e **com estes nomes exatos**:
 
-- cada violação encontrada
-- cada dúvida não resolvida
-- limitações de validação (modo degradado)
+1. **Status** — somente `OK` ou `BLOQUEADO`
+2. **Análise** — síntese clara do que foi validado
+3. **Problemas** — lista objetiva de violações ou dúvidas
+4. **Próximos passos** — ações obrigatórias para correção (sempre a **última** seção `##` da resposta)
 
-Se não houver:
-→ Nenhum
+Não omitir seções
+Não renomear títulos
+Não usar outros `##` principais
 
----
+Em **Problemas**, listar cada violação encontrada, cada dúvida não resolvida e limitações de validação em modo degradado; se não houver → **Nenhum**.
 
-## Próximos passos
-
-Se Status = BLOQUEADO:
-
-- listar correções obrigatórias
-- indicar ações como:
-  - `/plan`
-  - `/execute`
-  - `/debug`
-  - `/refactor`
-  - esclarecimento do usuário
-
----
-
-Se Status = OK:
-
-→ Pode continuar
-
----
-
-## Importante
-
-- Este comando é uma validação rígida opcional
-- NÃO permitir continuidade com dúvidas
-- NÃO aprovar parcialmente
-- NÃO ignorar inconsistências
-- Deve garantir consistência total do sistema
-
-Este comando complementa validações anteriores com um critério mais estrito.
+Em **Próximos passos**: se **BLOQUEADO**, listar correções obrigatórias e indicar ações como `/plan`, `/execute`, `/debug`, `/refactor` ou esclarecimento do usuário; se **OK** → pode continuar.

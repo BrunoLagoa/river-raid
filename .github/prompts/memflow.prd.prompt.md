@@ -1,10 +1,10 @@
 ---
 name: prd
-description: Transforma ideia ou problema em PRD com 8 seções (contexto, objetivo, persona, escopo, regras de negócio, fluxo funcional, critérios de aceite, riscos). Entrada: ideia + contexto + objetivo desejado. Base do sistema — alimenta /spec → /plan → /execute. Não implementa. Bloqueia se faltar informação ou houver ambiguidade.
+description: Transforma ideia ou problema em um PRD estruturado, mensurável e pronto para execução. Inclui definição estratégica, experiência do usuário, requisitos técnicos e critérios de validação. Base do sistema — alimenta /spec → /plan → /execute. Não implementa. Em ambiguidade ou trade-off, pode apresentar opções e bloqueia até decisão do usuário. Bloqueia se faltar informação ou houver ambiguidade não resolvida.
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "2.1.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,19 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Regras de uso
+
+- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
+- Campos que podem ser especializados por comando:
+  - vocabulário de `Status`
+  - subseções internas de `Análise` e `Problemas`
+- Invariantes não sobrescrevíveis:
+  - resposta em pt-BR
+  - seção `## Próximos passos` como último `##`
+  - continuidade do fluxo somente em `## Próximos passos`
+- **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
+- **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
 ## Status
 
@@ -52,13 +65,6 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Próximos passos
 
 - Ações concretas para continuidade do fluxo
-
----
-
-## Regras de uso
-
-- Se um comando tiver formato próprio mais específico, ele pode estender este padrão.
-- Em caso de conflito entre este arquivo e um comando específico, prevalece o comando específico.
 ### Conteúdo injetado: _shared/base-preconditions.md
 ---
 description: Não é um comando executável. Base compartilhada de pré-condições.
@@ -66,7 +72,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -96,6 +102,7 @@ Se existir memória persistente no projeto:
 - .agents/memory/memory.md
 - .agents/memory/session-memory.md
 - .agents/memory/decisions.md
+- .agents/memory/quality-metrics.md
 
 Então:
 
@@ -133,6 +140,19 @@ Se memória NÃO existir:
 
 ---
 
+## Exceção: comando `/memory-init`
+
+- pode executar bootstrap da estrutura de memória sem contexto prévio
+- após bootstrap, deve exigir reentrada pelo `/context` antes de qualquer execução crítica
+
+---
+
+## Ordem canônica de inicialização
+
+1. `/memory-init` (somente quando estrutura de memória não existir)
+2. `/context` (carregamento obrigatório de contexto e memória)
+3. comandos de decisão/execução (`/workflow`, `/execute`, `/plan`, etc.)
+
 ## Regra de consistência global
 
 - Nenhum comando pode executar sem contexto válido
@@ -145,6 +165,9 @@ Se memória NÃO existir:
 
 - Regras de resolução de caminhos normativos e de `model-policy.md` devem seguir `_shared/target-adapter.md`.
 - Nunca inferir caminhos fora do adaptador de target.
+- Quando o comando ativo já estiver carregado:
+  - assumir a raiz desse comando como contexto de resolução normativa
+  - não solicitar confirmação manual ao usuário sobre localização de `_shared/*.md` e `model-policy.md`
 - Se o adaptador não estiver disponível:
   - reportar ausência
   - NÃO usar fallback
@@ -153,10 +176,12 @@ Se memória NÃO existir:
 
 ## Regra de precedência
 
-- Este arquivo define o padrão global
-- Comandos podem estender essas regras
-- Em caso de conflito:
-  → prevalece o comando específico
+- Este arquivo define invariantes globais de execução.
+- Comandos podem estender regras operacionais, sem invalidar invariantes.
+- Invariantes não sobrescrevíveis:
+  - nenhuma execução crítica sem `/context`
+  - memória disponível não pode ser ignorada
+  - resolução normativa deve seguir `_shared/target-adapter.md`
 
 ---
 
@@ -172,7 +197,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Base comum de modo degradado (referência normativa)
@@ -194,7 +219,10 @@ Aplicar este bloco quando `.agents` não estiver disponível, ausente ou incompl
 
 - Este arquivo define o padrão comum.
 - Regras específicas de cada comando podem estender este padrão.
-- Em caso de conflito, prevalece o comando específico.
+- Invariantes não sobrescrevíveis:
+  - ausência de `.agents` não bloqueia automaticamente
+  - limitações devem ser reportadas explicitamente
+  - confiança da análise deve ser reduzida
 ### Conteúdo injetado: _shared/target-adapter.vscode.md
 ---
 description: Não é um comando executável. Adaptador de target para prompts gerados no VSCode.
@@ -202,7 +230,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -224,8 +252,11 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Precedência
 
 - Este adaptador define a resolução para `vscode`.
-- Em caso de conflito com regra específica do comando:
-  - prevalece o comando específico.
+- Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
+- Invariantes não sobrescrevíveis:
+  - `_shared/*.md` devem estar injetados no prompt
+  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - ausência de base normativa necessária bloqueia execução crítica
 
 ---
 
@@ -235,8 +266,10 @@ Transformar uma ideia ou problema em um PRD:
 
 - claro
 - completo
+- mensurável
 - sem ambiguidades
 - pronto para alimentar `/spec` e `/plan`
+- utilizável como fonte única de verdade
 
 ---
 
@@ -247,6 +280,7 @@ Este comando:
 - é a base do sistema
 - alimenta `/spec` → `/plan` → `/execute`
 - influencia decisões do `/workflow`
+- define escopo e limites do sistema
 
 ---
 
@@ -255,7 +289,8 @@ Este comando:
 Este comando deve:
 
 - utilizar modelo intermediário ou superior
-- priorizar clareza e definição correta do problema
+- priorizar precisão sobre velocidade
+- evitar inferências não validadas
 
 ---
 
@@ -268,46 +303,101 @@ O usuário deve fornecer:
 - objetivo desejado
 
 Se incompleto:
-→ solicitar mais informações antes de continuar
+→ solicitar mais informações antes de continuar (OBRIGATÓRIO)
 
 ---
 
-## Estrutura do PRD
+## Fase obrigatória: Discovery (ANTES DE GERAR PRD)
 
-### 1. Contexto
+Antes de gerar o PRD, validar:
 
-- Problema que está sendo resolvido
-- Por que é importante
+- Qual problema real está sendo resolvido?
+- Por que isso é importante agora?
+- Como o sucesso será medido?
+- Existem restrições técnicas ou de negócio?
+
+Se qualquer resposta estiver indefinida:
+→ BLOQUEAR geração do PRD
+
+### Ambiguidade, trade-offs e escolha do usuário
+
+Quando houver **mais de uma interpretação válida**, **trade-off relevante** entre alternativas ou **conflito de escopo/comportamento** ainda não decidido pelo usuário:
+
+- **Não** escolher sozinho a direção de produto, escopo ou comportamento esperado.
+- Apresentar **2 a 4 opções** com prós e contras breves; pode incluir **recomendação fundamentada**, sem substituir a decisão do usuário.
+- **BLOQUEAR** a geração (ou continuação) do PRD até o usuário **escolher uma opção** ou **definir critério decisório** explícito.
 
 ---
 
-### 2. Objetivo
+# Estrutura do PRD
+
+---
+
+## 1. Executive Summary
+
+### Problem Statement
+- Descrição objetiva do problema (1–2 frases)
+
+### Proposed Solution
+- Descrição objetiva da solução (1–2 frases)
+
+### Success Criteria (KPIs obrigatórios)
+- Métricas mensuráveis
+- Devem conter valor numérico + condição
+
+Exemplo:
+- Tempo de resposta < 200ms em 95% dos casos
+- Taxa de sucesso ≥ 90%
+
+---
+
+## 2. Contexto
+
+- Cenário atual
+- Impacto do problema
+- Por que resolver isso agora
+
+---
+
+## 3. Objetivo
 
 - Resultado esperado
-- Métrica de sucesso (se possível)
+- KPIs obrigatórios (não opcional)
 
 ---
 
-### 3. Usuário / Persona
+## 4. Usuário e Experiência
 
+### Personas
 - Quem será impactado
 - Dor atual
 
+### User Stories (OBRIGATÓRIO)
+Formato:
+> As a [user], I want to [action] so that [benefit]
+
+### Critérios de aceite por história (OBRIGATÓRIO)
+
+**Escopo:** cada User Story acima.
+
+- O que precisa ser verdadeiro para **aquela história** estar pronta (incluir referência à história).
+- Casos positivos e negativos **no recorte da história** (comportamento, dados, permissões).
+- **Não** repetir aqui a validação global da entrega ou do incremento — isso fica na seção **11** (nível PRD / release).
+
 ---
 
-### 4. Escopo
+## 5. Escopo
 
-#### Inclui:
-
+### Inclui
 - Lista clara do que será feito
 
-#### Não inclui:
-
-- O que está fora do escopo
+### Non-Goals (OBRIGATÓRIO)
+- O que NÃO será feito nesta fase
+- Decisões conscientes de exclusão
 
 ---
 
-### 5. Regras de negócio
+## 6. Regras de negócio
 
 - Regras obrigatórias
 - Restrições
@@ -315,26 +405,70 @@ Se incompleto:
 
 ---
 
-### 6. Fluxo funcional
+## 7. AI Requirements (Se aplicável)
 
-- Passo a passo da interação do usuário
+### Modelos e ferramentas
+- LLMs utilizados
+- APIs externas
+- Ferramentas auxiliares
+
+### Estratégia de fallback
+- O que acontece em falhas
+
+---
+
+## 8. Estratégia de Avaliação
+
+- Como validar qualidade
+- Benchmarks
+- Métricas de precisão
+- Testes obrigatórios
+
+Exemplo:
+- ≥ 85% precisão
+- ≤ 5% inconsistência
+
+---
+
+## 9. Especificação Técnica
+
+### Arquitetura (alto nível)
+- Fluxo de dados
+- Componentes
+
+### Integrações
+- APIs
+- Banco de dados
+- autenticação
+
+### Segurança
+- tratamento de dados
+- privacidade
+
+---
+
+## 10. Fluxo funcional
+
+- Passo a passo da interação
 - Comportamento do sistema
 
 ---
 
-### 7. Critérios de aceite
+## 11. Critérios de aceite (nível PRD / release)
 
-- Como validar sucesso
-- Casos positivos
-- Casos de erro
+**Escopo:** conjunto da entrega, incremento ou objetivo deste PRD — não substitui os critérios **por história** da seção 4.
+
+- Como validar sucesso **do todo** (demo, go-live, critérios de aceite de release).
+- Casos positivos e de erro **transversais** (fluxos ponta a ponta, integrações, SLAs agregados, regressão esperada).
+- Deve ser **consistente** com os critérios por história (seção 4); **não** contradizer.
 
 ---
 
-### 8. Riscos e dúvidas
+## 12. Riscos e dependências
 
 - Pontos indefinidos
 - Dependências externas
-- Possíveis conflitos
+- riscos técnicos
 
 ---
 
@@ -360,7 +494,20 @@ Antes de finalizar, responder:
 
 - Se houver ambiguidade → PARAR
 - Se faltar informação → PARAR
-- Se houver conflito com `.agents` → PARAR
+- Se KPIs não forem definidos → PARAR
+- Se não houver Non-Goals → PARAR
+- Se Discovery não foi realizado → PARAR
+- Se existir ambiguidade/trade-off não resolvido e o usuário ainda não escolheu opção nem critério decisório (ver *Ambiguidade, trade-offs e escolha do usuário*) → PARAR
+
+---
+
+## Importante
+
+- NÃO implementar
+- NÃO gerar código
+- NÃO assumir comportamento
+- NÃO inventar requisitos
+- Este comando define a base de todo o sistema
 
 ---
 
@@ -413,12 +560,3 @@ Se incompleto:
 
 - Ajustar PRD
 - Solicitar mais informações
-
----
-
-## Importante
-
-- NÃO implementar
-- NÃO gerar código
-- NÃO assumir comportamento
-- Este comando define a base de todo o sistema
