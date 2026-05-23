@@ -4,7 +4,7 @@ description: Cria plano de implementação detalhado quando /workflow decide PLA
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.3.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,14 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Invariantes de identidade do sistema (anti-compaction)
+
+- Preservar o contexto operacional do projeto **Memflow Command System** em todas as respostas.
+- Tratar as regras normativas compartilhadas como invariantes recarregáveis em qualquer retomada de contexto.
+- Em caso de resumo/compactação de contexto pela LLM, revalidar explicitamente:
+  - idioma obrigatório (pt-BR)
+  - identidade e escopo do projeto (Memflow)
 
 ## Regras de uso
 
@@ -39,6 +47,7 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
   - resposta em pt-BR
   - seção `## Próximos passos` como último `##`
   - continuidade do fluxo somente em `## Próximos passos`
+- Nunca executar automaticamente o próximo comando do fluxo sem confirmação explícita do usuário.
 - **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
 - **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
@@ -72,7 +81,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.2.0"
+  version: "1.4.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -92,6 +101,37 @@ Se NÃO:
 - BLOQUEAR execução
 - Solicitar execução de `/context`
 - NÃO continuar
+
+---
+
+## Invariantes anti-compaction (OBRIGATÓRIO)
+
+Antes de qualquer comando operacional (exceto `/context`), validar se o `/context` confirmou:
+
+- idioma obrigatório: pt-BR
+- identidade e escopo do projeto: Memflow Command System
+
+Se invariantes estiverem ausentes ou com falha:
+
+- BLOQUEAR execução
+- exigir nova execução de `/context`
+- NÃO continuar em modo parcial silencioso
+
+---
+
+## Checklist de continuidade segura (anti-bypass)
+
+Antes de seguir para qualquer etapa crítica, confirmar:
+
+- decisão explícita do `/workflow` disponível (quando aplicável)
+- invariantes anti-compaction válidos (pt-BR + Memflow)
+- confirmação explícita do usuário antes de executar o próximo comando do fluxo
+
+Se qualquer item falhar:
+
+- BLOQUEAR continuidade
+- registrar problema no output
+- solicitar ação corretiva antes de prosseguir
 
 ---
 
@@ -158,6 +198,7 @@ Se memória NÃO existir:
 - Nenhum comando pode executar sem contexto válido
 - Nenhum comando pode ignorar memória disponível
 - Evitar execução com contexto parcial ou inconsistente
+- Nenhum comando crítico pode executar sem invariantes anti-compaction válidos
 
 ---
 
@@ -182,6 +223,7 @@ Se memória NÃO existir:
   - nenhuma execução crítica sem `/context`
   - memória disponível não pode ser ignorada
   - resolução normativa deve seguir `_shared/target-adapter.md`
+  - invariantes anti-compaction (pt-BR + Memflow) devem estar válidos antes de execução crítica
 
 ---
 
@@ -461,12 +503,18 @@ Regra:
 
 ---
 
-## Fallback por indisponibilidade de modelo
+## Fallback por indisponibilidade ou degradação operacional
 
-Quando o modelo principal não estiver disponível:
+Acionar fallback para alternativas do mesmo nível quando houver:
+
+- indisponibilidade do modelo principal
+- limite/cota atingido
+- latência instável que comprometa continuidade
+
+Fluxo:
 
 1. tentar alternativas do mesmo nível na ordem definida
-2. se nenhuma alternativa estiver disponível, reavaliar risco e complexidade
+2. se nenhuma alternativa estiver disponível/viável, reavaliar risco e complexidade
 3. escalar para nível superior apenas se necessário
 
 Não permitido:
@@ -678,12 +726,38 @@ Se NÃO:
 
 ---
 
+## Confirmação obrigatória de salvamento (ANTES de qualquer planejamento)
+
+Antes de iniciar a análise e criação do plano, PERGUNTAR ao usuário:
+
+- Deseja salvar o plano que será criado para manter os dados documentados?
+
+Apresentar obrigatoriamente opções claras:
+
+- Sim, salvar o plano
+- Não, apenas mostrar no chat
+
+Regras:
+
+- NÃO iniciar o planejamento antes da resposta do usuário
+- Se a resposta estiver ambígua, perguntar novamente usando as mesmas opções
+- Se já existir preferência explícita de salvamento na sessão atual, reutilizar essa preferência por padrão e apenas confirmar quando houver mudança solicitada
+- Registrar no plano a preferência escolhida (salvar ou não salvar)
+- Se o usuário escolher salvar, incluir no plano onde o conteúdo será documentado
+- Se o usuário escolher salvar, estruturar o documento como plano vivo com checklist de progresso por tarefa/subtarefa para atualização durante `/execute`
+
+---
+
 ## Regras específicas
 
 - NÃO planejar com base em suposição
 - NÃO criar arquivos sem validar necessidade
 - NÃO ignorar padrões existentes
-- Sugestão: se a atividade envolver muitas áreas, arquivos ou dependências, quebrar em tarefas menores/subtarefas para facilitar desenvolvimento, validação e acompanhamento
+- DEVE dimensionar a quantidade de tarefas conforme complexidade e escopo real, sem reutilizar quantidade fixa entre planos
+- DEVE aplicar sizing dinâmico para passos de implementação:
+  - baixa complexidade: 3-5 tarefas
+  - média complexidade: 6-10 tarefas
+  - alta complexidade: 10+ tarefas com subtarefas obrigatórias
 
 ---
 
@@ -736,6 +810,13 @@ Se `.agents` NÃO estiver disponível:
 
 ---
 
+### Preferência de salvamento
+
+- Decisão do usuário: Salvar / Não salvar
+- Quando salvar: destino de documentação definido
+
+---
+
 ### Regras aplicáveis
 
 - `.agents` relevantes (ou ausência em modo degradado)
@@ -754,7 +835,12 @@ Se `.agents` NÃO estiver disponível:
 
 - sequência clara e executável
 - baseada em estrutura real (quando possível)
-- quando a atividade for grande, sugerir divisão em tarefas menores/subtarefas para facilitar execução
+- quantidade de tarefas definida por sizing dinâmico (complexidade + escopo real), sem quantidade fixa reutilizada entre planos
+- para alta complexidade, incluir obrigatoriamente subtarefas
+- checklist final obrigatório de granularidade: cada item pode ser executado sem ambiguidades?
+- classificar cada tarefa como:
+  - `[P]` paralelizável (pode executar em paralelo)
+  - `[S]` sequencial (depende de ordem)
 
 ---
 
@@ -783,6 +869,55 @@ Se `.agents` NÃO estiver disponível:
 ### Critérios de sucesso
 
 - como validar após `/execute`
+
+---
+
+### Rastreamento de execução (Plano vivo)
+
+- obrigatório quando a preferência for salvar o plano
+- incluir checklist por tarefa/subtarefa com status: pendente / em andamento / concluída / bloqueada
+- incluir último checkpoint de execução e próximo passo objetivo para retomada
+- incluir marcador de modo de execução por tarefa/subtarefa:
+  - `[P]` paralelizável
+  - `[S]` sequencial
+- usar template padrão de checklist para consistência:
+  - `[ ]` pendente
+  - `[-]` em andamento
+  - `[x]` concluída
+  - `[!]` bloqueada
+- critérios obrigatórios para marcar `[P]`:
+  - sem dependência de saída de outra tarefa
+  - sem conflito previsível de arquivos/áreas críticas
+  - sem bloqueio por estado compartilhado sensível
+  - com merge e rollback isoláveis
+- se qualquer critério falhar, classificar como `[S]`
+- aplicar consistência de status entre tarefa pai e subtarefas:
+  - tarefa pai só pode ser `[x]` quando todas as subtarefas estiverem `[x]`
+  - se existir subtarefa `[-]`, a tarefa pai deve ficar `[-]`
+  - se existir subtarefa `[!]`, a tarefa pai não pode ficar `[x]`
+  - manter atualização em ordem top-down (tarefa pai -> subtarefa) para evitar divergência
+- para itens `[!]` (bloqueada), registrar obrigatoriamente:
+  - motivo objetivo do bloqueio
+  - ação necessária para desbloqueio
+  - responsável esperado pela ação (usuário, agente ou sistema externo)
+  - critério de saída do bloqueio para retornar a `[ ]` ou `[-]`
+
+Template base recomendado:
+
+```md
+### Progresso de execução
+
+- [P][ ] Tarefa 1
+  - [S][-] Subtarefa 1.1
+  - [P][x] Subtarefa 1.2
+- [S][!] Tarefa 2 (motivo do bloqueio)
+  - Ação de desbloqueio: <ação objetiva>
+  - Responsável: <usuário | agente | sistema externo>
+  - Critério de saída: <condição para voltar a [ ] ou [-]>
+
+Último checkpoint: <resumo objetivo do último ponto executado>
+Próximo passo: <ação objetiva para retomada>
+```
 
 ---
 
@@ -817,9 +952,18 @@ Se não houver:
 
 ---
 
-## Modelo recomendado
+## Modelo principal e alternativas
 
-- Modelo: (ex: GPT-5.4)
+- Nível recomendado: (free/econômico/intermediário/avançado)
+- Modelo principal: (ex: GPT-5.4)
+- Modelos alternativos (2-3, mesmo nível):
+  - alternativa 1
+  - alternativa 2
+  - alternativa 3 (opcional)
+- Quando usar alternativas:
+  - indisponibilidade do modelo principal
+  - limite/cota atingido
+  - latência instável
 - Justificativa:
   - complexidade
   - impacto
@@ -832,3 +976,4 @@ Se não houver:
 - Aguardar confirmação
 - Ajustar plano (se necessário)
 - Seguir para `/execute`
+- Quando houver plano salvo: manter o checklist e checkpoint atualizados durante a execução

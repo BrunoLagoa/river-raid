@@ -4,7 +4,7 @@ description: Validação rígida adicional (opcional/recomendada) para cenários
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 Valide rigorosamente qualquer código, plano, decisão ou execução contra as regras do projeto.
@@ -22,7 +22,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.3.0"
 ---
 
 # Base de saída (referência normativa)
@@ -32,6 +32,14 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Invariantes de identidade do sistema (anti-compaction)
+
+- Preservar o contexto operacional do projeto **Memflow Command System** em todas as respostas.
+- Tratar as regras normativas compartilhadas como invariantes recarregáveis em qualquer retomada de contexto.
+- Em caso de resumo/compactação de contexto pela LLM, revalidar explicitamente:
+  - idioma obrigatório (pt-BR)
+  - identidade e escopo do projeto (Memflow)
 
 ## Regras de uso
 
@@ -43,6 +51,7 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
   - resposta em pt-BR
   - seção `## Próximos passos` como último `##`
   - continuidade do fluxo somente em `## Próximos passos`
+- Nunca executar automaticamente o próximo comando do fluxo sem confirmação explícita do usuário.
 - **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
 - **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
@@ -76,7 +85,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.2.0"
+  version: "1.4.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -96,6 +105,37 @@ Se NÃO:
 - BLOQUEAR execução
 - Solicitar execução de `/context`
 - NÃO continuar
+
+---
+
+## Invariantes anti-compaction (OBRIGATÓRIO)
+
+Antes de qualquer comando operacional (exceto `/context`), validar se o `/context` confirmou:
+
+- idioma obrigatório: pt-BR
+- identidade e escopo do projeto: Memflow Command System
+
+Se invariantes estiverem ausentes ou com falha:
+
+- BLOQUEAR execução
+- exigir nova execução de `/context`
+- NÃO continuar em modo parcial silencioso
+
+---
+
+## Checklist de continuidade segura (anti-bypass)
+
+Antes de seguir para qualquer etapa crítica, confirmar:
+
+- decisão explícita do `/workflow` disponível (quando aplicável)
+- invariantes anti-compaction válidos (pt-BR + Memflow)
+- confirmação explícita do usuário antes de executar o próximo comando do fluxo
+
+Se qualquer item falhar:
+
+- BLOQUEAR continuidade
+- registrar problema no output
+- solicitar ação corretiva antes de prosseguir
 
 ---
 
@@ -162,6 +202,7 @@ Se memória NÃO existir:
 - Nenhum comando pode executar sem contexto válido
 - Nenhum comando pode ignorar memória disponível
 - Evitar execução com contexto parcial ou inconsistente
+- Nenhum comando crítico pode executar sem invariantes anti-compaction válidos
 
 ---
 
@@ -186,6 +227,7 @@ Se memória NÃO existir:
   - nenhuma execução crítica sem `/context`
   - memória disponível não pode ser ignorada
   - resolução normativa deve seguir `_shared/target-adapter.md`
+  - invariantes anti-compaction (pt-BR + Memflow) devem estar válidos antes de execução crítica
 
 ---
 
@@ -465,12 +507,18 @@ Regra:
 
 ---
 
-## Fallback por indisponibilidade de modelo
+## Fallback por indisponibilidade ou degradação operacional
 
-Quando o modelo principal não estiver disponível:
+Acionar fallback para alternativas do mesmo nível quando houver:
+
+- indisponibilidade do modelo principal
+- limite/cota atingido
+- latência instável que comprometa continuidade
+
+Fluxo:
 
 1. tentar alternativas do mesmo nível na ordem definida
-2. se nenhuma alternativa estiver disponível, reavaliar risco e complexidade
+2. se nenhuma alternativa estiver disponível/viável, reavaliar risco e complexidade
 3. escalar para nível superior apenas se necessário
 
 Não permitido:
@@ -635,8 +683,8 @@ Complementar:
 1. NÃO aceitar violações
 2. NÃO flexibilizar regras
 3. NÃO assumir comportamento implícito
-
-4. Se houver **qualquer dúvida ou ambiguidade**:
+4. NÃO validar como OK se invariantes anti-compaction (pt-BR + Memflow) estiverem ausentes/falhos
+5. Se houver **qualquer dúvida ou ambiguidade**:
 
 → considerar como violação
 → status = **BLOQUEADO**
@@ -677,6 +725,7 @@ Complementar:
 - `/plan` foi usado quando necessário?
 - `/execute` seguiu corretamente o fluxo?
 - Houve bypass do sistema?
+- invariantes anti-compaction (pt-BR + Memflow) estavam válidos?
 
 ---
 
@@ -717,6 +766,7 @@ Status = **BLOQUEADO** se houver:
 - ausência de planejamento quando necessário
 - uso incorreto de modelo (contra `model-policy.md` do target ativo via `_shared/target-adapter.md`)
 - ambiguidade não resolvida
+- falha de invariantes anti-compaction (pt-BR + Memflow)
 
 Observação:
 
@@ -740,3 +790,4 @@ Não usar outros `##` principais
 Em **Problemas**, listar cada violação encontrada, cada dúvida não resolvida e limitações de validação em modo degradado; se não houver → **Nenhum**.
 
 Em **Próximos passos**: se **BLOQUEADO**, listar correções obrigatórias e indicar ações como `/plan`, `/execute`, `/debug`, `/refactor` ou esclarecimento do usuário; se **OK** → pode continuar.
+Sempre incluir que qualquer novo comando depende de confirmação explícita do usuário.

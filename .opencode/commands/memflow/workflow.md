@@ -4,7 +4,7 @@ description: Orquestrador central — decide execução, validação e adapta co
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "9.2.0"
+  version: "9.6.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.3.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,14 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Invariantes de identidade do sistema (anti-compaction)
+
+- Preservar o contexto operacional do projeto **Memflow Command System** em todas as respostas.
+- Tratar as regras normativas compartilhadas como invariantes recarregáveis em qualquer retomada de contexto.
+- Em caso de resumo/compactação de contexto pela LLM, revalidar explicitamente:
+  - idioma obrigatório (pt-BR)
+  - identidade e escopo do projeto (Memflow)
 
 ## Regras de uso
 
@@ -39,6 +47,7 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
   - resposta em pt-BR
   - seção `## Próximos passos` como último `##`
   - continuidade do fluxo somente em `## Próximos passos`
+- Nunca executar automaticamente o próximo comando do fluxo sem confirmação explícita do usuário.
 - **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
 - **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
@@ -72,7 +81,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.2.0"
+  version: "1.4.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -92,6 +101,37 @@ Se NÃO:
 - BLOQUEAR execução
 - Solicitar execução de `/context`
 - NÃO continuar
+
+---
+
+## Invariantes anti-compaction (OBRIGATÓRIO)
+
+Antes de qualquer comando operacional (exceto `/context`), validar se o `/context` confirmou:
+
+- idioma obrigatório: pt-BR
+- identidade e escopo do projeto: Memflow Command System
+
+Se invariantes estiverem ausentes ou com falha:
+
+- BLOQUEAR execução
+- exigir nova execução de `/context`
+- NÃO continuar em modo parcial silencioso
+
+---
+
+## Checklist de continuidade segura (anti-bypass)
+
+Antes de seguir para qualquer etapa crítica, confirmar:
+
+- decisão explícita do `/workflow` disponível (quando aplicável)
+- invariantes anti-compaction válidos (pt-BR + Memflow)
+- confirmação explícita do usuário antes de executar o próximo comando do fluxo
+
+Se qualquer item falhar:
+
+- BLOQUEAR continuidade
+- registrar problema no output
+- solicitar ação corretiva antes de prosseguir
 
 ---
 
@@ -158,6 +198,7 @@ Se memória NÃO existir:
 - Nenhum comando pode executar sem contexto válido
 - Nenhum comando pode ignorar memória disponível
 - Evitar execução com contexto parcial ou inconsistente
+- Nenhum comando crítico pode executar sem invariantes anti-compaction válidos
 
 ---
 
@@ -182,6 +223,7 @@ Se memória NÃO existir:
   - nenhuma execução crítica sem `/context`
   - memória disponível não pode ser ignorada
   - resolução normativa deve seguir `_shared/target-adapter.md`
+  - invariantes anti-compaction (pt-BR + Memflow) devem estar válidos antes de execução crítica
 
 ---
 
@@ -461,12 +503,18 @@ Regra:
 
 ---
 
-## Fallback por indisponibilidade de modelo
+## Fallback por indisponibilidade ou degradação operacional
 
-Quando o modelo principal não estiver disponível:
+Acionar fallback para alternativas do mesmo nível quando houver:
+
+- indisponibilidade do modelo principal
+- limite/cota atingido
+- latência instável que comprometa continuidade
+
+Fluxo:
 
 1. tentar alternativas do mesmo nível na ordem definida
-2. se nenhuma alternativa estiver disponível, reavaliar risco e complexidade
+2. se nenhuma alternativa estiver disponível/viável, reavaliar risco e complexidade
 3. escalar para nível superior apenas se necessário
 
 Não permitido:
@@ -600,6 +648,7 @@ Decidir:
 - decisions.md
 - quality-metrics.md
 - decision-suggestions.md
+- skills disponíveis no projeto (quando existirem)
 - model-policy
 
 ---
@@ -609,19 +658,36 @@ Decidir:
 Ordem obrigatória:
 
 1. **decisions.md (sempre prevalece)**
-2. **regras do workflow**
-3. **insights (ajuste leve)**
-4. **decision-suggestions (modo assistido)**
+2. **skills aplicáveis (quando existirem)**
+3. **regras do workflow**
+4. **insights (ajuste leve)**
+5. **decision-suggestions (modo assistido)**
 
 ---
 
 ## Regras
 
 - decisões explícitas NUNCA podem ser sobrescritas  
+- skills disponíveis e aplicáveis NÃO podem ser ignoradas
 - insights apenas ajustam comportamento  
 - sugestões NUNCA executam automaticamente  
 - em caso de conflito → respeitar ordem acima  
 - `/workflow` é a única origem de decisão de estratégia (`/execute` vs `/plan`)
+- NÃO prosseguir sem invariantes anti-compaction validados pelo `/context`
+- quando houver decisão pendente no `## Próximos passos`, usar diálogo estruturado com opções selecionáveis
+
+---
+
+## Decisões pendentes no `## Próximos passos` (OBRIGATÓRIO)
+
+Quando o `/workflow` depender de uma escolha do usuário para seguir (ex.: definir escopo, priorizar fase, escolher direção de implementação):
+
+- apresentar opções em diálogo estruturado e selecionável
+- evitar solicitação aberta de digitação quando houver opções concretas
+- permitir opção `Outra` quando fizer sentido para não limitar o usuário
+- se o usuário escolher `Outra`, solicitar detalhe em seguida (texto livre apenas nessa etapa)
+- se a resposta vier ambígua, repetir o mesmo diálogo estruturado até haver seleção explícita
+- registrar na análise/problemas que existe decisão pendente e qual escolha foi feita quando respondido
 
 ---
 
@@ -682,7 +748,13 @@ Para cada sugestão:
 
 ## 🆕 Limite de uso (CRÍTICO)
 
-- considerar no máximo **2 sugestões por execução**
+- aplicar limite dinâmico por execução:
+  - baixa complexidade e baixo risco: no máximo **2 sugestões**
+  - média complexidade ou risco médio: no máximo **3 sugestões**
+  - alta complexidade ou alto risco: no máximo **4 sugestões**
+- quando houver mais sugestões elegíveis que o limite, priorizar por:
+  - maior impacto
+  - maior confiança
 
 ---
 
@@ -690,6 +762,43 @@ Para cada sugestão:
 
 - NÃO aplicar automaticamente  
 - apenas sugerir  
+
+---
+
+# Etapa 0.8 — Skills do projeto (OBRIGATÓRIO)
+
+Se o `/context` indicar skills disponíveis no projeto:
+
+- identificar skills relevantes para a tarefa atual
+- registrar quais skills devem ser usadas antes da continuidade
+- orientar uso explícito das skills aplicáveis
+
+Se houver skill claramente aplicável:
+
+- NÃO avançar para execução direta sem orientar uso da skill
+
+Se a aplicabilidade estiver ambígua:
+
+- solicitar confirmação objetiva ao usuário antes de seguir
+
+---
+
+# Etapa 0.9 — Gate de invariantes anti-compaction (OBRIGATÓRIO)
+
+Validar se o `/context` confirmou invariantes:
+
+- idioma pt-BR validado
+- identidade Memflow validada
+
+Se status vier como `Reidratados`:
+
+- permitir continuidade normal
+- registrar no output que houve recuperação pós-compaction
+
+Se status vier como `Falhou` ou ausente:
+
+- BLOQUEAR decisão do workflow
+- exigir nova execução de `/context`
 
 ---
 
@@ -843,6 +952,7 @@ Obrigatório quando:
 - NÃO ignorar métricas  
 - NÃO ignorar insights  
 - NÃO ignorar sugestões  
+- NÃO ignorar skills aplicáveis
 - limitar influência de sugestões  
 
 ---
@@ -913,6 +1023,22 @@ Obrigatório quando:
 
 ---
 
+### Skills
+
+- disponíveis no projeto: SIM / NÃO
+- skills aplicáveis para a tarefa:
+- ação: usar skill agora / não aplicável (justificar)
+
+---
+
+### Invariantes anti-compaction
+
+- idioma pt-BR: OK / Falhou
+- identidade Memflow: OK / Falhou
+- re-hidratação necessária: SIM / NÃO
+
+---
+
 ### Estratégia
 
 - Execução: Direta / Planejada  
@@ -924,6 +1050,7 @@ Obrigatório quando:
 
 - ambiguidades  
 - riscos  
+- falha de invariantes anti-compaction (quando houver)
 
 Se não houver:
 → Nenhum  
@@ -936,3 +1063,6 @@ Se não houver:
 2. /review  
 3. /review-code  
 4. /memory-save  
+5. Se houver skill aplicável: usar a skill antes de continuar
+6. Se invariantes anti-compaction falharem: reexecutar `/context`
+7. Se houver decisão pendente para continuidade: abrir diálogo de opções selecionáveis antes de avançar

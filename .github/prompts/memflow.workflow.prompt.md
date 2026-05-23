@@ -4,7 +4,7 @@ description: Orquestrador central — decide execução, validação e adapta co
 license: MIT
 metadata:
   author: BrunoCastro
-  version: "9.2.0"
+  version: "9.6.0"
 ---
 
 ## Referência normativa comum
@@ -18,7 +18,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.3.0"
 ---
 
 # Base de saída (referência normativa)
@@ -28,6 +28,14 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
 ## Idioma obrigatório
 
 - Todas as respostas e comunicações devem ser em **Português do Brasil (pt-BR)**.
+
+## Invariantes de identidade do sistema (anti-compaction)
+
+- Preservar o contexto operacional do projeto **Memflow Command System** em todas as respostas.
+- Tratar as regras normativas compartilhadas como invariantes recarregáveis em qualquer retomada de contexto.
+- Em caso de resumo/compactação de contexto pela LLM, revalidar explicitamente:
+  - idioma obrigatório (pt-BR)
+  - identidade e escopo do projeto (Memflow)
 
 ## Regras de uso
 
@@ -39,6 +47,7 @@ Aplicar obrigatoriamente este formato base de resposta em comandos do sistema:
   - resposta em pt-BR
   - seção `## Próximos passos` como último `##`
   - continuidade do fluxo somente em `## Próximos passos`
+- Nunca executar automaticamente o próximo comando do fluxo sem confirmação explícita do usuário.
 - **`## Próximos passos` é sempre o último `##` da resposta:** não incluir nenhuma outra seção com título `##` depois de `## Próximos passos`.
 - **Continuidade do fluxo só em `## Próximos passos`:** não usar bullets ou linhas do tipo `Próximo passo:` fora dessa seção (inclui modos compacto, ultra-light ou qualquer resumo intermediário).
 
@@ -72,7 +81,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.2.0"
+  version: "1.4.0"
 ---
 
 # Base comum de pré-condições (referência normativa)
@@ -92,6 +101,37 @@ Se NÃO:
 - BLOQUEAR execução
 - Solicitar execução de `/context`
 - NÃO continuar
+
+---
+
+## Invariantes anti-compaction (OBRIGATÓRIO)
+
+Antes de qualquer comando operacional (exceto `/context`), validar se o `/context` confirmou:
+
+- idioma obrigatório: pt-BR
+- identidade e escopo do projeto: Memflow Command System
+
+Se invariantes estiverem ausentes ou com falha:
+
+- BLOQUEAR execução
+- exigir nova execução de `/context`
+- NÃO continuar em modo parcial silencioso
+
+---
+
+## Checklist de continuidade segura (anti-bypass)
+
+Antes de seguir para qualquer etapa crítica, confirmar:
+
+- decisão explícita do `/workflow` disponível (quando aplicável)
+- invariantes anti-compaction válidos (pt-BR + Memflow)
+- confirmação explícita do usuário antes de executar o próximo comando do fluxo
+
+Se qualquer item falhar:
+
+- BLOQUEAR continuidade
+- registrar problema no output
+- solicitar ação corretiva antes de prosseguir
 
 ---
 
@@ -158,6 +198,7 @@ Se memória NÃO existir:
 - Nenhum comando pode executar sem contexto válido
 - Nenhum comando pode ignorar memória disponível
 - Evitar execução com contexto parcial ou inconsistente
+- Nenhum comando crítico pode executar sem invariantes anti-compaction válidos
 
 ---
 
@@ -182,6 +223,7 @@ Se memória NÃO existir:
   - nenhuma execução crítica sem `/context`
   - memória disponível não pode ser ignorada
   - resolução normativa deve seguir `_shared/target-adapter.md`
+  - invariantes anti-compaction (pt-BR + Memflow) devem estar válidos antes de execução crítica
 
 ---
 
@@ -230,7 +272,7 @@ license: MIT
 hidden: true
 metadata:
   author: BrunoCastro
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Adaptador de target (VSCode)
@@ -240,8 +282,9 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 ## Resolução normativa
 
 - Em prompts gerados para VSCode, as bases normativas `_shared/*.md` devem ser tratadas como conteúdo local injetado no próprio prompt.
+- Em prompts gerados para VSCode, `model-policy.md` também vem como bloco injetado no mesmo arquivo do prompt (não existe prompt separado `memflow.model-policy` na instalação VS Code).
 - Não aplicar resolução por caminhos globais/locais de OpenCode.
-- `model-policy.md` deve ser interpretado no contexto do prompt gerado para VSCode.
+- `model-policy.md` deve ser interpretado no contexto do prompt gerado para VSCode (texto completo já presente no prompt quando a linha injetável foi expandida pelo instalador).
 
 ## Ausência de conteúdo
 
@@ -255,8 +298,321 @@ Aplicar este adaptador quando o target ativo for `vscode`.
 - Comandos podem estender regras operacionais sem remover os requisitos deste adaptador.
 - Invariantes não sobrescrevíveis:
   - `_shared/*.md` devem estar injetados no prompt
-  - `model-policy.md` deve ser interpretado no contexto do prompt
+  - `model-policy.md` deve estar injetado no prompt (mesmo mecanismo que `_shared`)
   - ausência de base normativa necessária bloqueia execução crítica
+### Conteúdo injetado: model-policy.md
+---
+description: Não é um comando executável. Base compartilhada de política de modelos.
+license: MIT
+hidden: true
+metadata:
+  author: BrunoCastro
+  version: "1.0.0"
+---
+
+# Model Policy — Orquestração de Modelos
+
+Este arquivo define as regras de uso, seleção e escalada de modelos de IA no projeto.
+
+Ele garante:
+
+- redução de custo
+- consistência de decisões
+- qualidade técnica
+- previsibilidade do sistema
+
+---
+
+## Objetivo
+
+Padronizar como os modelos são utilizados em cada etapa do workflow:
+
+- `/workflow`
+- `/plan`
+- `/execute`
+- `/review`
+- `/review-enforce-rules` (opcional/recomendado)
+
+---
+
+## Princípio fundamental
+
+👉 Começar com o modelo mais econômico
+👉 Escalar apenas quando necessário
+
+---
+
+## Papéis dos modelos
+
+### Modelo free (ex: GPT-4.1, GPT-5 mini)
+
+Usar para:
+
+- exploração inicial de contexto
+- dúvidas rápidas
+- triagem de tarefas simples
+- validações preliminares
+
+Características:
+
+- custo mínimo
+- resposta rápida
+- menor robustez para implementação complexa
+
+---
+
+### Modelo econômico (ex: Haiku, GPT-5.4 mini, Gemini 3 Flash)
+
+Usar para:
+
+- execução de código
+- CRUD
+- componentes UI
+- ajustes simples
+- correções pontuais
+
+Características:
+
+- rápido
+- barato
+- menor capacidade de raciocínio complexo
+
+---
+
+### Modelo intermediário (ex: Gemini 3.1 Pro, GPT-5.3-Codex, GPT-5.4, Sonnet)
+
+Usar para:
+
+- planejamento (`/plan`)
+- arquitetura
+- integração de sistemas
+- regras de negócio
+- decisões técnicas
+
+Características:
+
+- melhor equilíbrio custo/qualidade
+- principal modelo de raciocínio
+
+---
+
+### Modelo avançado (ex: GPT-5.4, Opus)
+
+Usar apenas para:
+
+- refatoração complexa
+- debugging difícil
+- análise de código grande
+- problemas persistentes
+
+Características:
+
+- alto custo
+- alta capacidade de raciocínio
+
+---
+
+## Estratégia padrão
+
+### Separação obrigatória
+
+- Planejamento → modelo mais inteligente
+- Execução → modelo mais econômico
+- Triagem inicial opcional → modelo free
+
+---
+
+### Fluxo ideal
+
+```
+/workflow → decide
+   ↓
+/plan (modelo inteligente)
+   ↓
+/execute (modelo econômico)
+```
+
+---
+
+## Regras de seleção
+
+### Por complexidade
+
+| Complexidade | Modelo                    |
+| ------------ | ------------------------- |
+| Muito baixa  | Free                      |
+| Baixa        | Econômico                 |
+| Média        | Intermediário             |
+| Alta         | Intermediário ou Avançado |
+
+---
+
+### Por tipo de tarefa
+
+#### Econômico
+
+- "crie função"
+- "ajuste componente"
+- "corrija bug simples"
+- "implemente tarefa de baixo risco"
+
+#### Intermediário
+
+- "crie sistema"
+- "arquitetura"
+- "integração backend"
+- "defina abordagem técnica"
+
+#### Avançado
+
+- "refatore projeto"
+- "analise código inteiro"
+- "debug complexo"
+
+---
+
+## Seleção operacional por nível
+
+Para cada tarefa, definir:
+
+1. nível recomendado
+2. modelo principal
+3. modelos alternativos do mesmo nível
+
+Regra:
+
+- indicar exatamente 1 modelo principal por execução
+- listar 2-3 alternativas do mesmo nível para contingência de disponibilidade
+- manter fallback no mesmo nível antes de escalar
+
+---
+
+## Fallback por indisponibilidade ou degradação operacional
+
+Acionar fallback para alternativas do mesmo nível quando houver:
+
+- indisponibilidade do modelo principal
+- limite/cota atingido
+- latência instável que comprometa continuidade
+
+Fluxo:
+
+1. tentar alternativas do mesmo nível na ordem definida
+2. se nenhuma alternativa estiver disponível/viável, reavaliar risco e complexidade
+3. escalar para nível superior apenas se necessário
+
+Não permitido:
+
+- reduzir nível em tarefas já classificadas como média/alta complexidade
+- pular alternativas do mesmo nível sem justificativa
+
+---
+
+## Escalada automática
+
+### Regra principal
+
+Se houver falha:
+
+1ª falha → tentar corrigir localmente
+2ª falha → revisar abordagem (possível erro de plano)
+3ª falha → escalar modelo
+
+---
+
+### Exemplo de escalada
+
+```
+Free/Econômico → Intermediário → Avançado
+```
+
+---
+
+## Regras críticas
+
+- NÃO usar modelo avançado por padrão
+- NÃO usar modelo econômico para decisões complexas
+- NÃO usar modelo free para implementação crítica
+- NÃO pular planejamento em tarefas médias/altas
+- NÃO insistir em modelo que falhou repetidamente
+
+---
+
+## Integração com comandos
+
+### `/workflow`
+
+- decide nível recomendado, modelo principal e alternativas do mesmo nível
+
+---
+
+### `/plan`
+
+- usar modelo intermediário ou superior
+
+---
+
+### `/execute`
+
+- usar modelo econômico
+- escalar se necessário
+
+---
+
+### `/review`
+
+- validar se modelo foi adequado
+
+---
+
+### `/review-enforce-rules`
+
+- aplicar validação rígida opcional de uso de modelo em cenários críticos
+
+---
+
+## Regras de consistência
+
+- modelo deve ser coerente com complexidade
+- modelo principal deve ter alternativas viáveis do mesmo nível
+- decisões devem ser justificadas
+- escalada deve ser progressiva
+
+---
+
+## Objetivo de performance
+
+- reduzir custo em 50%–80%
+- manter qualidade alta
+- evitar retrabalho
+- usar free/econômico sempre que o risco permitir
+
+---
+
+## Anti-patterns (evitar)
+
+- usar modelo avançado para tarefas simples
+- usar modelo free para tarefa de alto impacto
+- executar sem planejamento em tarefas complexas
+- ignorar falhas repetidas
+- misturar responsabilidades (planejar + executar no mesmo nível)
+
+---
+
+## Resumo final
+
+👉 Modelo NÃO é o cérebro
+👉 Workflow é o cérebro
+👉 Modelo é ferramenta
+
+---
+
+## Resultado esperado
+
+- execução mais barata
+- decisões mais inteligentes
+- sistema previsível
+- menor taxa de erro
 
 ---
 
@@ -276,6 +632,7 @@ Decidir:
 - decisions.md
 - quality-metrics.md
 - decision-suggestions.md
+- skills disponíveis no projeto (quando existirem)
 - model-policy
 
 ---
@@ -285,19 +642,36 @@ Decidir:
 Ordem obrigatória:
 
 1. **decisions.md (sempre prevalece)**
-2. **regras do workflow**
-3. **insights (ajuste leve)**
-4. **decision-suggestions (modo assistido)**
+2. **skills aplicáveis (quando existirem)**
+3. **regras do workflow**
+4. **insights (ajuste leve)**
+5. **decision-suggestions (modo assistido)**
 
 ---
 
 ## Regras
 
 - decisões explícitas NUNCA podem ser sobrescritas  
+- skills disponíveis e aplicáveis NÃO podem ser ignoradas
 - insights apenas ajustam comportamento  
 - sugestões NUNCA executam automaticamente  
 - em caso de conflito → respeitar ordem acima  
 - `/workflow` é a única origem de decisão de estratégia (`/execute` vs `/plan`)
+- NÃO prosseguir sem invariantes anti-compaction validados pelo `/context`
+- quando houver decisão pendente no `## Próximos passos`, usar diálogo estruturado com opções selecionáveis
+
+---
+
+## Decisões pendentes no `## Próximos passos` (OBRIGATÓRIO)
+
+Quando o `/workflow` depender de uma escolha do usuário para seguir (ex.: definir escopo, priorizar fase, escolher direção de implementação):
+
+- apresentar opções em diálogo estruturado e selecionável
+- evitar solicitação aberta de digitação quando houver opções concretas
+- permitir opção `Outra` quando fizer sentido para não limitar o usuário
+- se o usuário escolher `Outra`, solicitar detalhe em seguida (texto livre apenas nessa etapa)
+- se a resposta vier ambígua, repetir o mesmo diálogo estruturado até haver seleção explícita
+- registrar na análise/problemas que existe decisão pendente e qual escolha foi feita quando respondido
 
 ---
 
@@ -358,7 +732,13 @@ Para cada sugestão:
 
 ## 🆕 Limite de uso (CRÍTICO)
 
-- considerar no máximo **2 sugestões por execução**
+- aplicar limite dinâmico por execução:
+  - baixa complexidade e baixo risco: no máximo **2 sugestões**
+  - média complexidade ou risco médio: no máximo **3 sugestões**
+  - alta complexidade ou alto risco: no máximo **4 sugestões**
+- quando houver mais sugestões elegíveis que o limite, priorizar por:
+  - maior impacto
+  - maior confiança
 
 ---
 
@@ -366,6 +746,43 @@ Para cada sugestão:
 
 - NÃO aplicar automaticamente  
 - apenas sugerir  
+
+---
+
+# Etapa 0.8 — Skills do projeto (OBRIGATÓRIO)
+
+Se o `/context` indicar skills disponíveis no projeto:
+
+- identificar skills relevantes para a tarefa atual
+- registrar quais skills devem ser usadas antes da continuidade
+- orientar uso explícito das skills aplicáveis
+
+Se houver skill claramente aplicável:
+
+- NÃO avançar para execução direta sem orientar uso da skill
+
+Se a aplicabilidade estiver ambígua:
+
+- solicitar confirmação objetiva ao usuário antes de seguir
+
+---
+
+# Etapa 0.9 — Gate de invariantes anti-compaction (OBRIGATÓRIO)
+
+Validar se o `/context` confirmou invariantes:
+
+- idioma pt-BR validado
+- identidade Memflow validada
+
+Se status vier como `Reidratados`:
+
+- permitir continuidade normal
+- registrar no output que houve recuperação pós-compaction
+
+Se status vier como `Falhou` ou ausente:
+
+- BLOQUEAR decisão do workflow
+- exigir nova execução de `/context`
 
 ---
 
@@ -519,6 +936,7 @@ Obrigatório quando:
 - NÃO ignorar métricas  
 - NÃO ignorar insights  
 - NÃO ignorar sugestões  
+- NÃO ignorar skills aplicáveis
 - limitar influência de sugestões  
 
 ---
@@ -589,6 +1007,22 @@ Obrigatório quando:
 
 ---
 
+### Skills
+
+- disponíveis no projeto: SIM / NÃO
+- skills aplicáveis para a tarefa:
+- ação: usar skill agora / não aplicável (justificar)
+
+---
+
+### Invariantes anti-compaction
+
+- idioma pt-BR: OK / Falhou
+- identidade Memflow: OK / Falhou
+- re-hidratação necessária: SIM / NÃO
+
+---
+
 ### Estratégia
 
 - Execução: Direta / Planejada  
@@ -600,6 +1034,7 @@ Obrigatório quando:
 
 - ambiguidades  
 - riscos  
+- falha de invariantes anti-compaction (quando houver)
 
 Se não houver:
 → Nenhum  
@@ -612,3 +1047,6 @@ Se não houver:
 2. /review  
 3. /review-code  
 4. /memory-save  
+5. Se houver skill aplicável: usar a skill antes de continuar
+6. Se invariantes anti-compaction falharem: reexecutar `/context`
+7. Se houver decisão pendente para continuidade: abrir diálogo de opções selecionáveis antes de avançar
