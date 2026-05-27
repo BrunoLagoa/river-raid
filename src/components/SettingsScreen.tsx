@@ -38,6 +38,7 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
               value={Math.round(settings.masterVolume * 100)}
               onChange={(e) => onUpdate({ masterVolume: Number(e.target.value) / 100 })}
               className="settings-slider"
+              style={{ '--val': `${Math.round(settings.masterVolume * 100)}` } as React.CSSProperties}
             />
           </div>
 

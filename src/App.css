@@ -918,19 +918,8 @@ h1.gameover-title {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: 160px;
-  overflow-y: auto;
   padding-right: 4px;
-}
-
-.settings-achievements::-webkit-scrollbar {
-  width: 3px;
-}
-.settings-achievements::-webkit-scrollbar-track {
-  background: transparent;
-}
-.settings-achievements::-webkit-scrollbar-thumb {
-  background: #2a3d55;
+  overflow: visible;
 }
 
 .settings-achievement-row {
@@ -1044,7 +1033,7 @@ h1.gameover-title {
   opacity: 0;
   pointer-events: none;
   position: absolute;
-  bottom: calc(100% + 8px);
+  top: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
   background: rgba(8, 16, 30, 0.97);
@@ -1061,15 +1050,15 @@ h1.gameover-title {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
 
-/* seta inferior do tooltip */
+/* seta superior do tooltip */
 .settings-achievement-tooltip::after {
   content: '';
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 50%;
   transform: translateX(-50%);
   border: 5px solid transparent;
-  border-top-color: #2a3d55;
+  border-bottom-color: #2a3d55;
 }
 
 .settings-achievement-hint:hover .settings-achievement-tooltip {
@@ -1077,12 +1066,7 @@ h1.gameover-title {
   opacity: 1;
 }
 
-/* evitar corte pelo overflow do scroll container */
-.settings-achievements {
-  overflow-x: visible !important;
-  overflow-y: auto;
-}
-
+/* overflow visible garante tooltip não cortado */
 .settings-achievement-row {
-  overflow: visible !important;
+  overflow: visible;
 }
