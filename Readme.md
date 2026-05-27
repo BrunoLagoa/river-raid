@@ -44,10 +44,18 @@ O jogo possui um ciclo atmosférico contínuo de **8 minutos** com 4 fases que a
 As transições usam interpolação `smoothstep` com período de retenção (35% hold) para mudanças suaves e orgânicas. O ciclo roda em tempo real independente de pausas, mortes ou slow motion.
 
 ### 🏆 Conquistas (Achievements)
-O jogo possui um sistema de conquistas persistentes que desafiam suas habilidades:
-- **Bridge Breaker:** Destrua sua primeira ponte.
-- **Combo Master x4:** Atinja o multiplicador máximo de combo.
-- **Fuel Saver 70%+:** Termine uma ponte com mais de 70% de combustível.
+O jogo possui **8 conquistas persistentes** salvas via `localStorage`. Ao desbloquear uma conquista durante o jogo, um **toast aparece no canto superior direito do canvas** (borda dourada, ícone ★, fade in/out). Na tela de Game Over, todas as conquistas desbloqueadas na run aparecem como **badges animados com entrada escalonada**.
+
+| Conquista | Condição |
+|---|---|
+| **Bridge Breaker** | Destrua uma ponte |
+| **Combo Master** | Atinja combo x4 |
+| **Fuel Saver** | Sobreviva 30s com combustível acima de 70% |
+| **Sharpshooter** | Destrua 10 inimigos em uma run |
+| **Survivor** | Sobreviva por 3 minutos |
+| **Power Collector** | Colete 3 power-ups em uma run |
+| **High Flyer** | Atinja 5.000 pontos |
+| **Untouchable** | Complete uma run sem perder vida |
 
 ### 🏆 Ranking Top 10
 - Sistema de ranking local com persistência via `localStorage`.
@@ -125,8 +133,9 @@ src/
   │   ├── Scenery.ts         # Cenário Decorativo Pixel-Art
   │   ├── Fx.ts              # Partículas, Shakes e Popups
   │   ├── SoundManager.ts    # Sintetizador de Áudio e Música
-  │   ├── UI.ts              # Rendering do HUD e Radar
-  │   ├── AchievementService.ts # Gestão de Conquistas/Achievements
+  │   ├── UI.ts              # Rendering do HUD, Radar e Toasts de Conquistas
+  │   ├── AchievementService.ts # Gestão de Conquistas (8 achievements, localStorage)
+  │   ├── ObjectiveSystem.ts # Sistema de Objetivos por Run
   │   ├── SettingsService.ts # Preferências e Configurações (Volume, Movimento)
   │   ├── ScoringSystem.ts   # Lógica dedicada de Combo e Pontuação
   │   ├── RankingService.ts  # Sistema de Ranking Top 10
@@ -134,6 +143,8 @@ src/
   │   ├── GameState.ts       # Máquina de Estados do Jogo
   │   ├── ObjectPool.ts      # Otimização de Memória (Pooling de Entidades)
   │   ├── SpatialGrid.ts     # Otimização de Colisões
+  │   ├── DebugPanel.ts      # Painel de Debug (FPS, estado interno)
+  │   ├── random.ts          # Gerador de Números Aleatórios Seedável
   │   ├── constants.ts       # Parâmetros de Balanceamento e Configuração
   │   └── utils.ts           # Funções Utilitárias e Math
   ├── components/            # Componentes React
