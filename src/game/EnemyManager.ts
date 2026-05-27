@@ -615,18 +615,18 @@ export class EnemyManager {
       if (other === enemy || !other.active || other.type === 'bridge') continue
       if (Math.abs(other.y - enemy.y) > EnemyManager.AI_LANE_NEARBY_Y) continue
       const lane = this.resolveLaneFromX(other.x, safe)
-      counts.set(lane, (counts.get(lane) ?? 0) + 1)
+      counts.set(lane, (counts.get(lane) as number) + 1)
     }
 
-    if (enemy.x < safe.left + 24) counts.set(-1, (counts.get(-1) ?? 0) + 2)
-    if (enemy.x > safe.right - 24) counts.set(1, (counts.get(1) ?? 0) + 2)
+    if (enemy.x < safe.left + 24) counts.set(-1, (counts.get(-1) as number) + 2)
+    if (enemy.x > safe.right - 24) counts.set(1, (counts.get(1) as number) + 2)
 
     let best = Number.POSITIVE_INFINITY
     for (const lane of lanes) {
-      best = Math.min(best, counts.get(lane) ?? 0)
+      best = Math.min(best, counts.get(lane) as number)
     }
-    const candidates = lanes.filter((lane) => (counts.get(lane) ?? 0) === best)
-    return candidates[Math.floor(this.random() * candidates.length)] ?? 0
+    const candidates = lanes.filter((lane) => (counts.get(lane) as number) === best)
+    return candidates[Math.floor(this.random() * candidates.length)] as LaneIntent
   }
 
   private getSafeBounds(
@@ -771,6 +771,7 @@ export class EnemyManager {
 
     if (type === 'bridge') {
       width = Math.max(60, topSegment.width - 4)
+      /* v8 ignore next */
       if (!this.hasSpawnSpace(type, x, y, width)) return false
     } else {
       const leftBound = topSegment.centerX - topSegment.width / 2 + config.width

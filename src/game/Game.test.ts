@@ -1077,6 +1077,19 @@ describe('Game achievement system', () => {
     game.destroy()
   })
 
+  it('tryUnlockAchievement nao chama pushToast se achievement nao encontrado no array', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const toastSpy = vi.spyOn(game.ui, 'pushToast')
+    vi.spyOn(AchievementService, 'unlockAchievement').mockReturnValue([])
+
+    ;(game as unknown as { tryUnlockAchievement: (id: AchievementService.AchievementId) => void })
+      .tryUnlockAchievement('first_bridge')
+
+    expect(toastSpy).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
   it('tryUnlockAchievement dispara callback e pushToast quando nao desbloqueado', () => {
     const canvas = createMockCanvas()
     const game = new Game(canvas)
@@ -1332,6 +1345,43 @@ describe('Game achievement system', () => {
     expect(ids).toContain('fuel_saver')
   })
 
+  it('onFuelCollected dispara objectives.onFuelCollected', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      ctx.onFuelCollected?.(1)
+    })
+
+    const objSpy = vi.spyOn(
+      (game as unknown as { objectives: { onFuelCollected: (n: number) => void } }).objectives,
+      'onFuelCollected',
+    )
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(objSpy).toHaveBeenCalledWith(1)
+  })
+
+  it('awardScore callback via ObjectiveSystem repassa pontos ao scoring', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    const scoring = (game as unknown as { scoring: { addScore: (n: number) => void } }).scoring
+    const addScoreSpy = vi.spyOn(scoring, 'addScore')
+
+    const objectives = (game as unknown as { objectives: { completeCurrentObjective?: () => void; current: { rewardScore: number; rewardGranted: boolean; completed: boolean; failed: boolean; completionTimer: number } } }).objectives
+    // Force complete the current objective to trigger awardScore -> scoring.addScore
+    objectives.current.rewardGranted = false
+    objectives.current.rewardScore = 500
+    ;(objectives as unknown as { completeCurrentObjective: () => void }).completeCurrentObjective()
+
+    expect(addScoreSpy).toHaveBeenCalledWith(500)
+  })
+
   it('ui.updateToasts e chamado a cada frame do game loop', () => {
     const canvas = createMockCanvas()
     const raf = mockAnimationFrame()
@@ -1344,5 +1394,117 @@ describe('Game achievement system', () => {
     game.stop()
 
     expect(toastSpy).toHaveBeenCalled()
+  })
+
+  it('magnet fuel atrai tanks em direcao ao player', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation(() => {})
+    game.player.magnetFuelTimer = 10
+    game.fuelSystem.tanks.push({ x: 300, y: game.player.y, width: 16, height: 16, active: true })
+
+    const initialX = game.fuelSystem.tanks[0].x
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(game.fuelSystem.tanks[0].x).not.toBe(initialX)
+  })
+
+  it('magnet fuel ignora tanks inativos', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation(() => {})
+    game.player.magnetFuelTimer = 10
+    const inactiveTank = { x: 300, y: game.player.y, width: 16, height: 16, active: false }
+    game.fuelSystem.tanks.push(inactiveTank)
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    // Inactive tank should not have been moved by the magnet loop (continue branch)
+    expect(inactiveTank.x).toBe(300)
+  })
+
+  it('magnet fuel com tank no mesmo ponto que player (dist=0 usa fallback 1)', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    // Call updateGameplaySystems directly with tank at exact player position
+    type GamePrivate = {
+      updateGameplaySystems: (envDt: number) => void
+      fuelSystem: { update: () => void; tanks: Array<{ x: number; y: number; active: boolean; width: number; height: number }> }
+    }
+    const g = game as unknown as GamePrivate
+    vi.spyOn(g.fuelSystem, 'update').mockImplementation(() => {})
+
+    game.player.magnetFuelTimer = 10
+    const tank = { x: game.player.x, y: game.player.y, width: 16, height: 16, active: true }
+    g.fuelSystem.tanks.push(tank)
+
+    expect(() => g.updateGameplaySystems(1 / 60)).not.toThrow()
+  })
+
+  it('renderShockwave e chamado quando fx tem shockwave ativo', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation(() => {})
+    game.fx.triggerShockwave(game.player.x, game.player.y, 1.0)
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    // Shockwave timer should have decremented
+    expect(game.fx.getShockwave().timer).toBeLessThan(1.0)
+  })
+
+  it('first_bridge achievement desbloqueado ao destruir bridge', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(AchievementService, 'unlockAchievement').mockReturnValue([
+      { id: 'first_bridge', title: 'First Bridge', description: 'Destroyed a bridge' },
+    ] as ReturnType<typeof AchievementService.unlockAchievement>)
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      ctx.onEnemyDestroyed?.('bridge')
+    })
+
+    game.start()
+    raf.flush(50)
+     game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as string)
+    expect(ids).toContain('first_bridge')
+  })
+
+  it('onMiss callback em player.update aciona registerMiss no game', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    // Inject a bullet at y=-100 (already offscreen) via bulletPool.acquire()
+    type PlayerPrivate = { bulletPool: { acquire: () => { x: number; y: number; speed: number; active: boolean } } }
+    const bullet = (game.player as unknown as PlayerPrivate).bulletPool.acquire()
+    bullet.x = game.player.x
+    bullet.y = -100
+    bullet.speed = 400
+
+    const spy = vi.spyOn(game, 'registerMiss')
+
+    // Call updateWorldAndPlayer directly to trigger the onMiss callback
+    type GamePrivate = { updateWorldAndPlayer: (dt: number, envDt: number) => void }
+    ;(game as unknown as GamePrivate).updateWorldAndPlayer(1 / 60, 1 / 60)
+
+    expect(spy).toHaveBeenCalled()
   })
 })

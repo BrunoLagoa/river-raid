@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { CollisionSystem, type CollisionContext } from './CollisionSystem'
 import { SpatialGrid } from './SpatialGrid'
 import { ENEMY_COLORS } from './EnemyManager'
+import type { Enemy } from './EnemyManager'
 
 function makeCtx() {
   const player = {
@@ -529,5 +530,120 @@ describe('CollisionSystem', () => {
     } finally {
       colors.bridge = prevBridgeColor
     }
+  })
+})
+
+// ── Power-up collision tests (bomb, rapid_fire, magnet_fuel) ──────────────────
+
+function makeFullCtx() {
+  const player = {
+    state: 'alive',
+    x: 100,
+    y: 100,
+    width: 20,
+    height: 20,
+    invincibilityTimer: 0,
+    shieldActive: false,
+    bullets: [] as { x: number; y: number; width: number; height: number; speed: number; active: boolean }[],
+    explode: vi.fn(),
+    breakShield: vi.fn(),
+    doubleShotTimer: 0,
+    rapidFireTimer: 0,
+    magnetFuelTimer: 0,
+  }
+
+  const ctx = {
+    player,
+    enemyManager: { enemies: [] as { type: string; x: number; y: number; width: number; height: number; points: number; active: boolean }[], bullets: [] },
+    fuelSystem: { checkPickup: vi.fn(() => false), spawnAt: vi.fn() },
+    powerUpSystem: { powerUps: [] as { type: string; x: number; y: number; width: number; height: number; active: boolean }[], trySpawnAt: vi.fn() },
+    fx: {
+      explosion: vi.fn(), flash: vi.fn(), addShake: vi.fn(), bigExplosion: vi.fn(),
+      deathSmoke: vi.fn(), scorePopup: vi.fn(), triggerShockwave: vi.fn(),
+    },
+    sound: {
+      explosion: vi.fn(), enemyHit: vi.fn(), fuelCollect: vi.fn(),
+      powerUpBomb: vi.fn(), powerUpRapidFire: vi.fn(), powerUpMagnet: vi.fn(), bombShockwave: vi.fn(),
+    },
+    world: { isOutOfBounds: vi.fn(() => false) },
+    comboMultiplier: 1,
+    triggerGameOver: vi.fn(),
+    handlePlayerDeath: vi.fn(),
+    addScore: vi.fn(),
+    activateSlowMotion: vi.fn(),
+    registerHit: vi.fn(),
+    onPowerUpCollected: vi.fn(),
+    onEnemyDestroyed: vi.fn(),
+  }
+
+  return ctx as unknown as CollisionContext
+}
+
+describe('CollisionSystem — power-up tipos adicionais', () => {
+  it('rapid_fire power-up seta rapidFireTimer e toca som', () => {
+    const ctx = makeFullCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'rapid_fire', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect((ctx.player as unknown as { rapidFireTimer: number }).rapidFireTimer).toBeGreaterThan(0)
+    expect(ctx.sound.powerUpRapidFire).toHaveBeenCalled()
+  })
+
+  it('magnet_fuel power-up seta magnetFuelTimer e toca som', () => {
+    const ctx = makeFullCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'magnet_fuel', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect((ctx.player as unknown as { magnetFuelTimer: number }).magnetFuelTimer).toBeGreaterThan(0)
+    expect(ctx.sound.powerUpMagnet).toHaveBeenCalled()
+  })
+
+  it('bomb power-up destroi inimigos ativos e aciona shockwave', () => {
+    const ctx = makeFullCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'bomb', x: 100, y: 100, width: 16, height: 16, active: true })
+    ctx.enemyManager.enemies.push(
+      { type: 'helicopter', x: 200, y: 50, width: 28, height: 20, points: 60, active: true } as unknown as Enemy,
+      { type: 'plane',      x: 300, y: 80, width: 32, height: 28, points: 100, active: true } as unknown as Enemy,
+    )
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.enemyManager.enemies.every(e => !e.active)).toBe(true)
+    expect(ctx.fx.triggerShockwave).toHaveBeenCalled()
+    expect(ctx.sound.powerUpBomb).toHaveBeenCalled()
+    expect(ctx.sound.bombShockwave).toHaveBeenCalled()
+    expect(ctx.fx.addShake).toHaveBeenCalled()
+  })
+
+  it('bomb power-up sem inimigos nao chama addShake', () => {
+    const ctx = makeFullCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'bomb', x: 100, y: 100, width: 16, height: 16, active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.fx.addShake).not.toHaveBeenCalled()
+    expect(ctx.fx.triggerShockwave).toHaveBeenCalled()
+  })
+
+  it('bomb shockwave ignora inimigos inativos na lista', () => {
+    const ctx = makeFullCtx()
+    ctx.powerUpSystem.powerUps.push({ type: 'bomb', x: 100, y: 100, width: 16, height: 16, active: true })
+    ctx.enemyManager.enemies.push(
+      { type: 'helicopter', x: 200, y: 50, width: 28, height: 20, points: 60, active: false } as unknown as Enemy,
+      { type: 'plane',      x: 300, y: 80, width: 32, height: 28, points: 100, active: true } as unknown as Enemy,
+    )
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    // Inactive helicopter stays inactive; active plane gets destroyed
+    expect(ctx.enemyManager.enemies[0].active).toBe(false)
+    expect(ctx.enemyManager.enemies[1].active).toBe(false)
+    // addScore should NOT have been called with helicopter points (60 * comboMultiplier)
+    // because inactive enemies are skipped via continue
+    const calls = (ctx.addScore as ReturnType<typeof vi.fn>).mock.calls as number[][]
+    const helicopterScoreCalls = calls.filter((c) => c[0] === 60 * ctx.comboMultiplier)
+    expect(helicopterScoreCalls.length).toBe(0)
   })
 })

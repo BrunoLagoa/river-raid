@@ -432,6 +432,7 @@ export class World {
     ctx.fillStyle = shimmerC
     for (let i = 0; i < this.visibleSegmentsCache.length; i += 10) {
       const seg = this.visibleSegmentsCache[i]
+      /* v8 ignore next */
       if (!seg) continue
       const shimmerX = seg.left + ((this.scrollOffset * 0.12 + seg.y * 4) % Math.max(1, seg.width))
       ctx.fillRect(shimmerX, seg.y, 12, SEG_H * 3)

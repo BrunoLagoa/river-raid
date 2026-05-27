@@ -193,4 +193,11 @@ describe('BiomeSystem', () => {
     sys.update(-10)
     expect(sys.getTimeInBiome()).toBeCloseTo(before, 5)
   })
+
+  it('refreshes hold config when dt stays within hold phase', () => {
+    // dt < HOLD_DURATION: remaining=0, phase stays hold -> hits the else-if branch
+    sys.update(50)
+    expect(sys.getCurrentBiomeId()).toBe('forest')
+    expect(sys.getConfig().inTransition).toBe(false)
+  })
 })

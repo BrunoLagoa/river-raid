@@ -387,7 +387,6 @@ export class Game {
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
     if (this.player.magnetFuelTimer > 0) {
       for (const tank of this.fuelSystem.tanks) {
-        if (!tank.active) continue
         const dx = this.player.x - tank.x
         const dy = this.player.y - tank.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1

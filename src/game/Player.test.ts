@@ -304,4 +304,40 @@ describe('Player edge cases', () => {
 
     expect(p.x).toBeGreaterThan(startX)
   })
+
+  it('touchTargetX snaps quando distancia menor que maxMove', () => {
+    const p = new Player(800, 600)
+    const target = p.x + 0.5  // menor que maxMove em 1 frame
+    p.setTouchTarget(target)
+
+    p.update(1.0, 0, 800)  // dt grande: maxMove > distancia
+
+    expect(p.x).toBe(target)
+  })
+
+  it('double-shot dispara dois projéteis ao mesmo tempo', () => {
+    const p = new Player(800, 600)
+    p.doubleShotTimer = 5
+    p.keys.add(' ')
+
+    p.update(0.1, 0, 800)
+
+    // Double-shot deve ter criado 2 balas
+    expect(p.bullets.length).toBe(2)
+  })
+
+  it('bullet offscreen sem onMiss nao lanca erro', () => {
+    const p = new Player(800, 600)
+    p.keys.add(' ')
+    p.update(0.2, 0, 800)
+    // update sem onMiss — branch `if (onMiss)` falsy nao deve lancar erro
+    expect(() => p.update(5, 0, 800)).not.toThrow()
+  })
+
+  it('rapidFireTimer decrementa no update', () => {
+    const p = new Player(800, 600)
+    p.rapidFireTimer = 3
+    p.update(1, 0, 800)
+    expect(p.rapidFireTimer).toBeLessThan(3)
+  })
 })
