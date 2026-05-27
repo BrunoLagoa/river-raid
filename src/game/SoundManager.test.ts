@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { SoundManager } from './SoundManager'
+import { mockAudioContext } from './test-helpers/audio'
 
 describe('SoundManager', () => {
   let sm: SoundManager
@@ -52,6 +53,30 @@ describe('SoundManager', () => {
 
     it('updateEngine nao falha', () => {
       expect(() => sm.updateEngine()).not.toThrow()
+    })
+  })
+
+  describe('power-up sounds', () => {
+    beforeEach(() => {
+      mockAudioContext()
+      sm = new SoundManager()
+      sm.init()
+    })
+
+    it('powerUpBomb nao falha sem ctx', () => {
+      expect(() => sm.powerUpBomb()).not.toThrow()
+    })
+
+    it('bombShockwave nao falha sem ctx', () => {
+      expect(() => sm.bombShockwave()).not.toThrow()
+    })
+
+    it('powerUpRapidFire nao falha sem ctx', () => {
+      expect(() => sm.powerUpRapidFire()).not.toThrow()
+    })
+
+    it('powerUpMagnet nao falha sem ctx', () => {
+      expect(() => sm.powerUpMagnet()).not.toThrow()
     })
   })
 

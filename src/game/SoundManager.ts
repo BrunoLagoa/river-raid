@@ -230,6 +230,123 @@ export class SoundManager {
     osc.stop(ctx.currentTime + 0.15)
   }
 
+  powerUpBomb(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const master = this.masterGain
+
+    // Noise burst curto
+    const bufferSize = ctx.sampleRate * 0.08
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const noiseGain = ctx.createGain()
+    noiseGain.gain.setValueAtTime(0.3, ctx.currentTime)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
+    noise.connect(noiseGain)
+    noiseGain.connect(master)
+    noise.start(ctx.currentTime)
+    noise.stop(ctx.currentTime + 0.08)
+
+    // Pitch descendente
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(600, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.15)
+    gain.gain.setValueAtTime(0.2, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
+    osc.connect(gain)
+    gain.connect(master)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.15)
+  }
+
+  bombShockwave(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const master = this.masterGain
+
+    // Low-freq rumble descendente
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(120, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(20, ctx.currentTime + 0.5)
+    gain.gain.setValueAtTime(0.35, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
+    osc.connect(gain)
+    gain.connect(master)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.5)
+
+    // Noise layer para textura
+    const bufferSize = ctx.sampleRate * 0.3
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 200
+    const noiseGain = ctx.createGain()
+    noiseGain.gain.setValueAtTime(0.2, ctx.currentTime)
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    noise.connect(filter)
+    filter.connect(noiseGain)
+    noiseGain.connect(master)
+    noise.start(ctx.currentTime)
+    noise.stop(ctx.currentTime + 0.3)
+  }
+
+  powerUpRapidFire(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const master = this.masterGain
+
+    // Chirp ascendente agudo
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(440, ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(1200, ctx.currentTime + 0.12)
+    gain.gain.setValueAtTime(0.15, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
+    osc.connect(gain)
+    gain.connect(master)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.12)
+  }
+
+  powerUpMagnet(): void {
+    const ctx = this.ensureCtx()
+    if (!ctx || !this.masterGain) return
+
+    const master = this.masterGain
+
+    // Pulso suave ascendente
+    const notes = [330, 495, 660]
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      const start = ctx.currentTime + i * 0.07
+      osc.frequency.setValueAtTime(freq, start)
+      gain.gain.setValueAtTime(0.12, start)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.1)
+      osc.connect(gain)
+      gain.connect(master)
+      osc.start(start)
+      osc.stop(start + 0.1)
+    })
+  }
+
   gameOver(): void {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain) return

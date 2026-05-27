@@ -237,9 +237,16 @@ export class CollisionSystem {
         if (p.type === 'double_shot') ctx.player.doubleShotTimer = POWERUP_DOUBLE_SHOT_DURATION
         if (p.type === 'shield') ctx.player.shieldActive = true
         if (p.type === 'slow_motion') ctx.activateSlowMotion()
-        if (p.type === 'rapid_fire') ctx.player.rapidFireTimer = POWERUP_RAPID_FIRE_DURATION
-        if (p.type === 'magnet_fuel') ctx.player.magnetFuelTimer = POWERUP_MAGNET_FUEL_DURATION
+        if (p.type === 'rapid_fire') {
+          ctx.player.rapidFireTimer = POWERUP_RAPID_FIRE_DURATION
+          ctx.sound.powerUpRapidFire()
+        }
+        if (p.type === 'magnet_fuel') {
+          ctx.player.magnetFuelTimer = POWERUP_MAGNET_FUEL_DURATION
+          ctx.sound.powerUpMagnet()
+        }
         if (p.type === 'bomb') {
+          ctx.sound.powerUpBomb()
           const enemies = ctx.enemyManager.enemies
           let destroyed = 0
           for (let i = enemies.length - 1; i >= 0; i--) {
@@ -254,8 +261,9 @@ export class CollisionSystem {
           }
           if (destroyed > 0) ctx.fx.addShake(8 + destroyed * 1.5, 0.6)
           ctx.fx.triggerShockwave(ctx.player.x, ctx.player.y, POWERUP_BOMB_SHOCKWAVE_DURATION)
+          ctx.sound.bombShockwave()
         }
-        ctx.sound.fuelCollect()
+        if (p.type !== 'rapid_fire' && p.type !== 'magnet_fuel' && p.type !== 'bomb') ctx.sound.fuelCollect()
         ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
         ctx.onPowerUpCollected?.()
