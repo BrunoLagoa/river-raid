@@ -36,8 +36,8 @@
 
 ## Pendencias abertas
 
-- Corrigir inicializacao do primeiro objetivo da run para respeitar imediatamente o perfil persistido no inicio da partida.
-- Reexecutar `/review` apos o ajuste.
+- ~~Corrigir inicializacao do primeiro objetivo da run para respeitar imediatamente o perfil persistido no inicio da partida.~~ **RESOLVIDO** — O construtor do `Game` (linha 96) e `ObjectiveSystem` (linha 118) já aceitam `objectiveProfile` como parâmetro, e `GameCanvas.tsx` (linha 44) o injeta via `useRef` do settings salvo. Teste `Game.test.ts:122` (`'construtor aplica perfil de objetivos na primeira missao'`) verifica o comportamento com `'aggressive'`.
+- ~~Reexecutar `/review` apos o ajuste.~~ **RESOLVIDO** — O código já estava correto, apenas o histórico não foi atualizado.
 
 ## Proximo contexto util
 
@@ -60,6 +60,30 @@
 
 - Executar `/review` para validacao final de risco/regressao da mudanca de IA.
 
+## Review 2026-05-27 — Aderencia completa
+
+### Objetivo perfil persistido no construtor
+
+- **Status:** RESOLVIDO (ja estava corrigido no codigo, faltava atualizar historico)
+- `ObjectiveSystem` construtor (linha 118) aceita `profile`, `Game` construtor (linha 96) repassa, `GameCanvas` (linha 44) injeta do `useRef` com `settings.objectiveBalanceProfile`
+- Teste `Game.test.ts:122` verifica target `6` para perfil `aggressive`
+
+### IA inimigos steering + borda + spawn risco
+
+- **Status:** APROVADO
+- Typecheck: OK (`tsc --noEmit`)
+- Testes: 364/364 (100%), sendo 30/30 do EnemyManager
+- Build: OK (`npm run build`)
+- Estrutura: steering por `aiTier` com constantes por tier, `chooseLaneIntent` com contagem de congestao, `getSpawnRisk` com reducao de amplitude e peso
+- Histerese (`AI_BANK_HYSTERESIS = 5`) e cooldown (`AI_BANK_RECOVER_COOLDOWN = 0.16`) evitam serrilhamento em borda
+- Recuperacao (`bankRecoverTimer`, `bankRecoverDir`, `recoverStrafeFactor`) com damp de `0.25` no strafe durante recuperacao
+- Transicao `recover → reposition → patrol` preserva maquina de estados
+
+### Observacoes (nao bloqueantes)
+
+- Duplicacao de bloco de steering para helicopter/boat/tank/gunboat (~30 linhas × 4), aceitavel para escopo
+- `getSafeBounds` com `halfSpan = 0` em corredor extremamente estreito e fallback seguro (amplitude minima `6px`)
+
 ## Atualizacao 2026-04-17 (IA borda + spawn risco)
 
 - Evolucao implementada em `src/game/EnemyManager.ts`: recuperacao curta ao tocar borda, histerese anti-serrilha e push para centro por tier.
@@ -74,4 +98,4 @@
 
 ## Pendencias abertas (update 2)
 
-- Rodar `/review` final para validar aderencia completa apos esta segunda iteracao da IA.
+- ~~Rodar `/review` final para validar aderencia completa apos esta segunda iteracao da IA.~~ **CONCLUIDO** — Review executado e aprovado em 2026-05-27.
