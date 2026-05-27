@@ -1,12 +1,19 @@
 import { readSecureJSON, writeSecureJSON } from './StorageService'
 import { isObjectiveBalanceProfile, type ObjectiveBalanceProfile } from './ObjectiveSystem'
 
+export type Language = 'en' | 'pt-BR'
+
+export function isLanguage(v: unknown): v is Language {
+  return v === 'en' || v === 'pt-BR'
+}
+
 export interface GameSettings {
   masterVolume: number
   muted: boolean
   reducedMotion: boolean
   gamepadEnabled: boolean
   objectiveBalanceProfile: ObjectiveBalanceProfile
+  language: Language
 }
 
 const SETTINGS_KEY = 'river-raid-settings'
@@ -17,6 +24,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   reducedMotion: false,
   gamepadEnabled: true,
   objectiveBalanceProfile: 'conservative',
+  language: 'en',
 }
 
 export function getStoredSettings(): GameSettings {
@@ -29,6 +37,7 @@ export function getStoredSettings(): GameSettings {
     objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
       ? raw.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
+    language: isLanguage(raw.language) ? raw.language : DEFAULT_SETTINGS.language,
   }
 }
 
@@ -41,6 +50,7 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)
       ? next.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
+    language: isLanguage(next.language) ? next.language : DEFAULT_SETTINGS.language,
   }
   writeSecureJSON(SETTINGS_KEY, normalized)
   return normalized

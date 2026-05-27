@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
 import MenuScreen from './components/MenuScreen'
 import TutorialScreen from './components/TutorialScreen'
+import SettingsScreen from './components/SettingsScreen'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
 import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
+import { getStrings } from './i18n'
 
 import './App.css'
 
@@ -30,6 +32,8 @@ export default function App() {
   const [needsRankingName, setNeedsRankingName] = useState(false)
   const [rankingSaved, setRankingSaved] = useState(false)
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null)
+
+  const t = useMemo(() => getStrings(settings.language), [settings.language])
 
   const updateSettings = useCallback((patch: Partial<GameSettings>) => {
     setSettings((prev) => saveStoredSettings({ ...prev, ...patch }))
@@ -108,6 +112,7 @@ export default function App() {
     <div className="app-container">
       {screen === 'menu' && (
         <MenuScreen
+          t={t}
           onStart={handleAction}
           onTutorial={() => setScreen('tutorial')}
           onSettings={() => setScreen('settings')}
@@ -116,67 +121,21 @@ export default function App() {
 
       {screen === 'tutorial' && (
         <TutorialScreen
+          t={t}
           onStartGame={() => { setNewlyUnlocked([]); setScreen('playing') }}
           onBack={() => setScreen('menu')}
         />
       )}
 
       {screen === 'settings' && (
-        <div className="screen-wrapper menu">
-          <div className="panel menu-panel" style={{ maxWidth: 680, textAlign: 'left' }}>
-            <h1 className="title" style={{ fontSize: 32, letterSpacing: 4, textAlign: 'center' }}>SETTINGS</h1>
-            <div className="divider menu-divider" />
-
-            <label style={{ display: 'block', marginBottom: 12 }}>
-              Master Volume: {Math.round(settings.masterVolume * 100)}%
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(settings.masterVolume * 100)}
-                onChange={(e) => updateSettings({ masterVolume: Number(e.target.value) / 100 })}
-                style={{ width: '100%' }}
-              />
-            </label>
-
-            <label style={{ display: 'block', marginBottom: 10 }}>
-              <input type="checkbox" checked={settings.muted} onChange={(e) => updateSettings({ muted: e.target.checked })} /> Mute by default
-            </label>
-            <label style={{ display: 'block', marginBottom: 10 }}>
-              <input type="checkbox" checked={settings.reducedMotion} onChange={(e) => updateSettings({ reducedMotion: e.target.checked })} /> Reduced motion
-            </label>
-            <label style={{ display: 'block', marginBottom: 16 }}>
-              <input type="checkbox" checked={settings.gamepadEnabled} onChange={(e) => updateSettings({ gamepadEnabled: e.target.checked })} /> Enable gamepad
-            </label>
-
-            <label style={{ display: 'block', marginBottom: 16 }}>
-              Objective Profile
-              <select
-                value={settings.objectiveBalanceProfile}
-                onChange={(e) => updateSettings({ objectiveBalanceProfile: e.target.value as GameSettings['objectiveBalanceProfile'] })}
-                style={{ width: '100%', marginTop: 6 }}
-              >
-                <option value="conservative">Conservative</option>
-                <option value="aggressive">Aggressive</option>
-              </select>
-            </label>
-
-            <div className="label" style={{ marginBottom: 8 }}>ACHIEVEMENTS</div>
-            <div className="ranking-container" style={{ width: '100%', marginBottom: 16 }}>
-              {achievements.map((a) => (
-                <div key={a.id} className="ranking-row">
-                  <span className="ranking-name">{a.title}</span>
-                  <span className="ranking-score">{a.unlocked ? 'UNLOCKED' : 'LOCKED'}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="menu-actions" style={{ marginTop: 24 }}>
-              <button className="save-button" onClick={() => setScreen('menu')}>BACK</button>
-              <button className="save-button" onClick={() => setScreen('playing')}>PLAY</button>
-            </div>
-          </div>
-        </div>
+        <SettingsScreen
+          t={t}
+          settings={settings}
+          achievements={achievements}
+          onUpdate={updateSettings}
+          onBack={() => setScreen('menu')}
+          onPlay={() => { setNewlyUnlocked([]); setScreen('playing') }}
+        />
       )}
 
       {screen === 'playing' && <GameCanvas onGameOver={handleGameOver} onAchievementUnlocked={handleAchievementUnlocked} settings={settings} />}
@@ -184,17 +143,17 @@ export default function App() {
       {screen === 'gameover' && (
         <div className="screen-wrapper gameover">
           <div className="panel gameover-panel">
-            <h1 className="gameover-title">GAME OVER</h1>
+            <h1 className="gameover-title">{t.gameoverTitle}</h1>
 
             <div className="divider gameover-divider" />
 
-            <div className="label" style={{ marginBottom: 6 }}>FINAL SCORE</div>
+            <div className="label" style={{ marginBottom: 6 }}>{t.gameoverLabelScore}</div>
             <div className="score" style={{ marginBottom: 12 }}>
               {finalScore.toString().padStart(6, '0')}
             </div>
 
             {highScore > 0 && (
-              <div className="label" style={{ marginBottom: 4 }}>BEST</div>
+              <div className="label" style={{ marginBottom: 4 }}>{t.gameoverLabelBest}</div>
             )}
             {highScore > 0 && (
               <div
@@ -206,12 +165,12 @@ export default function App() {
             )}
 
             {finalScore >= highScore && finalScore > 0 && (
-              <div className="new-best">NEW BEST!</div>
+              <div className="new-best">{t.gameoverNewBest}</div>
             )}
 
             {newlyUnlocked.length > 0 && (
               <div className="achievement-unlocked-section">
-                <div className="achievement-unlocked-header">CONQUISTAS DESBLOQUEADAS</div>
+                <div className="achievement-unlocked-header">{t.gameoverAchievementsHeader}</div>
                 {newlyUnlocked.map((a, index) => (
                   <div
                     key={a.id}
@@ -231,7 +190,7 @@ export default function App() {
             {needsRankingName && !rankingSaved && (
               <div style={{ marginBottom: 20 }}>
                 <div className="label" style={{ marginBottom: 12, color: '#ffcc44' }}>
-                  TOP 10 - ENTER YOUR NAME
+                  {t.gameoverEnterName}
                 </div>
                 <div className="input-container">
                   <input
@@ -243,7 +202,7 @@ export default function App() {
                     className="name-input"
                   />
                   <button onClick={saveRanking} className="save-button">
-                    SAVE
+                    {t.gameoverBtnSave}
                   </button>
                 </div>
               </div>
@@ -252,10 +211,10 @@ export default function App() {
             {!needsRankingName && (
               <div className="ranking-container">
                 <div style={{ fontSize: 12, color: '#88aacc', letterSpacing: 2, marginBottom: 10, textAlign: 'center' }}>
-                  TOP 10
+                  {t.gameoverTop10}
                 </div>
                 {ranking.length === 0 && (
-                  <div style={{ fontSize: 12, color: '#778899', textAlign: 'center' }}>No records yet</div>
+                  <div style={{ fontSize: 12, color: '#778899', textAlign: 'center' }}>{t.gameoverNoRecords}</div>
                 )}
                 {ranking.map((entry, index) => {
                   const isCurrent = rankingSaved && entry.id === currentEntryId
@@ -275,7 +234,7 @@ export default function App() {
             )}
 
             <p className="restart-hint" onClick={handleAction} style={{ cursor: 'pointer' }}>
-              {'>'} TAP OR PRESS ENTER TO RETRY {'<'}
+              {t.gameoverPressEnter}
             </p>
           </div>
         </div>
