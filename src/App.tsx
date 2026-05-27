@@ -239,8 +239,12 @@ export default function App() {
             {newlyUnlocked.length > 0 && (
               <div className="achievement-unlocked-section">
                 <div className="achievement-unlocked-header">CONQUISTAS DESBLOQUEADAS</div>
-                {newlyUnlocked.map((a) => (
-                  <div key={a.id} className="achievement-unlocked-badge">
+                {newlyUnlocked.map((a, index) => (
+                  <div
+                    key={a.id}
+                    className="achievement-unlocked-badge"
+                    style={{ animationDelay: `${index * 0.12}s` }}
+                  >
                     <span className="achievement-unlocked-star">&#9733;</span>
                     <div className="achievement-unlocked-text">
                       <span className="achievement-unlocked-title">{a.title}</span>
