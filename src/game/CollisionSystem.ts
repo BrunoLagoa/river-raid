@@ -34,6 +34,7 @@ export interface CollisionContext {
   registerHit: () => void
   onEnemyDestroyed?: (enemyType: EnemyType) => void
   onFuelCollected?: (count: number) => void
+  onPowerUpCollected?: () => void
 }
 
 export class CollisionSystem {
@@ -239,6 +240,7 @@ export class CollisionSystem {
         ctx.sound.fuelCollect()
         ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
+        ctx.onPowerUpCollected?.()
       }
     }
   }

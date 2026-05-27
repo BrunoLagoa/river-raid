@@ -3,6 +3,7 @@ import { Game } from './Game'
 import { CollisionSystem } from './CollisionSystem'
 import { writeSecureNumber } from './StorageService'
 import * as StorageService from './StorageService'
+import * as AchievementService from './AchievementService'
 import { createSeededRandom } from './random'
 import { createMockCanvas } from './test-helpers/canvas'
 import { mockAnimationFrame } from './test-helpers/time'
@@ -1038,5 +1039,310 @@ describe('Game getters and setters', () => {
     game.scrollSpeed = 200
     expect(game.scrollSpeed).toBe(200)
     game.destroy()
+  })
+})
+
+describe('Game achievement system', () => {
+  beforeEach(() => {
+    vi.spyOn(AchievementService, 'isAchievementUnlocked').mockReturnValue(false)
+    vi.spyOn(AchievementService, 'unlockAchievement').mockImplementation((id) => {
+      return [{ id, title: id, description: '', unlocked: true, unlockedAt: new Date().toISOString() }]
+    })
+  })
+
+  it('setOnAchievementUnlocked registra callback', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+
+    game.setOnAchievementUnlocked(cb)
+
+    // Verifica que o callback é armazenado sem exceções
+    expect(cb).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
+  it('tryUnlockAchievement nao dispara se ja desbloqueado', () => {
+    vi.mocked(AchievementService.isAchievementUnlocked).mockReturnValue(true)
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+    game.setOnAchievementUnlocked(cb)
+
+    ;(game as unknown as { tryUnlockAchievement: (id: AchievementService.AchievementId) => void })
+      .tryUnlockAchievement('first_bridge')
+
+    expect(AchievementService.unlockAchievement).not.toHaveBeenCalled()
+    expect(cb).not.toHaveBeenCalled()
+    game.destroy()
+  })
+
+  it('tryUnlockAchievement dispara callback e pushToast quando nao desbloqueado', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+    const toastSpy = vi.spyOn(game.ui, 'pushToast')
+    game.setOnAchievementUnlocked(cb)
+
+    ;(game as unknown as { tryUnlockAchievement: (id: AchievementService.AchievementId) => void })
+      .tryUnlockAchievement('first_bridge')
+
+    expect(AchievementService.unlockAchievement).toHaveBeenCalledWith('first_bridge')
+    expect(toastSpy).toHaveBeenCalled()
+    expect(cb).toHaveBeenCalledWith('first_bridge', expect.any(String), expect.any(String))
+    game.destroy()
+  })
+
+  it('restart reseta rastreadores de conquistas', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    type GamePrivate = {
+      achievementEnemiesKilled: number
+      achievementPowerUpsCollected: number
+      achievementFuelHighTimer: number
+      achievementBridgeDestroyed: boolean
+      achievementLostLife: boolean
+    }
+    const g = game as unknown as GamePrivate
+
+    g.achievementEnemiesKilled = 10
+    g.achievementPowerUpsCollected = 5
+    g.achievementFuelHighTimer = 30
+    g.achievementBridgeDestroyed = true
+    g.achievementLostLife = true
+
+    game.restart()
+    game.stop()
+
+    expect(g.achievementEnemiesKilled).toBe(0)
+    expect(g.achievementPowerUpsCollected).toBe(0)
+    expect(g.achievementFuelHighTimer).toBe(0)
+    expect(g.achievementBridgeDestroyed).toBe(false)
+    expect(g.achievementLostLife).toBe(false)
+  })
+
+  it('untouchable e desbloqueado ao fim do jogo sem mortes', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    game.setOnAchievementUnlocked(vi.fn())
+
+    // Dispara game over via CollisionSystem sem passar por handlePlayerDeath
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementationOnce((ctx) => {
+      ctx.triggerGameOver()
+    })
+
+    game.start()
+    raf.flush(50)
+    vi.advanceTimersByTime(1300)
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('untouchable')
+  })
+
+  it('untouchable NAO e desbloqueado se perdeu vida antes do game over', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const cb = vi.fn()
+    game.setOnAchievementUnlocked(cb)
+
+    game.lives = 2
+    game.handlePlayerDeath() // perde 1 vida — marca achievementLostLife = true
+    vi.advanceTimersByTime(1500) // respawn
+
+    game.lives = 0
+    game.handlePlayerDeath() // game over real
+    vi.advanceTimersByTime(1300)
+
+    const unlockCalls = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+    const ids = unlockCalls.map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).not.toContain('untouchable')
+    game.destroy()
+  })
+
+  it('survivor e desbloqueado quando score >= 10000 no game over', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    game.setOnAchievementUnlocked(vi.fn())
+
+    game.score = 10000
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    vi.advanceTimersByTime(1300)
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('survivor')
+    game.destroy()
+  })
+
+  it('survivor NAO e desbloqueado quando score < 10000', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.score = 9999
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    vi.advanceTimersByTime(1300)
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).not.toContain('survivor')
+    game.destroy()
+  })
+
+  it('high_flyer e desbloqueado quando score >= 50000 no game over', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.score = 50000
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    game.handlePlayerDeath()
+    vi.advanceTimersByTime(1300)
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('high_flyer')
+    game.destroy()
+  })
+
+  it('combo_master e desbloqueado quando combo >= 4 no game over', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    // Dispara game over via CollisionSystem sem passar por handlePlayerDeath
+    // (que chama registerMiss() e reseta o combo)
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementationOnce((ctx) => {
+      ctx.triggerGameOver()
+    })
+
+    // Força combo x4 antes do game over
+    for (let i = 0; i < 30; i++) game.registerHit()
+    expect(game.comboMultiplier).toBeGreaterThanOrEqual(4)
+
+    game.start()
+    raf.flush(50)
+    vi.advanceTimersByTime(1300)
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('combo_master')
+  })
+
+  it('sharpshooter e desbloqueado via onEnemyDestroyed apos 50 inimigos', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      for (let i = 0; i < 50; i++) ctx.onEnemyDestroyed?.('helicopter')
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('sharpshooter')
+  })
+
+  it('first_bridge e desbloqueado ao destruir primeira ponte', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      ctx.onEnemyDestroyed?.('bridge')
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('first_bridge')
+  })
+
+  it('first_bridge nao e disparado duas vezes na mesma run', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      ctx.onEnemyDestroyed?.('bridge')
+      ctx.onEnemyDestroyed?.('bridge')
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    const bridgeCalls = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .filter((c: unknown[]) => c[0] as AchievementService.AchievementId === 'first_bridge')
+    expect(bridgeCalls.length).toBe(1)
+  })
+
+  it('power_collector e desbloqueado apos 10 power-ups coletados', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
+      for (let i = 0; i < 10; i++) ctx.onPowerUpCollected?.()
+    })
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('power_collector')
+  })
+
+  it('fuel_saver e desbloqueado apos 60s com combustivel alto', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+
+    // Impede consumo de combustivel via colisoes e mantém fuel alto
+    vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation(() => {})
+    game.fuelSystem.fuel = 100
+    game.world.isOutOfBounds = () => false
+
+    game.start()
+    // dt é clamped a 0.05s/frame; precisa de 60/0.05 = 1200 frames
+    for (let i = 1; i <= 1210; i++) {
+      game.fuelSystem.fuel = 100 // reabastece a cada frame para garantir condição
+      raf.flush(i * 50)
+    }
+    game.stop()
+
+    const ids = (AchievementService.unlockAchievement as ReturnType<typeof vi.fn>).mock.calls
+      .map((c: unknown[]) => c[0] as AchievementService.AchievementId)
+    expect(ids).toContain('fuel_saver')
+  })
+
+  it('ui.updateToasts e chamado a cada frame do game loop', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const toastSpy = vi.spyOn(game.ui, 'updateToasts')
+
+    game.start()
+    raf.flush(50)
+    raf.flush(100)
+    game.stop()
+
+    expect(toastSpy).toHaveBeenCalled()
   })
 })

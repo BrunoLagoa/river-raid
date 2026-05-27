@@ -2,13 +2,15 @@ import { useEffect, useRef, useCallback } from 'react'
 import { Game } from '@/game/Game'
 import SwipeControls from './SwipeControls'
 import type { GameSettings } from '@/game/SettingsService'
+import type { AchievementId } from '@/game/AchievementService'
 
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
+  onAchievementUnlocked?: (id: AchievementId, title: string, description: string) => void
   settings: GameSettings
 }
 
-export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
+export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
   const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
@@ -44,6 +46,9 @@ export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
     game.setOnGameOver((score, highScore) => {
       onGameOver(score, highScore)
     })
+    if (onAchievementUnlocked) {
+      game.setOnAchievementUnlocked(onAchievementUnlocked)
+    }
     game.start()
 
     window.addEventListener('resize', resize)
@@ -53,7 +58,7 @@ export default function GameCanvas({ onGameOver, settings }: GameCanvasProps) {
       game.destroy()
       gameRef.current = null
     }
-  }, [onGameOver])
+  }, [onGameOver, onAchievementUnlocked])
 
   useEffect(() => {
     if (!gameRef.current) return

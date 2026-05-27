@@ -22,7 +22,13 @@ import {
   SLOW_MOTION_DURATION,
   GAME_OVER_DELAY, RESPAWN_DELAY, HIGH_SCORE_KEY,
 } from './constants'
+import {
+  unlockAchievement,
+  isAchievementUnlocked,
+  type AchievementId,
+} from './AchievementService'
 export type GameCallback = (score: number, highScore: number) => void
+export type AchievementCallback = (id: AchievementId, title: string, description: string) => void
 
 export class Game {
   private static readonly HIGH_SCORE_KEY_STATIC = HIGH_SCORE_KEY
@@ -49,8 +55,16 @@ export class Game {
   private debugPanel = new DebugPanel()
 
   private onGameOver: GameCallback | null = null
+  private onAchievementUnlocked: AchievementCallback | null = null
   private gameOverTriggered = false
   private random: RandomSource
+
+  // Achievement trackers — reset each run
+  private achievementEnemiesKilled = 0
+  private achievementPowerUpsCollected = 0
+  private achievementFuelHighTimer = 0
+  private achievementBridgeDestroyed = false
+  private achievementLostLife = false
 
   private scoring = new ScoringSystem()
   private state = new GameState()
@@ -117,6 +131,19 @@ export class Game {
 
   setOnGameOver(cb: GameCallback): void {
     this.onGameOver = cb
+  }
+
+  setOnAchievementUnlocked(cb: AchievementCallback): void {
+    this.onAchievementUnlocked = cb
+  }
+
+  private tryUnlockAchievement(id: AchievementId): void {
+    if (isAchievementUnlocked(id)) return
+    const updated = unlockAchievement(id)
+    const achievement = updated.find((a) => a.id === id)
+    if (!achievement) return
+    this.ui.pushToast(achievement.title, achievement.description)
+    this.onAchievementUnlocked?.(id, achievement.title, achievement.description)
   }
 
   start(): void {
@@ -203,6 +230,12 @@ export class Game {
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.debugPanel.reset()
     this.objectives.reset()
+    // Reset per-run achievement trackers
+    this.achievementEnemiesKilled = 0
+    this.achievementPowerUpsCollected = 0
+    this.achievementFuelHighTimer = 0
+    this.achievementBridgeDestroyed = false
+    this.achievementLostLife = false
     this.start()
   }
 
@@ -289,6 +322,7 @@ export class Game {
     }
 
     this.fx.update(dt)
+    this.ui.updateToasts(dt)
     this.updateDebugMetrics()
   }
 
@@ -340,6 +374,16 @@ export class Game {
   private handleAliveState(dt: number, speedMod: number): boolean {
     this.renderSmokeTrail(speedMod)
     this.resolveGameplayCollisions()
+
+    // fuel_saver: track time with fuel above 75%
+    if (this.fuelSystem.fuel >= 75) {
+      this.achievementFuelHighTimer += dt
+      if (this.achievementFuelHighTimer >= 60) {
+        this.tryUnlockAchievement('fuel_saver')
+      }
+    } else {
+      this.achievementFuelHighTimer = 0
+    }
 
     if (this.player.justShot) {
       this.sound.shoot()
@@ -403,9 +447,21 @@ export class Game {
       },
       onEnemyDestroyed: (enemyType) => {
         this.objectives.onEnemyDestroyed(enemyType)
+        this.achievementEnemiesKilled++
+        if (this.achievementEnemiesKilled >= 50) this.tryUnlockAchievement('sharpshooter')
+        if (enemyType === 'bridge') {
+          if (!this.achievementBridgeDestroyed) {
+            this.achievementBridgeDestroyed = true
+            this.tryUnlockAchievement('first_bridge')
+          }
+        }
       },
       onFuelCollected: (count) => {
         this.objectives.onFuelCollected(count)
+      },
+      onPowerUpCollected: () => {
+        this.achievementPowerUpsCollected++
+        if (this.achievementPowerUpsCollected >= 10) this.tryUnlockAchievement('power_collector')
       }
     })
   }
@@ -488,6 +544,7 @@ export class Game {
 
   handlePlayerDeath(): void {
     if (this.gameOverTriggered) return
+    this.achievementLostLife = true
     this.lives--
     this.registerMiss() // Reset combo on death
 
@@ -510,6 +567,13 @@ export class Game {
   private triggerGameOver(): void {
     if (this.gameOverTriggered) return
     this.gameOverTriggered = true
+
+    // Unlock end-of-run achievements
+    if (!this.achievementLostLife) this.tryUnlockAchievement('untouchable')
+    if (this.score >= 10000) this.tryUnlockAchievement('survivor')
+    if (this.score >= 50000) this.tryUnlockAchievement('high_flyer')
+    if (this.comboMultiplier >= 4) this.tryUnlockAchievement('combo_master')
+
     this.fx.addShake(15, 0.6)
     this.sound.gameOver()
     const isNewBest = this.score > this.getHighScore()

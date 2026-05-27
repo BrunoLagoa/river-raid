@@ -15,7 +15,7 @@ describe('AchievementService', () => {
   describe('getStoredAchievements', () => {
     it('retorna catalogo padrao se nada armazenado', () => {
       const achievements = getStoredAchievements()
-      expect(achievements.length).toBe(3)
+      expect(achievements.length).toBe(8)
       expect(achievements[0].id).toBe('first_bridge')
       expect(achievements[0].unlocked).toBe(false)
     })

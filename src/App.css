@@ -179,6 +179,67 @@ h1.gameover-title {
   animation: pulse 1s ease-in-out infinite;
 }
 
+.achievement-unlocked-section {
+  width: 260px;
+  margin: 0 auto 20px auto;
+}
+
+.achievement-unlocked-header {
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: #ccaa00;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.achievement-unlocked-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(20, 14, 0, 0.75);
+  border: 1px solid #ccaa00;
+  padding: 7px 10px;
+  margin-bottom: 5px;
+  animation: achievement-pop 0.35s ease-out both;
+}
+
+.achievement-unlocked-star {
+  font-size: 18px;
+  color: #ffdd00;
+  flex-shrink: 0;
+  text-shadow: 0 0 8px rgba(255, 221, 0, 0.6);
+}
+
+.achievement-unlocked-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.achievement-unlocked-title {
+  font-size: 12px;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+
+.achievement-unlocked-desc {
+  font-size: 9px;
+  color: #aaaaaa;
+  letter-spacing: 0.5px;
+}
+
+@keyframes achievement-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .ranking-container {
   width: 260px;
   margin: 0 auto 20px auto;

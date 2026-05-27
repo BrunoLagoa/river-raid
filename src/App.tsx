@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
-import { getStoredAchievements, unlockAchievement } from './game/AchievementService'
+import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
 
 import './App.css'
 
@@ -23,6 +23,7 @@ export default function App() {
     return stored
   })
   const [achievements, setAchievements] = useState(() => getStoredAchievements())
+  const [newlyUnlocked, setNewlyUnlocked] = useState<Achievement[]>([])
   const [playerName, setPlayerName] = useState('ACE')
   const [needsRankingName, setNeedsRankingName] = useState(false)
   const [rankingSaved, setRankingSaved] = useState(false)
@@ -39,11 +40,22 @@ export default function App() {
     setRankingSaved(false)
     setRanking(getStoredRanking())
 
-    if (score >= 500) setAchievements(unlockAchievement('first_bridge'))
-    if (score >= 1500) setAchievements(unlockAchievement('fuel_saver'))
-    if (score >= hs && score > 0) setAchievements(unlockAchievement('combo_master'))
+    // Achievements are unlocked in-engine (Game.ts); sync stored state here
+    setAchievements(getStoredAchievements())
 
     setScreen('gameover')
+  }, [])
+
+  const handleAchievementUnlocked = useCallback((_id: AchievementId, title: string, description: string) => {
+    // Sincroniza estado React imediatamente ao desbloquear
+    setAchievements(getStoredAchievements())
+    // Acumula para exibir badge na tela de game over
+    setNewlyUnlocked((prev) => {
+      if (prev.some((a) => a.id === _id)) return prev
+      return [...prev, { id: _id, title, description, unlocked: true, unlockedAt: new Date().toISOString() }]
+    })
+    // Ponto de extensão: analytics, notificações externas, etc.
+    // Ex: analytics.track('achievement_unlocked', { id: _id })
   }, [])
 
   const saveRanking = useCallback(() => {
@@ -59,11 +71,13 @@ export default function App() {
 
   const handleAction = useCallback(() => {
     if (screen === 'menu') {
+      setNewlyUnlocked([])
       setScreen('playing')
     } else if (screen === 'gameover') {
       if (needsRankingName && !rankingSaved) {
         saveRanking()
       } else {
+        setNewlyUnlocked([])
         setScreen('playing')
       }
     }
@@ -192,7 +206,7 @@ export default function App() {
         </div>
       )}
 
-      {screen === 'playing' && <GameCanvas onGameOver={handleGameOver} settings={settings} />}
+      {screen === 'playing' && <GameCanvas onGameOver={handleGameOver} onAchievementUnlocked={handleAchievementUnlocked} settings={settings} />}
 
       {screen === 'gameover' && (
         <div className="screen-wrapper gameover">
@@ -220,6 +234,21 @@ export default function App() {
 
             {finalScore >= highScore && finalScore > 0 && (
               <div className="new-best">NEW BEST!</div>
+            )}
+
+            {newlyUnlocked.length > 0 && (
+              <div className="achievement-unlocked-section">
+                <div className="achievement-unlocked-header">CONQUISTAS DESBLOQUEADAS</div>
+                {newlyUnlocked.map((a) => (
+                  <div key={a.id} className="achievement-unlocked-badge">
+                    <span className="achievement-unlocked-star">&#9733;</span>
+                    <div className="achievement-unlocked-text">
+                      <span className="achievement-unlocked-title">{a.title}</span>
+                      <span className="achievement-unlocked-desc">{a.description}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
 
             {needsRankingName && !rankingSaved && (

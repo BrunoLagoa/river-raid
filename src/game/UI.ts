@@ -28,7 +28,37 @@ interface ObjectiveData {
   completed: boolean
 }
 
+interface AchievementToast {
+  title: string
+  description: string
+  timer: number
+}
+
+const TOAST_DURATION = 3.5
+const TOAST_FADE_DURATION = 0.5
+
 export class UI {
+  private toasts: AchievementToast[] = []
+
+  pushToast(title: string, description: string): void {
+    // Replace existing toast with the same title to avoid duplicates
+    const existing = this.toasts.findIndex((t) => t.title === title)
+    if (existing !== -1) {
+      this.toasts[existing].timer = TOAST_DURATION
+      return
+    }
+    this.toasts.push({ title, description, timer: TOAST_DURATION })
+  }
+
+  updateToasts(dt: number): void {
+    for (let i = this.toasts.length - 1; i >= 0; i--) {
+      this.toasts[i].timer -= dt
+      if (this.toasts[i].timer <= 0) {
+        this.toasts.splice(i, 1)
+      }
+    }
+  }
+
   render(
     ctx: CanvasRenderingContext2D,
     score: number,
@@ -225,6 +255,62 @@ export class UI {
       ctx.fillText('Press P or ESC to resume', canvasWidth / 2, ctx.canvas.height / 2 + 20)
     }
 
+    this.renderToasts(ctx, canvasWidth)
+
+    ctx.restore()
+  }
+
+  private renderToasts(ctx: CanvasRenderingContext2D, canvasWidth: number): void {
+    if (this.toasts.length === 0) return
+
+    const toastW = 260
+    const toastH = 48
+    const toastX = canvasWidth - toastW - 14
+    let toastY = 160
+
+    ctx.save()
+    for (const toast of this.toasts) {
+      const fadeRatio = Math.min(1, toast.timer / TOAST_FADE_DURATION)
+      const alpha = toast.timer >= TOAST_DURATION - TOAST_FADE_DURATION
+        ? Math.min(1, (TOAST_DURATION - toast.timer) / TOAST_FADE_DURATION)
+        : fadeRatio
+
+      ctx.globalAlpha = alpha
+
+      // Background
+      ctx.fillStyle = 'rgba(20, 14, 0, 0.88)'
+      ctx.fillRect(toastX, toastY, toastW, toastH)
+
+      // Gold border
+      ctx.strokeStyle = '#ccaa00'
+      ctx.lineWidth = 1.5
+      ctx.strokeRect(toastX + 0.5, toastY + 0.5, toastW - 1, toastH - 1)
+
+      // Star icon
+      ctx.font = 'bold 14px "Courier New", monospace'
+      ctx.fillStyle = '#ffdd00'
+      ctx.textAlign = 'left'
+      ctx.textBaseline = 'alphabetic'
+      ctx.fillText('\u2605', toastX + 10, toastY + 20)
+
+      // "CONQUISTA" label
+      ctx.font = 'bold 9px "Courier New", monospace'
+      ctx.fillStyle = '#ccaa00'
+      ctx.fillText('CONQUISTA', toastX + 28, toastY + 14)
+
+      // Title
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.fillStyle = '#ffffff'
+      ctx.fillText(toast.title, toastX + 28, toastY + 28)
+
+      // Description
+      ctx.font = '9px "Courier New", monospace'
+      ctx.fillStyle = '#aaaaaa'
+      ctx.fillText(toast.description, toastX + 10, toastY + 42)
+
+      toastY += toastH + 6
+    }
+    ctx.globalAlpha = 1
     ctx.restore()
   }
 
