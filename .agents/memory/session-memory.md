@@ -99,3 +99,34 @@
 ## Pendencias abertas (update 2)
 
 - ~~Rodar `/review` final para validar aderencia completa apos esta segunda iteracao da IA.~~ **CONCLUIDO** — Review executado e aprovado em 2026-05-27.
+
+## Atualizacao 2026-05-27 — Redesign UI + i18n + Tooltip conquistas
+
+### Contexto
+Redesign completo das telas de menu, tutorial e settings com identidade visual arcade. Adição de i18n (en/pt-BR) com seletor persistido. Tooltip de conquistas com CSS puro.
+
+### Commits desta sessão
+- `b777db9` — MenuScreen e TutorialScreen extraídos; redesign arcade (scanlines, flicker, glow); Share Tech Mono
+- `ca4ae28` — SettingsScreen extraída; i18n.ts criado (en/pt-BR); campo `language` em GameSettings; gameover traduzido; testes atualizados
+- `207620e` — Tooltip ⓘ nas conquistas; descriptions do catálogo corrigidas para refletir condições reais do jogo
+- `79361f7` — Correções: tooltip não cortado (overflow removido), barra scroll horizontal removida, slider volume acompanha valor via `--val` inline
+
+### Arquivos centrais alterados
+- `src/App.tsx` — integração i18n (`useMemo getStrings`), gameover traduzido
+- `src/App.css` — estilos arcade + settings redesign + tooltip
+- `src/i18n.ts` — novo; strings completas en/pt-BR para todas as telas
+- `src/game/SettingsService.ts` — tipo `Language`, campo `language`, normalização
+- `src/game/SettingsService.test.ts` — cobertura de `language` (leitura, persistência, fallback inválido)
+- `src/game/AchievementService.ts` — descriptions corrigidas (50 inimigos, 10 power-ups, 60s/75%, 10k/50k pts)
+- `src/components/MenuScreen.tsx` — recebe prop `t: Strings`
+- `src/components/TutorialScreen.tsx` — recebe prop `t: Strings`
+- `src/components/SettingsScreen.tsx` — novo; seletor de idioma, toggles, slider, conquistas + tooltip ⓘ
+
+### Validação técnica
+- `npm run typecheck` — OK
+- `npm test` — 369/369 passando
+- `npm run test:coverage` — Statements 100%, Functions 100%, Lines 100%, Branches 97.46%
+
+### Estado final
+- Sem pendências abertas desta sessão
+- Coverage acima dos thresholds configurados (55 stmt/func/lines, 35 branches)

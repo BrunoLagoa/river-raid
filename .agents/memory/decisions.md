@@ -94,6 +94,20 @@
 
 <!-- Decisões de interface e experiência do usuário -->
 
+## [2026-05-27] Redesign de telas com identidade arcade + i18n (en/pt-BR)
+
+- Decisão: extrair `MenuScreen`, `TutorialScreen` e `SettingsScreen` como componentes dedicados com identidade visual arcade (scanlines, flicker, glow), implementar i18n via módulo simples `src/i18n.ts` sem lib externa, campo `language` persistido em `GameSettings` no localStorage, idioma padrão `en`.
+- Motivo: separar responsabilidades de UI do `App.tsx`, preparar suporte multilíngue sem dependência externa, manter React como shell puro sem tocar na engine Canvas.
+- Impacto: médio
+- Score: 55/100
+
+## [2026-05-27] Tooltip de conquistas com CSS puro + correção do catálogo
+
+- Decisão: adicionar ícone `ⓘ` em cada conquista na `SettingsScreen` com tooltip CSS puro (`:hover` + `visibility/opacity`), posicionado abaixo do ícone; corrigir as `description` do catálogo `AchievementService.ts` para refletir as condições reais de desbloqueio do `Game.ts`; remover scroll do container de conquistas para evitar clipping do tooltip.
+- Motivo: melhorar UX sem JS adicional, corrigir inconsistência documentada entre textos e lógica real do jogo.
+- Impacto: baixo
+- Score: 20/100
+
 ## Outras
 
 <!-- Decisões gerais que não se encaixam nas categorias acima -->
@@ -113,3 +127,5 @@
 - [2026-04-17] Sistema dinamico de objetivos por run (update)
 - [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas
 - [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas (update)
+- [2026-05-27] Redesign de telas com identidade arcade + i18n (en/pt-BR)
+- [2026-05-27] Tooltip de conquistas com CSS puro + correção do catálogo
