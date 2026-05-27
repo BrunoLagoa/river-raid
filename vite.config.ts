@@ -17,6 +17,7 @@ export default defineConfig({
     coverage: {
       reporter: ['text', 'html'],
       include: [
+        'src/game/BiomeSystem.ts',
         'src/game/CollisionSystem.ts',
         'src/game/EnemyManager.ts',
         'src/game/FuelSystem.ts',

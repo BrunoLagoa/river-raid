@@ -20,10 +20,10 @@ export interface ColorPalette {
 // ─── Internal colour representation ──────────────────────────────────────────
 // Stored as [r,g,b] (0-255) for efficient lerping.
 
-type RGB = [number, number, number]
-type RGBA = [number, number, number, number]
+export type RGB = [number, number, number]
+export type RGBA = [number, number, number, number]
 
-interface PaletteRaw {
+export interface PaletteRaw {
   landBase: RGB
   landEdgeDark: RGB
   landEdgeBright: RGB
@@ -88,7 +88,60 @@ const PALETTES: PaletteRaw[] = [
   },
 ]
 
-// ─── Cloud colours per phase ──────────────────────────────────────────────────
+// ─── Day/Night modulation profiles ──────────────────────────────────────────
+// Applied on top of any biome's base palette.
+// brightness: multiplier (1.0 = no change, 0.45 = night)
+// tintRGB: target colour for tinting
+// tintStrength: how strongly to push colours toward tintRGB (0 = none)
+
+interface DayNightModulation {
+  brightness: number
+  tintRGB: RGB
+  tintStrength: number
+}
+
+const MODULATIONS: DayNightModulation[] = [
+  // 0 — Day (neutral: no tint)
+  { brightness: 1.00, tintRGB: [255, 255, 255], tintStrength: 0.00 },
+  // 1 — Sunset (warm orange tint, dimmer)
+  { brightness: 0.85, tintRGB: [255, 140,  80], tintStrength: 0.18 },
+  // 2 — Night (cool blue tint, much dimmer)
+  { brightness: 0.55, tintRGB: [ 60,  80, 140], tintStrength: 0.30 },
+  // 3 — Dawn (soft purple tint, slightly dim)
+  { brightness: 0.75, tintRGB: [200, 170, 220], tintStrength: 0.15 },
+]
+
+function lerpModulation(a: DayNightModulation, b: DayNightModulation, t: number): DayNightModulation {
+  return {
+    brightness:    lerpN(a.brightness, b.brightness, t),
+    tintRGB:       lerpRGB(a.tintRGB, b.tintRGB, t),
+    tintStrength:  lerpN(a.tintStrength, b.tintStrength, t),
+  }
+}
+
+function modulateRGB(base: RGB, mod: DayNightModulation): RGB {
+  const dimmed: RGB = [
+    Math.round(Math.min(255, base[0] * mod.brightness)),
+    Math.round(Math.min(255, base[1] * mod.brightness)),
+    Math.round(Math.min(255, base[2] * mod.brightness)),
+  ]
+  return lerpRGB(dimmed, mod.tintRGB, mod.tintStrength)
+}
+
+function modulatePalette(base: PaletteRaw, mod: DayNightModulation): PaletteRaw {
+  return {
+    landBase:       modulateRGB(base.landBase,       mod),
+    landEdgeDark:   modulateRGB(base.landEdgeDark,   mod),
+    landEdgeBright: modulateRGB(base.landEdgeBright, mod),
+    waterBase:      modulateRGB(base.waterBase,      mod),
+    waterFlow:      modulateRGB(base.waterFlow,      mod),
+    waterWave:      [...modulateRGB([base.waterWave[0], base.waterWave[1], base.waterWave[2]], mod), parseFloat((base.waterWave[3] * mod.brightness).toFixed(3))] as RGBA,
+    waterDepth:     [...modulateRGB([base.waterDepth[0], base.waterDepth[1], base.waterDepth[2]], mod), parseFloat((base.waterDepth[3] * (1 + (1 - mod.brightness) * 0.5)).toFixed(3))] as RGBA,
+    shimmer:        [...modulateRGB([base.shimmer[0], base.shimmer[1], base.shimmer[2]], mod), parseFloat((base.shimmer[3] * mod.brightness).toFixed(3))] as RGBA,
+    brightness:     base.brightness * mod.brightness,
+  }
+}
+
 
 const CLOUD_COLORS: RGBA[] = [
   [255, 255, 255, 0.15], // Day   — white
@@ -146,7 +199,7 @@ function rawToPalette(r: PaletteRaw): ColorPalette {
   }
 }
 
-function lerpPaletteRaw(a: PaletteRaw, b: PaletteRaw, t: number): PaletteRaw {
+export function lerpPaletteRaw(a: PaletteRaw, b: PaletteRaw, t: number): PaletteRaw {
   return {
     landBase:       lerpRGB(a.landBase,       b.landBase,       t),
     landEdgeDark:   lerpRGB(a.landEdgeDark,   b.landEdgeDark,   t),
@@ -219,7 +272,7 @@ export class Atmosphere {
 
   // ── Update ───────────────────────────────────────────────────────────────────
 
-  update(dt: number, scrollSpeed: number): void {
+  update(dt: number, scrollSpeed: number, basePalette?: PaletteRaw): void {
     if (!Number.isFinite(dt)) return
     this.cycleTime = (this.cycleTime + dt) % CYCLE_DURATION
     if (this.cycleTime < 0) this.cycleTime += CYCLE_DURATION
@@ -240,7 +293,14 @@ export class Atmosphere {
     }
 
     const nextPhase = (phaseIndex + 1) % 4
-    this.currentPaletteRaw = lerpPaletteRaw(PALETTES[phaseIndex], PALETTES[nextPhase], blend)
+    if (basePalette) {
+      // Biome mode: apply day/night modulation on top of the biome's base palette
+      const mod = lerpModulation(MODULATIONS[phaseIndex], MODULATIONS[nextPhase], blend)
+      this.currentPaletteRaw = modulatePalette(basePalette, mod)
+    } else {
+      // Legacy mode: interpolate between fixed phase palettes
+      this.currentPaletteRaw = lerpPaletteRaw(PALETTES[phaseIndex], PALETTES[nextPhase], blend)
+    }
 
     // ── Clouds ─────────────────────────────────────────────────────────────────
     for (const cloud of this.clouds) {

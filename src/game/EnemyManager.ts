@@ -216,6 +216,10 @@ export class EnemyManager {
   private spawnInterval = ENEMY_SPAWN_INTERVAL_START
   private gameTime = 0
   private canvasHeight: number
+  // biome-driven config (set each frame by Game)
+  private biomeEnemyWeights: Record<EnemyType, number> | null = null
+  private biomeSpawnRateMult = 1.0
+  private biomeTierBias: Record<AiTier, number> = { basic: 1, smart: 1, elite: 1 }
 
   constructor(canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasWidth = canvasWidth
@@ -227,10 +231,24 @@ export class EnemyManager {
     this.canvasHeight = h
   }
 
+  /** Called each frame with the current EffectiveBiomeConfig values. */
+  setEnemyBiomeConfig(
+    enemyWeights: Record<EnemyType, number>,
+    spawnRateMult: number,
+    tierBias: Record<AiTier, number>,
+  ): void {
+    this.biomeEnemyWeights = enemyWeights
+    this.biomeSpawnRateMult = spawnRateMult
+    this.biomeTierBias = tierBias
+  }
+
   update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
     this.gameTime += dt
 
-    this.spawnInterval = Math.max(ENEMY_SPAWN_INTERVAL_MIN, 1.2 - this.gameTime * ENEMY_SPAWN_INTERVAL_DECAY)
+    this.spawnInterval = Math.max(
+      ENEMY_SPAWN_INTERVAL_MIN,
+      (1.2 - this.gameTime * ENEMY_SPAWN_INTERVAL_DECAY) / this.biomeSpawnRateMult,
+    )
 
     this.spawnTimer -= dt
     if (this.spawnTimer <= 0) {
@@ -636,13 +654,35 @@ export class EnemyManager {
   }
 
   private resolveAiTier(type: EnemyType): AiTier {
-    if (this.gameTime < 40) return 'basic'
-    if (this.gameTime < 100) {
-      if (type === 'plane' || type === 'gunboat') return 'smart'
-      return this.random() < 0.35 ? 'smart' : 'basic'
+    // Base probabilities by game time
+    let basicW: number, smartW: number, eliteW: number
+    if (this.gameTime < 40) {
+      basicW = 1; smartW = 0; eliteW = 0
+    } else if (this.gameTime < 100) {
+      if (type === 'plane' || type === 'gunboat') {
+        basicW = 0; smartW = 1; eliteW = 0
+      } else {
+        basicW = 0.65; smartW = 0.35; eliteW = 0
+      }
+    } else {
+      if (type === 'plane' || type === 'gunboat') {
+        basicW = 0; smartW = 0.5; eliteW = 0.5
+      } else {
+        basicW = 0; smartW = 0.75; eliteW = 0.25
+      }
     }
-    if (type === 'plane' || type === 'gunboat') return this.random() < 0.5 ? 'elite' : 'smart'
-    return this.random() < 0.25 ? 'elite' : 'smart'
+
+    // Apply biome tier bias
+    basicW *= this.biomeTierBias.basic
+    smartW *= this.biomeTierBias.smart
+    eliteW *= this.biomeTierBias.elite
+
+    const total = basicW + smartW + eliteW
+    if (total === 0) return 'basic'
+    const roll = this.random() * total
+    if (roll < basicW) return 'basic'
+    if (roll < basicW + smartW) return 'smart'
+    return 'elite'
   }
 
   private hasSpawnSpace(type: EnemyType, x: number, y: number, width: number): boolean {
@@ -666,31 +706,38 @@ export class EnemyManager {
     const topSegment = riverSegments[riverSegments.length - 1]
     const spawnRisk = this.getSpawnRisk(riverSegments)
 
-    const zone = this.gameTime < 35 ? 0 : this.gameTime < 90 ? 1 : 2
-    const weights: [EnemyType, number][] = zone === 0
-      ? [
-          ['helicopter', 42],
-          ['plane', 28],
-          ['boat', 20],
-          ['bridge', 10],
-        ]
-      : zone === 1
+    // Use biome weights when available, otherwise fall back to time-based zones
+    let baseWeights: [EnemyType, number][]
+    if (this.biomeEnemyWeights) {
+      baseWeights = Object.entries(this.biomeEnemyWeights) as [EnemyType, number][]
+    } else {
+      const zone = this.gameTime < 35 ? 0 : this.gameTime < 90 ? 1 : 2
+      baseWeights = zone === 0
         ? [
-            ['helicopter', 30],
-            ['plane', 24],
-            ['boat', 18],
+            ['helicopter', 42],
+            ['plane', 28],
+            ['boat', 20],
             ['bridge', 10],
-            ['tank', 10],
-            ['gunboat', 8],
           ]
-        : [
-            ['helicopter', 24],
-            ['plane', 20],
-            ['boat', 14],
-            ['bridge', 10],
-            ['tank', 16],
-            ['gunboat', 16],
-          ]
+        : zone === 1
+          ? [
+              ['helicopter', 30],
+              ['plane', 24],
+              ['boat', 18],
+              ['bridge', 10],
+              ['tank', 10],
+              ['gunboat', 8],
+            ]
+          : [
+              ['helicopter', 24],
+              ['plane', 20],
+              ['boat', 14],
+              ['bridge', 10],
+              ['tank', 16],
+              ['gunboat', 16],
+            ]
+    }
+    const weights = baseWeights
 
     const adjustedWeights: [EnemyType, number][] = weights.map(([t, w]) => {
       if (spawnRisk.high && (t === 'plane' || t === 'gunboat')) {

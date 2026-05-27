@@ -1,6 +1,5 @@
 import { compactArray } from './utils'
-
-type SceneryType = 'palm' | 'tree' | 'house' | 'bush' | 'rock' | 'fueltank'
+import type { SceneryType } from './BiomeSystem'
 
 interface SceneryObject {
   type: SceneryType
@@ -24,21 +23,13 @@ const SCENERY_CONFIGS: Record<SceneryType, { width: number; height: number; weig
 
 const SPAWN_INTERVAL = 280
 
-function pickType(): SceneryType {
-  const entries = Object.entries(SCENERY_CONFIGS) as [SceneryType, { weight: number }][]
-  const total = entries.reduce((s, [, c]) => s + c.weight, 0)
-  let roll = Math.random() * total
-  for (const [type, cfg] of entries) {
-    roll -= cfg.weight
-    if (roll <= 0) return type
-  }
-  return 'bush'
-}
-
 export class Scenery {
   objects: SceneryObject[] = []
   private canvasHeight: number
   private spawnProgress = 0
+  private sceneryWeights: Record<SceneryType, number> = {
+    palm: 20, tree: 25, house: 12, bush: 22, rock: 15, fueltank: 6,
+  }
 
   constructor(_canvasWidth: number, canvasHeight: number) {
     this.canvasHeight = canvasHeight
@@ -46,6 +37,21 @@ export class Scenery {
 
   setCanvasHeight(h: number): void {
     this.canvasHeight = h
+  }
+
+  setSceneryWeights(weights: Record<SceneryType, number>): void {
+    this.sceneryWeights = weights
+  }
+
+  private pickType(): SceneryType {
+    const entries = Object.entries(this.sceneryWeights) as [SceneryType, number][]
+    const total = entries.reduce((s, [, w]) => s + w, 0)
+    let roll = Math.random() * total
+    for (const [type, w] of entries) {
+      roll -= w
+      if (roll <= 0) return type
+    }
+    return 'bush'
   }
 
   get activeCount(): number {
@@ -99,7 +105,7 @@ export class Scenery {
     if (mode === 'right' || mode === 'both') sides.push('right')
 
     for (const side of sides) {
-      const type = pickType()
+      const type = this.pickType()
       const cfg = SCENERY_CONFIGS[type]
       const variant = Math.floor(Math.random() * 3)
 

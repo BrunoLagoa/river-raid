@@ -9,6 +9,7 @@ import { SoundManager } from './SoundManager'
 import { Fx } from './Fx'
 import { Scenery } from './Scenery'
 import { Atmosphere } from './Atmosphere'
+import { BiomeSystem } from './BiomeSystem'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
@@ -69,6 +70,7 @@ export class Game {
 
   private scoring = new ScoringSystem()
   private state = new GameState()
+  private biomeSystem = new BiomeSystem()
   private readonly minimapEnemies: Array<{ x: number; y: number; active: boolean }> = []
   private readonly minimapFuelTanks: Array<{ x: number; y: number; active: boolean }> = []
   private readonly minimapPowerUps: Array<{ x: number; y: number; active: boolean }> = []
@@ -229,6 +231,7 @@ export class Game {
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
+    this.biomeSystem.reset()
     this.debugPanel.reset()
     this.objectives.reset()
     // Reset per-run achievement trackers
@@ -331,13 +334,13 @@ export class Game {
     if (this.player.state === 'exploding') {
       this.player.update(dt, 0, this.canvas.width)
       this.fx.update(dt)
-      this.atmosphere.update(dt, this.scrollSpeed)
+      this.atmosphere.update(dt, this.scrollSpeed, this.biomeSystem.getConfig().basePalette)
       return true
     }
 
     if (this.player.state === 'dead') {
       this.fx.update(dt)
-      this.atmosphere.update(dt, this.scrollSpeed)
+      this.atmosphere.update(dt, this.scrollSpeed, this.biomeSystem.getConfig().basePalette)
       return true
     }
 
@@ -355,8 +358,20 @@ export class Game {
   }
 
   private updateWorldAndPlayer(dt: number, envDt: number): void {
+    // Update biome and distribute config to downstream systems
+    this.biomeSystem.update(dt)
+    const biomeCfg = this.biomeSystem.getConfig()
+
+    this.world.setBiomeWidths(biomeCfg.riverMinWidth, biomeCfg.riverMaxWidthRatio)
+    this.scenery.setSceneryWeights(biomeCfg.sceneryWeights)
+    this.enemyManager.setEnemyBiomeConfig(
+      biomeCfg.enemyWeights,
+      biomeCfg.enemySpawnRateMult,
+      biomeCfg.enemyTierBias,
+    )
+
     this.world.update(envDt, this.scrollSpeed)
-    this.atmosphere.update(dt, this.scrollSpeed)
+    this.atmosphere.update(dt, this.scrollSpeed, biomeCfg.basePalette)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())

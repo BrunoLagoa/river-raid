@@ -61,6 +61,10 @@ export class World {
   private targetLeft: number
   private targetRight: number
 
+  // biome-driven width constraints (updated each frame via setBiomeWidths)
+  private biomeMinWidth = MIN_WIDTH
+  private biomeMaxWidthRatio = MAX_WIDTH_RATIO
+
   // state machine for generation
   private genPhase: 'hold' | 'transition' = 'hold'
   private genRemaining = 0      // px remaining in current phase
@@ -207,12 +211,18 @@ export class World {
   // Chooses a new random river "section": different width and/or position.
   // Banks are allowed to move independently (asymmetric transitions).
 
+  /** Called each frame with the current EffectiveBiomeConfig values. */
+  setBiomeWidths(minWidth: number, maxWidthRatio: number): void {
+    this.biomeMinWidth    = minWidth
+    this.biomeMaxWidthRatio = maxWidthRatio
+  }
+
   private pickNewTarget(): void {
-    const maxW = Math.min(this.canvasWidth * MAX_WIDTH_RATIO, 480)
+    const maxW = Math.min(this.canvasWidth * this.biomeMaxWidthRatio, 480)
     const margin = 16
 
     // New river width: bias toward a variety of widths
-    const newWidth = MIN_WIDTH + this.random() * (maxW - MIN_WIDTH)
+    const newWidth = this.biomeMinWidth + this.random() * (maxW - this.biomeMinWidth)
 
     // New center: allow it to drift, but keep within bounds
     const maxCenter = this.canvasWidth - margin - newWidth / 2
@@ -245,10 +255,10 @@ export class World {
     this.targetRight = Math.min(this.canvasWidth - margin, tRight)
 
     // Guarantee minimum passable width
-    if (this.targetRight - this.targetLeft < MIN_WIDTH) {
+    if (this.targetRight - this.targetLeft < this.biomeMinWidth) {
       const mid = (this.targetLeft + this.targetRight) / 2
-      this.targetLeft = mid - MIN_WIDTH / 2
-      this.targetRight = mid + MIN_WIDTH / 2
+      this.targetLeft = mid - this.biomeMinWidth / 2
+      this.targetRight = mid + this.biomeMinWidth / 2
     }
   }
 
