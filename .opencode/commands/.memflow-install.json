@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1",
   "project": "memflow-command-system",
-  "version": "v1.1.37",
+  "version": "v1.1.38",
   "scope": "local",
   "target": "opencode",
   "channel": "release",
@@ -9,5 +9,5 @@
   "os": "macos",
   "installDir": "/Users/bruno/Dev/pocs/river-raid/.opencode/commands/memflow",
   "commandsRoot": "/Users/bruno/Dev/pocs/river-raid/.opencode/commands",
-  "installedAt": "2026-05-23T22:14:01Z"
+  "installedAt": "2026-05-27T20:35:47Z"
 }
