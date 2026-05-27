@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
+import MenuScreen from './components/MenuScreen'
+import TutorialScreen from './components/TutorialScreen'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
 import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
@@ -105,47 +107,18 @@ export default function App() {
   return (
     <div className="app-container">
       {screen === 'menu' && (
-        <div className="screen-wrapper menu">
-          <div className="panel menu-panel">
-            <h1 className="title">RIVER RAID</h1>
-            <div className="divider menu-divider" />
-
-            <div className="controls-row">
-              <div className="control-item">
-                <div className="control-label">MOVE</div>
-                <div className="control-key">{'<'} {'>'} / A D / TOUCH MOBILE</div>
-              </div>
-              <div className="control-item">
-                <div className="control-label">FIRE</div>
-                <div className="control-key">SPACE</div>
-              </div>
-            </div>
-
-            <div className="menu-actions">
-              <button className="save-button" onClick={handleAction}>START</button>
-              <button className="save-button" onClick={() => setScreen('tutorial')}>TUTORIAL</button>
-              <button className="save-button" onClick={() => setScreen('settings')}>SETTINGS</button>
-            </div>
-
-            <p className="start-text">{'>'} TAP OR PRESS ENTER TO START {'<'}</p>
-          </div>
-        </div>
+        <MenuScreen
+          onStart={handleAction}
+          onTutorial={() => setScreen('tutorial')}
+          onSettings={() => setScreen('settings')}
+        />
       )}
 
       {screen === 'tutorial' && (
-        <div className="screen-wrapper menu">
-          <div className="panel menu-panel" style={{ maxWidth: 680 }}>
-            <h1 className="title" style={{ fontSize: 32, letterSpacing: 4 }}>HOW TO PLAY</h1>
-            <div className="divider menu-divider" />
-            <p>Stay inside the river, destroy enemies and bridges, and keep fuel above 0%.</p>
-            <p>Controls: Arrow keys / A D, SPACE to shoot, P to pause, M to mute.</p>
-            <p>Gamepad: Left stick to move, A to shoot, START to pause.</p>
-            <div className="menu-actions">
-              <button className="save-button" onClick={() => setScreen('playing')}>START GAME</button>
-              <button className="save-button" onClick={() => setScreen('menu')}>BACK</button>
-            </div>
-          </div>
-        </div>
+        <TutorialScreen
+          onStartGame={() => { setNewlyUnlocked([]); setScreen('playing') }}
+          onBack={() => setScreen('menu')}
+        />
       )}
 
       {screen === 'settings' && (

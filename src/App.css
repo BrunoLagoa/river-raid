@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 :root {
   --color-primary: #44aaff;
@@ -8,6 +9,7 @@
   --color-bg-panel: rgba(10, 15, 30, 0.8);
   --color-border: #334466;
   --font-retro: 'Courier Prime', 'Courier New', monospace;
+  --font-mono: 'Share Tech Mono', 'Courier Prime', monospace;
 }
 
 body {
@@ -348,5 +350,362 @@ h1.gameover-title {
   }
   .score {
     font-size: 32px;
+  }
+}
+
+/* ============================================================
+   MENU SCREEN — REDESIGN
+   ============================================================ */
+
+/* Scanline overlay */
+.menu-scanlines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 3px,
+    rgba(0, 0, 0, 0.07) 3px,
+    rgba(0, 0, 0, 0.07) 4px
+  );
+  z-index: 0;
+}
+
+.screen-wrapper.menu {
+  position: relative;
+}
+
+.menu-panel {
+  position: relative;
+  z-index: 1;
+}
+
+/* Title block */
+.menu-title-block {
+  margin-bottom: 4px;
+}
+
+.menu-subtitle {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #446688;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.menu-tagline {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 5px;
+  color: #557799;
+  margin-top: 6px;
+  text-transform: uppercase;
+}
+
+/* Title flicker animation */
+@keyframes title-flicker {
+  0%, 94%, 100% { opacity: 1; }
+  95%            { opacity: 0.82; }
+  96%            { opacity: 1; }
+  97%            { opacity: 0.88; }
+  98%            { opacity: 1; }
+}
+
+.menu-title-flicker {
+  animation: title-flicker 6s ease-in-out infinite;
+}
+
+/* Controls grid */
+.menu-controls-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.control-card {
+  text-align: center;
+}
+
+.control-card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #446688;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.control-card-keys {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.key-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #aaccee;
+  background: rgba(30, 50, 80, 0.5);
+  border: 1px solid #2a4466;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 0 #1a2a44, inset 0 1px 0 rgba(100, 160, 220, 0.1);
+  transition: background 0.15s;
+}
+
+.key-badge--wide {
+  padding: 3px 16px;
+  letter-spacing: 2px;
+}
+
+.key-touch {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #556688;
+  letter-spacing: 1px;
+}
+
+.key-sep {
+  color: #334455;
+  font-size: 11px;
+}
+
+.control-card-divider {
+  width: 1px;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, #334466 30%, #334466 70%, transparent);
+  align-self: center;
+}
+
+/* Menu buttons */
+.menu-btn {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  padding: 11px 28px;
+  transition: all 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.menu-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.2s;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, transparent 60%);
+}
+
+.menu-btn:hover::after {
+  opacity: 1;
+}
+
+/* Primary: glowing blue */
+.menu-btn--primary {
+  background: var(--color-primary);
+  color: #000d1a;
+  box-shadow:
+    0 0 18px rgba(68, 170, 255, 0.45),
+    0 2px 0 #1a5588;
+  animation: btn-glow-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes btn-glow-pulse {
+  0%, 100% { box-shadow: 0 0 18px rgba(68, 170, 255, 0.45), 0 2px 0 #1a5588; }
+  50%       { box-shadow: 0 0 30px rgba(68, 170, 255, 0.7),  0 2px 0 #1a5588; }
+}
+
+.menu-btn--primary:hover {
+  background: #77ccff;
+  transform: translateY(-2px);
+  box-shadow: 0 0 36px rgba(68, 170, 255, 0.8), 0 4px 0 #1a5588;
+  animation: none;
+}
+
+.menu-btn-arrow {
+  margin-right: 6px;
+  font-size: 10px;
+}
+
+/* Secondary: outlined */
+.menu-btn--secondary {
+  background: rgba(20, 35, 55, 0.6);
+  color: #88aacc;
+  border: 1px solid #334466;
+  box-shadow: inset 0 1px 0 rgba(100, 160, 220, 0.05);
+}
+
+.menu-btn--secondary:hover {
+  background: rgba(40, 65, 100, 0.6);
+  color: #aaccee;
+  border-color: #446688;
+  transform: translateY(-1px);
+}
+
+/* Ghost: minimal */
+.menu-btn--ghost {
+  background: transparent;
+  color: #556677;
+  border: 1px solid #223344;
+}
+
+.menu-btn--ghost:hover {
+  color: #88aacc;
+  border-color: #334466;
+}
+
+/* ============================================================
+   TUTORIAL SCREEN — REDESIGN
+   ============================================================ */
+
+.tutorial-panel {
+  max-width: 760px;
+  width: 100%;
+}
+
+.tutorial-header {
+  margin-bottom: 4px;
+}
+
+.tutorial-title {
+  font-size: 36px !important;
+  letter-spacing: 6px !important;
+}
+
+.tutorial-objective {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: #88aacc;
+  letter-spacing: 1px;
+  line-height: 1.7;
+  margin-bottom: 28px;
+  padding: 12px 16px;
+  border-left: 2px solid #334466;
+  background: rgba(20, 35, 55, 0.3);
+  text-align: left;
+}
+
+.tutorial-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.tutorial-card {
+  background: rgba(12, 20, 36, 0.7);
+  border: 1px solid #2a3d55;
+  padding: 20px 16px;
+  text-align: center;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.tutorial-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #334466, transparent);
+}
+
+.tutorial-card:hover {
+  border-color: #3a5577;
+  box-shadow: 0 0 16px rgba(50, 100, 180, 0.15);
+}
+
+.tutorial-card-icon {
+  font-size: 20px;
+  color: var(--color-primary);
+  margin-bottom: 10px;
+  text-shadow: 0 0 10px rgba(68, 170, 255, 0.5);
+  letter-spacing: 4px;
+}
+
+.tutorial-card-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #aaccee;
+  margin-bottom: 12px;
+  text-transform: uppercase;
+}
+
+.tutorial-card-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.tutorial-card-list li {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #667788;
+  line-height: 1.9;
+  letter-spacing: 0.5px;
+  padding-left: 12px;
+  position: relative;
+}
+
+.tutorial-card-list li::before {
+  content: '›';
+  position: absolute;
+  left: 0;
+  color: #334466;
+}
+
+.tutorial-actions {
+  gap: 20px;
+}
+
+/* ============================================================
+   RESPONSIVE — NEW COMPONENTS
+   ============================================================ */
+
+@media (max-width: 600px) {
+  .tutorial-cards {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tutorial-panel {
+    max-width: 100%;
+  }
+
+  .tutorial-title {
+    font-size: 28px !important;
+    letter-spacing: 4px !important;
+  }
+
+  .menu-controls-grid {
+    gap: 16px;
+  }
+
+  .control-card-divider {
+    display: none;
+  }
+
+  .menu-btn {
+    padding: 10px 20px;
+    font-size: 12px;
+  }
+
+  .menu-subtitle,
+  .menu-tagline {
+    font-size: 10px;
+    letter-spacing: 3px;
   }
 }
