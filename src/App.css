@@ -1042,10 +1042,14 @@ h1.gameover-title {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.5px;
-  line-height: 1.5;
-  white-space: nowrap;
-  padding: 6px 10px;
+  line-height: 1.6;
+  white-space: normal;
+  width: 280px;
+  padding: 10px 12px;
   z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   transition: opacity 0.15s, visibility 0.15s;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
 }
@@ -1066,7 +1070,49 @@ h1.gameover-title {
   opacity: 1;
 }
 
+.settings-achievement-tooltip-section {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settings-achievement-tooltip-label {
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: #446688;
+  text-transform: uppercase;
+}
+
+.settings-achievement-tooltip-text {
+  color: #aaccee;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.settings-achievement-tooltip-lore {
+  color: #7799bb;
+  font-style: italic;
+  letter-spacing: 0.3px;
+}
+
+.settings-achievement-tooltip-divider {
+  display: block;
+  height: 1px;
+  background: #1e2e42;
+  margin: 7px 0;
+}
+
 /* overflow visible garante tooltip não cortado */
 .settings-achievement-row {
   overflow: visible;
+}
+
+/* Badge dourado pulse para conquistas desbloqueadas */
+@keyframes achievement-pulse {
+  0%, 100% { text-shadow: 0 0 4px rgba(255, 204, 68, 0.4); }
+  50%       { text-shadow: 0 0 10px rgba(255, 204, 68, 0.9), 0 0 20px rgba(255, 204, 68, 0.4); }
+}
+
+.settings-achievement-icon.unlocked-pulse {
+  animation: achievement-pulse 2.4s ease-in-out infinite;
 }

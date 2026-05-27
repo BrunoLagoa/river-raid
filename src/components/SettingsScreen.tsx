@@ -116,11 +116,25 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
           <div className="settings-achievements">
             {achievements.map((a) => (
               <div key={a.id} className={`settings-achievement-row ${a.unlocked ? 'unlocked' : 'locked'}`}>
-                <span className="settings-achievement-icon">{a.unlocked ? '★' : '☆'}</span>
+                <span className={`settings-achievement-icon ${a.unlocked ? 'unlocked-pulse' : ''}`}>
+                  {a.unlocked ? '★' : '☆'}
+                </span>
                 <span className="settings-achievement-name">{a.title}</span>
                 <span className="settings-achievement-hint">
                   <span className="settings-achievement-hint-icon">ⓘ</span>
-                  <span className="settings-achievement-tooltip">{a.description}</span>
+                  <span className="settings-achievement-tooltip">
+                    <span className="settings-achievement-tooltip-section">
+                      <span className="settings-achievement-tooltip-label">{t.settingsTooltipHowTo}</span>
+                      <span className="settings-achievement-tooltip-text">{a.description}</span>
+                    </span>
+                    <span className="settings-achievement-tooltip-divider" />
+                    <span className="settings-achievement-tooltip-section">
+                      <span className="settings-achievement-tooltip-label">{t.settingsTooltipLore}</span>
+                      <span className="settings-achievement-tooltip-text settings-achievement-tooltip-lore">
+                        {t.achievementLore[a.id] ?? ''}
+                      </span>
+                    </span>
+                  </span>
                 </span>
                 <span className="settings-achievement-status">
                   {a.unlocked ? t.settingsAchievementUnlocked : t.settingsAchievementLocked}

@@ -46,6 +46,9 @@ export interface Strings {
   settingsLabelAchievements: string
   settingsAchievementUnlocked: string
   settingsAchievementLocked: string
+  settingsTooltipHowTo: string
+  settingsTooltipLore: string
+  achievementLore: Record<string, string>
   settingsBtnBack: string
   settingsBtnPlay: string
 
@@ -106,6 +109,18 @@ const en: Strings = {
   settingsLabelAchievements: 'ACHIEVEMENTS',
   settingsAchievementUnlocked: 'UNLOCKED',
   settingsAchievementLocked: 'LOCKED',
+  settingsTooltipHowTo: 'HOW TO UNLOCK',
+  settingsTooltipLore: 'ABOUT',
+  achievementLore: {
+    first_bridge:    'The river holds many bridges — you brought the first one down. Concrete and steel met their match in your crosshairs.',
+    combo_master:    'Chaos has a rhythm. You found it. Four targets down in perfect sequence, the river still burning behind you.',
+    fuel_saver:      'Discipline under fire. While others burned through reserves, you kept your tank high and your cool intact.',
+    sharpshooter:    'Fifty confirmed kills. The skies above the river learned to fear your approach.',
+    survivor:        'Ten thousand points carved from hostile territory. The mission is far from over — but you proved you belong here.',
+    power_collector: 'Ten upgrades seized from the battlefield. You turned enemy drops into your own arsenal.',
+    high_flyer:      'Fifty thousand points. A name etched into the river\'s history, written in smoke and wreckage.',
+    untouchable:     'An entire run. Not a single hit. The enemy fired — you were already somewhere else.',
+  },
   settingsBtnBack: 'BACK',
   settingsBtnPlay: 'PLAY',
 
@@ -165,6 +180,18 @@ const ptBR: Strings = {
   settingsLabelAchievements: 'CONQUISTAS',
   settingsAchievementUnlocked: 'DESBLOQUEADO',
   settingsAchievementLocked: 'BLOQUEADO',
+  settingsTooltipHowTo: 'COMO DESBLOQUEAR',
+  settingsTooltipLore: 'SOBRE',
+  achievementLore: {
+    first_bridge:    'O rio é guardado por pontes — e você derrubou a primeira. Concreto e aço encontraram seu fim na sua mira.',
+    combo_master:    'O caos tem um ritmo. Você encontrou. Quatro alvos abatidos em sequência perfeita, o rio ainda em chamas atrás de você.',
+    fuel_saver:      'Disciplina sob fogo. Enquanto outros queimavam reservas, você manteve o tanque alto e a cabeça fria.',
+    sharpshooter:    'Cinquenta abates confirmados. Os céus acima do rio aprenderam a temer sua aproximação.',
+    survivor:        'Dez mil pontos conquistados em território hostil. A missão está longe do fim — mas você provou que pertence aqui.',
+    power_collector: 'Dez melhorias arrancadas do campo de batalha. Você transformou os itens inimigos no seu próprio arsenal.',
+    high_flyer:      'Cinquenta mil pontos. Um nome gravado na história do rio, escrito em fumaça e destroços.',
+    untouchable:     'Uma run inteira. Nem um único acerto. O inimigo atirou — você já estava em outro lugar.',
+  },
   settingsBtnBack: 'VOLTAR',
   settingsBtnPlay: 'JOGAR',
 
