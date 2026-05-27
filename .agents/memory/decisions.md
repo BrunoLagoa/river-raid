@@ -129,3 +129,4 @@
 - [2026-04-17] IA de inimigos sensivel ao corredor do rio em curvas (update)
 - [2026-05-27] Redesign de telas com identidade arcade + i18n (en/pt-BR)
 - [2026-05-27] Tooltip de conquistas com CSS puro + correção do catálogo
+- [2026-05-27] Tooltip expandido com lore i18n + badge pulse nas conquistas desbloqueadas
