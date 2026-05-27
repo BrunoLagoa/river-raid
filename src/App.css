@@ -1013,3 +1013,76 @@ h1.gameover-title {
     letter-spacing: 4px !important;
   }
 }
+
+/* ============================================================
+   ACHIEVEMENT TOOLTIP
+   ============================================================ */
+
+.settings-achievement-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  flex-shrink: 0;
+}
+
+.settings-achievement-hint-icon {
+  font-size: 11px;
+  color: #446688;
+  cursor: default;
+  line-height: 1;
+  transition: color 0.15s;
+  user-select: none;
+}
+
+.settings-achievement-hint:hover .settings-achievement-hint-icon {
+  color: var(--color-primary);
+}
+
+.settings-achievement-tooltip {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(8, 16, 30, 0.97);
+  border: 1px solid #2a3d55;
+  color: #aaccee;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  padding: 6px 10px;
+  z-index: 100;
+  transition: opacity 0.15s, visibility 0.15s;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+
+/* seta inferior do tooltip */
+.settings-achievement-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #2a3d55;
+}
+
+.settings-achievement-hint:hover .settings-achievement-tooltip {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* evitar corte pelo overflow do scroll container */
+.settings-achievements {
+  overflow-x: visible !important;
+  overflow-y: auto;
+}
+
+.settings-achievement-row {
+  overflow: visible !important;
+}

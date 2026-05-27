@@ -117,6 +117,10 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
               <div key={a.id} className={`settings-achievement-row ${a.unlocked ? 'unlocked' : 'locked'}`}>
                 <span className="settings-achievement-icon">{a.unlocked ? '★' : '☆'}</span>
                 <span className="settings-achievement-name">{a.title}</span>
+                <span className="settings-achievement-hint">
+                  <span className="settings-achievement-hint-icon">ⓘ</span>
+                  <span className="settings-achievement-tooltip">{a.description}</span>
+                </span>
                 <span className="settings-achievement-status">
                   {a.unlocked ? t.settingsAchievementUnlocked : t.settingsAchievementLocked}
                 </span>

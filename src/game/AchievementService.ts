@@ -21,14 +21,14 @@ export interface Achievement {
 const ACHIEVEMENTS_KEY = 'river-raid-achievements'
 
 const CATALOG: Achievement[] = [
-  { id: 'first_bridge',    title: 'Bridge Breaker',   description: 'Destrua uma ponte',                     unlocked: false },
-  { id: 'combo_master',    title: 'Combo Master',      description: 'Atinja combo x4',                       unlocked: false },
-  { id: 'fuel_saver',      title: 'Fuel Saver',        description: 'Sobreviva 30s com combustível acima de 70%', unlocked: false },
-  { id: 'sharpshooter',    title: 'Sharpshooter',      description: 'Destrua 10 inimigos em uma run',        unlocked: false },
-  { id: 'survivor',        title: 'Survivor',          description: 'Sobreviva por 3 minutos',               unlocked: false },
-  { id: 'power_collector', title: 'Power Collector',   description: 'Colete 3 power-ups em uma run',         unlocked: false },
-  { id: 'high_flyer',      title: 'High Flyer',        description: 'Atinja 5.000 pontos',                   unlocked: false },
-  { id: 'untouchable',     title: 'Untouchable',       description: 'Complete uma run sem perder vida',      unlocked: false },
+  { id: 'first_bridge',    title: 'Bridge Breaker',   description: 'Destrua uma ponte',                          unlocked: false },
+  { id: 'combo_master',    title: 'Combo Master',      description: 'Termine uma run com combo x4 ativo',         unlocked: false },
+  { id: 'fuel_saver',      title: 'Fuel Saver',        description: 'Mantenha combustível acima de 75% por 60s',  unlocked: false },
+  { id: 'sharpshooter',    title: 'Sharpshooter',      description: 'Destrua 50 inimigos em uma run',             unlocked: false },
+  { id: 'survivor',        title: 'Survivor',          description: 'Alcance 10.000 pontos em uma run',           unlocked: false },
+  { id: 'power_collector', title: 'Power Collector',   description: 'Colete 10 power-ups em uma run',             unlocked: false },
+  { id: 'high_flyer',      title: 'High Flyer',        description: 'Alcance 50.000 pontos em uma run',           unlocked: false },
+  { id: 'untouchable',     title: 'Untouchable',       description: 'Complete uma run sem perder nenhuma vida',   unlocked: false },
 ]
 
 export function getStoredAchievements(): Achievement[] {
