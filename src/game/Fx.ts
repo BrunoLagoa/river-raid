@@ -31,6 +31,9 @@ export class Fx {
   private flashAlpha = 0
   private flashDuration = 0
   private flashTimer = 0
+  private shockwaveTimer = 0
+  private shockwaveDuration = 0
+  private shockwaveOrigin = { x: 0, y: 0 }
 
   public shakeX = 0
   public shakeY = 0
@@ -151,6 +154,16 @@ export class Fx {
     this.flashAlpha = 1
   }
 
+  triggerShockwave(x: number, y: number, duration: number): void {
+    this.shockwaveTimer = duration
+    this.shockwaveDuration = duration
+    this.shockwaveOrigin = { x, y }
+  }
+
+  getShockwave(): { timer: number; duration: number; origin: { x: number; y: number } } {
+    return { timer: this.shockwaveTimer, duration: this.shockwaveDuration, origin: this.shockwaveOrigin }
+  }
+
   update(dt: number): void {
     for (let i = 0; i < this.particles.length; i++) {
       const p = this.particles[i]
@@ -180,6 +193,11 @@ export class Fx {
         this.flashColor = ''
         this.flashAlpha = 0
       }
+    }
+
+    if (this.shockwaveTimer > 0) {
+      this.shockwaveTimer -= dt
+      if (this.shockwaveTimer < 0) this.shockwaveTimer = 0
     }
 
     if (this.shakeTimer > 0) {

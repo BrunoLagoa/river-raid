@@ -6,6 +6,7 @@ import {
   PLAYER_EXPLODING_DURATION, PLAYER_RESPAWN_Y_OFFSET,
   PLAYER_INVINCIBILITY_TIME, PLAYER_SHIELD_BREAK_INVINCIBILITY,
   PLAYER_DOUBLE_SHOT_SPREAD, PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER,
+  POWERUP_RAPID_FIRE_COOLDOWN_MULTIPLIER,
 } from './constants'
 
 export type GameState = 'alive' | 'exploding' | 'dead'
@@ -36,6 +37,8 @@ export class Player {
   shootInterval = PLAYER_SHOOT_INTERVAL
   justShot = false
   doubleShotTimer = 0
+  rapidFireTimer = 0
+  magnetFuelTimer = 0
   shieldActive = false
   invincibilityTimer = 0
   private readonly MAX_BULLETS = PLAYER_MAX_BULLETS
@@ -101,11 +104,15 @@ export class Player {
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
 
       if (this.doubleShotTimer > 0) this.doubleShotTimer -= dt
+      if (this.rapidFireTimer > 0) this.rapidFireTimer -= dt
+      if (this.magnetFuelTimer > 0) this.magnetFuelTimer -= dt
       if (this.invincibilityTimer > 0) this.invincibilityTimer -= dt
 
       this.shootCooldown -= dt
+
       const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
       if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
+        const effectiveCooldown = this.shootInterval * (this.rapidFireTimer > 0 ? POWERUP_RAPID_FIRE_COOLDOWN_MULTIPLIER : 1.0)
         if (this.doubleShotTimer > 0) {
           const doubleShotSpeed = PLAYER_BULLET_SPEED * PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER
 
@@ -124,7 +131,7 @@ export class Player {
           b.y = this.y - this.height / 2
           b.speed = PLAYER_BULLET_SPEED
         }
-        this.shootCooldown = this.shootInterval
+        this.shootCooldown = effectiveCooldown
         this.justShot = true
       }
 
@@ -297,6 +304,8 @@ export class Player {
     this.justShot = false
     this.shieldActive = false
     this.doubleShotTimer = 0
+    this.rapidFireTimer = 0
+    this.magnetFuelTimer = 0
     this.invincibilityTimer = PLAYER_INVINCIBILITY_TIME
     this.animFrame = 0
     this.animTimer = 0
@@ -315,6 +324,8 @@ export class Player {
     this.shootCooldown = 0
     this.justShot = false
     this.doubleShotTimer = 0
+    this.rapidFireTimer = 0
+    this.magnetFuelTimer = 0
     this.shieldActive = false
     this.invincibilityTimer = 0
     this.animFrame = 0

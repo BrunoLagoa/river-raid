@@ -32,7 +32,7 @@ describe('PowerUpSystem', () => {
     })
 
     it('seleciona tipo aleatorio entre os disponiveis', () => {
-      const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
+      const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion', 'rapid_fire', 'bomb', 'magnet_fuel']
 
       const typeRandoms = [0, 0.4, 0.9]
       for (const r of typeRandoms) {
@@ -125,7 +125,7 @@ describe('PowerUpSystem', () => {
         textBaseline: 'middle' as const,
       } as unknown as CanvasRenderingContext2D
 
-      const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
+      const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion', 'rapid_fire', 'bomb', 'magnet_fuel']
       types.forEach((type) => {
         system.powerUps.push({
           type,
@@ -139,8 +139,8 @@ describe('PowerUpSystem', () => {
 
       system.render(ctx)
 
-      expect(ctx.fillRect).toHaveBeenCalledTimes(3)
-      expect(ctx.strokeRect).toHaveBeenCalledTimes(3)
+      expect(ctx.fillRect).toHaveBeenCalledTimes(6)
+      expect(ctx.strokeRect).toHaveBeenCalledTimes(6)
     })
   })
 
@@ -201,5 +201,66 @@ describe('PowerUp type guards', () => {
       expect(a.powerUps[0].x).toBe(b.powerUps[0].x)
       expect(a.powerUps[0].y).toBe(b.powerUps[0].y)
     }
+  })
+})
+
+describe('Novos power-ups (rapid_fire, bomb, magnet_fuel)', () => {
+  let system: PowerUpSystem
+
+  beforeEach(() => {
+    system = new PowerUpSystem(800, 600)
+  })
+
+  it('inclui todos os 6 tipos no PowerUpType', () => {
+    const allTypes: PowerUpType[] = ['double_shot', 'shield', 'slow_motion', 'rapid_fire', 'bomb', 'magnet_fuel']
+    for (const t of allTypes) {
+      const pu: PowerUp = { type: t, x: 100, y: 100, width: 22, height: 22, active: true }
+      expect(pu.type).toBe(t)
+    }
+  })
+
+  it('renderiza rapid_fire sem lançar exceção', () => {
+    const pu: PowerUp = { type: 'rapid_fire', x: 100, y: 100, width: 22, height: 22, active: true }
+    system.powerUps.push(pu)
+    const ctx = {
+      save: vi.fn(), restore: vi.fn(), translate: vi.fn(),
+      fillRect: vi.fn(), strokeRect: vi.fn(),
+      fillText: vi.fn(), beginPath: vi.fn(),
+      arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+      fillStyle: '', strokeStyle: '', font: '', textAlign: '',
+      shadowColor: '', shadowBlur: 0, lineWidth: 0, globalAlpha: 1,
+      textBaseline: 'middle' as const,
+    } as unknown as CanvasRenderingContext2D
+    expect(() => system.render(ctx)).not.toThrow()
+  })
+
+  it('renderiza bomb sem lançar exceção', () => {
+    const pu: PowerUp = { type: 'bomb', x: 200, y: 200, width: 22, height: 22, active: true }
+    system.powerUps.push(pu)
+    const ctx = {
+      save: vi.fn(), restore: vi.fn(), translate: vi.fn(),
+      fillRect: vi.fn(), strokeRect: vi.fn(),
+      fillText: vi.fn(), beginPath: vi.fn(),
+      arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+      fillStyle: '', strokeStyle: '', font: '', textAlign: '',
+      shadowColor: '', shadowBlur: 0, lineWidth: 0, globalAlpha: 1,
+      textBaseline: 'middle' as const,
+    } as unknown as CanvasRenderingContext2D
+    expect(() => system.render(ctx)).not.toThrow()
+  })
+
+  it('renderiza magnet_fuel sem lançar exceção', () => {
+    const pu: PowerUp = { type: 'magnet_fuel', x: 300, y: 300, width: 22, height: 22, active: true }
+    system.powerUps.push(pu)
+    const ctx = {
+      save: vi.fn(), restore: vi.fn(), translate: vi.fn(),
+      fillRect: vi.fn(), strokeRect: vi.fn(),
+      fillText: vi.fn(), beginPath: vi.fn(),
+      arc: vi.fn(), fill: vi.fn(), stroke: vi.fn(),
+      fillStyle: '', strokeStyle: '', font: '', textAlign: '',
+      shadowColor: '', shadowBlur: 0, lineWidth: 0, globalAlpha: 1,
+      textBaseline: 'middle' as const,
+    } as unknown as CanvasRenderingContext2D
+    expect(() => system.render(ctx)).not.toThrow()
   })
 })

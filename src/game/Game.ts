@@ -21,6 +21,7 @@ import {
   FUEL_LOW_THRESHOLD, FUEL_LOW_FLASH_INTERVAL, FUEL_RESPAWN_MIN,
   SLOW_MOTION_DURATION,
   GAME_OVER_DELAY, RESPAWN_DELAY, HIGH_SCORE_KEY,
+  POWERUP_MAGNET_FUEL_SPEED,
 } from './constants'
 import {
   unlockAchievement,
@@ -369,6 +370,17 @@ export class Game {
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
+    if (this.player.magnetFuelTimer > 0) {
+      for (const tank of this.fuelSystem.tanks) {
+        if (!tank.active) continue
+        const dx = this.player.x - tank.x
+        const dy = this.player.y - tank.y
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1
+        const step = POWERUP_MAGNET_FUEL_SPEED * envDt
+        tank.x += (dx / dist) * Math.min(step, dist)
+        tank.y += (dy / dist) * Math.min(step, dist)
+      }
+    }
   }
 
   private handleAliveState(dt: number, speedMod: number): boolean {
@@ -421,6 +433,22 @@ export class Game {
     if (speedMod > 1.2) trailColor = '#aa7744'
     else if (speedMod < 0.6) trailColor = '#555555'
     this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
+  }
+
+  private renderShockwave(ctx: CanvasRenderingContext2D): void {
+    const sw = this.fx.getShockwave()
+    if (sw.timer <= 0) return
+    const progress = 1 - sw.timer / sw.duration
+    const maxRadius = Math.max(this.canvas.width, this.canvas.height) * 0.85
+    const radius = progress * maxRadius
+    const alpha = (1 - progress) * 0.55
+    ctx.save()
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`
+    ctx.lineWidth = 4 + (1 - progress) * 8
+    ctx.beginPath()
+    ctx.arc(sw.origin.x, sw.origin.y, radius, 0, Math.PI * 2)
+    ctx.stroke()
+    ctx.restore()
   }
 
   private resolveGameplayCollisions(): void {
@@ -516,6 +544,7 @@ export class Game {
     this.enemyManager.render(this.ctx)
     this.player.render(this.ctx)
     this.fx.render(this.ctx)
+    this.renderShockwave(this.ctx)
 
     this.ctx.restore()
 
@@ -533,7 +562,9 @@ export class Game {
       this.slowMotionTimer,
       { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
       this.objectives.getHudData(),
-      this.lives
+      this.lives,
+      this.player.rapidFireTimer,
+      this.player.magnetFuelTimer,
     )
 
     this.debugPanel.render(this.ctx, this.canvas.width)

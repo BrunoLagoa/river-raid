@@ -71,7 +71,9 @@ export class UI {
     slowMotionTimer = 0,
     comboData?: { multiplier: number; timer: number; maxTimer: number },
     objectiveData?: ObjectiveData | null,
-    lives = 3
+    lives = 3,
+    rapidFireTimer = 0,
+    magnetFuelTimer = 0,
   ): void {
     ctx.save()
 
@@ -167,6 +169,20 @@ export class UI {
       ctx.font = 'bold 12px "Courier New", monospace'
       ctx.textAlign = 'left'
       ctx.fillText(`SLOW MOTION ${slowMotionTimer.toFixed(1)}s`, 14, activeY)
+      activeY += 16
+    }
+    if (rapidFireTimer > 0) {
+      ctx.fillStyle = '#ff8800'
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`RAPID FIRE ${rapidFireTimer.toFixed(1)}s`, 14, activeY)
+      activeY += 16
+    }
+    if (magnetFuelTimer > 0) {
+      ctx.fillStyle = '#00cccc'
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`MAGNET FUEL ${magnetFuelTimer.toFixed(1)}s`, 14, activeY)
       activeY += 16
     }
 

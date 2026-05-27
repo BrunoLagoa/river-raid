@@ -5,7 +5,7 @@ import type { Fx } from './Fx'
 import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
-import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE } from './constants'
+import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION, POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION } from './constants'
 import { SpatialGrid } from './SpatialGrid'
 
 const enemyGrid = new SpatialGrid(64)
@@ -103,8 +103,6 @@ export class CollisionSystem {
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
       if (!CollisionSystem.checkAABB(playerRect, enemyRect)) continue
 
-      if (isInvincible) return false
-
       if (ctx.player.shieldActive) {
         ctx.player.breakShield()
         enemy.active = false
@@ -112,6 +110,8 @@ export class CollisionSystem {
         ctx.sound.enemyHit()
         continue
       }
+
+      if (isInvincible) return false
 
       CollisionSystem.killPlayer(ctx, enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
       enemy.active = false
@@ -139,17 +139,17 @@ export class CollisionSystem {
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
       if (!CollisionSystem.checkAABB(playerRect, bulletRect)) continue
 
-      if (isInvincible) {
-        bullet.active = false
-        continue
-      }
-
       if (ctx.player.shieldActive) {
         ctx.player.breakShield()
         bullet.active = false
         ctx.fx.explosion(bullet.x, bullet.y, '#ffaaaa')
         ctx.sound.enemyHit()
         ctx.registerHit()
+        continue
+      }
+
+      if (isInvincible) {
+        bullet.active = false
         continue
       }
 
@@ -237,6 +237,24 @@ export class CollisionSystem {
         if (p.type === 'double_shot') ctx.player.doubleShotTimer = POWERUP_DOUBLE_SHOT_DURATION
         if (p.type === 'shield') ctx.player.shieldActive = true
         if (p.type === 'slow_motion') ctx.activateSlowMotion()
+        if (p.type === 'rapid_fire') ctx.player.rapidFireTimer = POWERUP_RAPID_FIRE_DURATION
+        if (p.type === 'magnet_fuel') ctx.player.magnetFuelTimer = POWERUP_MAGNET_FUEL_DURATION
+        if (p.type === 'bomb') {
+          const enemies = ctx.enemyManager.enemies
+          let destroyed = 0
+          for (let i = enemies.length - 1; i >= 0; i--) {
+            const enemy = enemies[i]
+            if (!enemy.active) continue
+            enemy.active = false
+            ctx.fx.bigExplosion(enemy.x, enemy.y, '#ff6600')
+            ctx.addScore(enemy.points * ctx.comboMultiplier)
+            ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${enemy.points * ctx.comboMultiplier}`)
+            destroyed++
+            ctx.onEnemyDestroyed?.(enemy.type)
+          }
+          if (destroyed > 0) ctx.fx.addShake(8 + destroyed * 1.5, 0.6)
+          ctx.fx.triggerShockwave(ctx.player.x, ctx.player.y, POWERUP_BOMB_SHOCKWAVE_DURATION)
+        }
         ctx.sound.fuelCollect()
         ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)

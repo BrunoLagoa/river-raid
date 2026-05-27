@@ -2,7 +2,7 @@ import { compactArray } from './utils'
 import { POWERUP_DROP_CHANCE, POWERUP_SIZE } from './constants'
 import type { RandomSource } from './random'
 
-export type PowerUpType = 'double_shot' | 'shield' | 'slow_motion'
+export type PowerUpType = 'double_shot' | 'shield' | 'slow_motion' | 'rapid_fire' | 'bomb' | 'magnet_fuel'
 
 export interface PowerUp {
   type: PowerUpType
@@ -31,7 +31,7 @@ export class PowerUpSystem {
     // 8% drop chance
     if (this.random() > POWERUP_DROP_CHANCE) return
 
-    const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion']
+    const types: PowerUpType[] = ['double_shot', 'shield', 'slow_motion', 'rapid_fire', 'bomb', 'magnet_fuel']
     const type = types[Math.floor(this.random() * types.length)]
 
     this.powerUps.push({
@@ -75,6 +75,15 @@ export class PowerUpSystem {
       } else if (p.type === 'slow_motion') {
         ctx.fillStyle = '#eebb00'
         ctx.strokeStyle = '#ffffff'
+      } else if (p.type === 'rapid_fire') {
+        ctx.fillStyle = '#ff8800'
+        ctx.strokeStyle = '#ffddaa'
+      } else if (p.type === 'bomb') {
+        ctx.fillStyle = '#cc2200'
+        ctx.strokeStyle = '#ff9977'
+      } else if (p.type === 'magnet_fuel') {
+        ctx.fillStyle = '#00cc88'
+        ctx.strokeStyle = '#aaffdd'
       }
 
       ctx.lineWidth = 1.5
@@ -90,6 +99,9 @@ export class PowerUpSystem {
       if (p.type === 'double_shot') letter = 'D'
       if (p.type === 'shield') letter = 'S'
       if (p.type === 'slow_motion') letter = 'T'
+      if (p.type === 'rapid_fire') letter = 'R'
+      if (p.type === 'bomb') letter = 'B'
+      if (p.type === 'magnet_fuel') letter = 'M'
 
       ctx.fillText(letter, 0, 1)
       ctx.restore()
