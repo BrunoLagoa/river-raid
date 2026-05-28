@@ -1,61 +1,81 @@
-# River Raid — Project Memory
+# River Raid — Memória do Projeto
 
-## Nome
+## Nome do projeto
 River Raid
 
 ## Descrição
-Clone do clássico River Raid (Atari 2600) — vertical shooter com auto-scroll, movimentação horizontal, tiros e gerenciamento de combustível. Implementado como web game.
+Clone moderno do clássico River Raid (Atari 2600). Vertical shooter com auto-scroll, movimentação horizontal, tiros, gerenciamento de combustível, power-ups, combo multiplier, ciclo dia/noite e conquistas persistentes. Publicado no GitHub Pages.
 
-## Stack Principal
-- **Runtime:** Browser (Canvas 2D)
-- **Framework:** React 19 + Vite 8 + TypeScript 6
-- **Build:** Vite com `@vitejs/plugin-react`
-- **Testes:** Vitest + Testing Library
-- **Lint:** ESLint 9 + typescript-eslint
-- **Sem frameworks de jogo externos** — engine pura em Canvas 2D
+## Stack principal
 
-## Estrutura de Pastas (alto nível)
+| Camada | Tecnologia |
+|--------|-----------|
+| Runtime | Browser (Canvas 2D) |
+| Framework UI | React 19 |
+| Build | Vite 8 + `@vitejs/plugin-react` |
+| Linguagem | TypeScript 6 |
+| Testes | Vitest + jsdom + Testing Library |
+| Lint | ESLint 9 + typescript-eslint (flat config) |
+| Deploy | GitHub Pages (workflow `.github/workflows/deploy.yml`) |
+| Engine | Pura — sem frameworks de jogo externos |
+
+## Estrutura de pastas (alto nível)
 
 ```
 src/
-  game/           → Engine do jogo (TS puro, agnóstico ao framework)
-    Game.ts          → Main loop (rAF), orquestra todos os sistemas
-    Player.ts        → Aeronave: posição, movimento, tiros, estados
-    EnemyManager.ts  → Spawn, tipos de inimigos, balas inimigas, dificuldade
-    World.ts         → Geração procedural do rio: segmentos, curvas, margens
-    FuelSystem.ts    → Dreno de combustível, coleta de tanques
-    CollisionSystem.ts → Detecção de colisão AABB
-    Fx.ts            → Partículas, score popups, screen flash, shake
-    SoundManager.ts  → Sons procedurais (Web Audio API), mute
-    UI.ts            → HUD in-canvas + minimap
-    Scenery.ts       → Objetos decorativos (árvores, casas, rochas)
-    StorageService.ts → Abstração localStorage
-    RankingService.ts → Lógica de ranking/high score
-    utils.ts         → Utilitários compartilhados
-  components/
-    GameCanvas.tsx   → Monta canvas, instância do Game, lifecycle bridge
-  App.tsx            → Shell: telas menu/game/gameover
+  game/           → engine modular em TypeScript puro
+  components/     → GameCanvas.tsx (ponte React ↔ engine)
+  App.tsx         → shell: menu / jogo / gameover
+  main.tsx        → entry point React
+.agents/
+  memory/         → memória Memflow persistente
+  skills/         → skills do projeto
 ```
 
-## Diretrizes Principais
-- React shell + engine modular em TS puro
-- React NUNCA chama métodos do game durante render
-- Game.ts é agnóstico — React só chama `start()`, `stop()`, `restart()`
-- Canvas apenas para renderização de gameplay
-- Sem alocação de objetos no game loop — usar object pools
-- Target: 60 FPS
-- TypeScript strict, ESM only
+## Módulos da engine (`src/game/`)
 
-## Sistema de Comandos
-- Diretório: /Users/bruno/.config/opencode/commands
+| Arquivo | Responsabilidade |
+|---------|-----------------|
+| `Game.ts` | Loop principal (rAF), orquestração, pause/mute/high-score |
+| `Player.ts` | Avião: posição, movimento, tiro, estados |
+| `EnemyManager.ts` | Spawn, tipos de inimigos (helicópteros, aviões, barcos, pontes), balas |
+| `World.ts` | Geração procedural do rio: segmentos, curvas, margens |
+| `FuelSystem.ts` | Dreno de combustível, coleta de tanques, fuel de pontes |
+| `CollisionSystem.ts` | Detecção de colisão AABB |
+| `Fx.ts` | Pool de partículas, popups de score, flash e shake de tela |
+| `SoundManager.ts` | Web Audio API procedural, música, toggle mute |
+| `UI.ts` | HUD in-canvas + minimapa |
+| `Scenery.ts` | Objetos decorativos (árvores, casas, rochas) |
+| `StorageService.ts` | Abstração de localStorage |
+| `RankingService.ts` | Lógica de ranking de high scores |
+| `utils.ts` | Utilitários compartilhados |
+
+## Diretrizes principais
+
+- React é apenas shell/menu/settings/gameover — toda gameplay fica em `src/game/*`
+- Arquitetura híbrida: React UI + engine Canvas 2D pura
+- Alias `@/*` → `src/*` configurado em `vite.config.ts` e `tsconfig.app.json` (manter sincronizados)
+- Base Vite configurada para GitHub Pages: `base: '/river-raid/'`
+- Cobertura de testes: thresholds 55% (statements/functions/lines), 35% (branches)
+- Coverage inclui apenas: `Game`, `World`, `Player`, `EnemyManager`, `FuelSystem`, `CollisionSystem`
+- Node: `.nvmrc` = 24, CI deploy = Node 22 (manter compatibilidade com ambos)
+
+## Docs e specs
+
+- `Readme.md` — visão geral e mecânicas
+- `prd.md` — requisitos de produto por fases
+- `spec.md` — especificação técnica
+- `introducion.md` — spec detalhada canônica (nome intencionalmente errado)
+- `plan.md` — notas de planejamento
+- `sugest.md` — sugestões extras
+
+## Sistema de comandos
+
+- Diretório: resolvido pelo target ativo (via `_shared/target-adapter.md`)
 - Status: Estável
 - Frequência de mudança: Baixa
-- Regras:
-  - NÃO recarregar automaticamente
-  - NÃO reprocessar a cada execução
-  - Recarregar apenas se houver mudança explícita
 
-## Spec Files
-- `introducion.md` — spec detalhado (referência canônica, filename com typo)
-- `prd.md` — spec de produto com fases
-- `spec.md` — spec adicional
+Regras:
+- NÃO recarregar automaticamente
+- NÃO reprocessar a cada execução
+- Recarregar apenas se houver mudança explícita
