@@ -11,10 +11,12 @@ function renderMenu(overrides: Partial<Parameters<typeof MenuScreen>[0]> = {}) {
   const props = {
     t,
     onStart: vi.fn(),
+    onDaily: vi.fn(),
     onTutorial: vi.fn(),
     onSettings: vi.fn(),
     muted: false,
     onToggleMute: vi.fn(),
+    dailyBest: 0,
     ...overrides,
   }
   render(<MenuScreen {...props} />)
@@ -52,5 +54,32 @@ describe('MenuScreen', () => {
     renderMenu({ muted: true })
     const muteBtn = screen.getByLabelText(t.menuUnmute)
     expect(muteBtn.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('dispara o desafio diário', () => {
+    const props = renderMenu()
+    fireEvent.click(screen.getByText(new RegExp(t.menuBtnDaily)))
+    expect(props.onDaily).toHaveBeenCalledTimes(1)
+  })
+
+  it('mostra o melhor do dia apenas quando > 0', () => {
+    const { unmount } = render(
+      <MenuScreen
+        t={t}
+        onStart={vi.fn()}
+        onDaily={vi.fn()}
+        onTutorial={vi.fn()}
+        onSettings={vi.fn()}
+        muted={false}
+        onToggleMute={vi.fn()}
+        dailyBest={0}
+      />,
+    )
+    expect(screen.queryByText(new RegExp(t.menuDailyBest))).toBeNull()
+    unmount()
+
+    renderMenu({ dailyBest: 4200 })
+    expect(screen.getByText(new RegExp(t.menuDailyBest))).toBeTruthy()
+    expect(screen.getByText(/004200/)).toBeTruthy()
   })
 })

@@ -3,13 +3,15 @@ import type { Strings } from '../i18n'
 interface MenuScreenProps {
   t: Strings
   onStart: () => void
+  onDaily: () => void
   onTutorial: () => void
   onSettings: () => void
   muted: boolean
   onToggleMute: () => void
+  dailyBest: number
 }
 
-export default function MenuScreen({ t, onStart, onTutorial, onSettings, muted, onToggleMute }: MenuScreenProps) {
+export default function MenuScreen({ t, onStart, onDaily, onTutorial, onSettings, muted, onToggleMute, dailyBest }: MenuScreenProps) {
   return (
     <div className="screen-wrapper menu">
       <div className="menu-scanlines" aria-hidden="true" />
@@ -64,6 +66,15 @@ export default function MenuScreen({ t, onStart, onTutorial, onSettings, muted, 
           <button className="menu-btn menu-btn--secondary" onClick={onTutorial}>{t.menuBtnTutorial}</button>
           <button className="menu-btn menu-btn--secondary" onClick={onSettings}>{t.menuBtnSettings}</button>
         </div>
+
+        <button className="menu-btn menu-btn--daily" onClick={onDaily}>
+          ☀ {t.menuBtnDaily}
+        </button>
+        {dailyBest > 0 && (
+          <div className="menu-daily-best">
+            {t.menuDailyBest}: {dailyBest.toString().padStart(6, '0')}
+          </div>
+        )}
 
         <p className="start-text">{t.menuPressEnter}</p>
       </div>

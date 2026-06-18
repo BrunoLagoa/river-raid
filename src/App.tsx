@@ -7,6 +7,7 @@ import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type Ran
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
 import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
 import { SoundManager } from './game/SoundManager'
+import { getDailySeed, getDailyDateKey, getDailyBest, saveDailyBest } from './game/DailyChallengeService'
 import { getStrings } from './i18n'
 
 import './App.css'
@@ -35,6 +36,13 @@ export default function App() {
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null)
 
   const menuSoundRef = useRef<SoundManager | null>(null)
+
+  // Daily challenge — deterministic seed from today's date + per-day best score.
+  const dailySeed = useMemo(() => getDailySeed(), [])
+  const dailyDateKey = useMemo(() => getDailyDateKey(), [])
+  const [dailyMode, setDailyMode] = useState(false)
+  const dailyModeRef = useRef(false)
+  const [dailyBest, setDailyBest] = useState(() => getDailyBest())
 
   const t = useMemo(() => getStrings(settings.language), [settings.language])
 
@@ -73,6 +81,14 @@ export default function App() {
     setSettings((prev) => saveStoredSettings({ ...prev, ...patch }))
   }, [])
 
+  // Enter a run. `daily` selects the deterministic seeded mode.
+  const enterPlay = useCallback((daily: boolean) => {
+    dailyModeRef.current = daily
+    setDailyMode(daily)
+    setNewlyUnlocked([])
+    setScreen('playing')
+  }, [])
+
   const handleGameOver = useCallback((score: number, hs: number) => {
     setFinalScore(score)
     setHighScore(hs)
@@ -80,11 +96,15 @@ export default function App() {
     setRankingSaved(false)
     setRanking(getStoredRanking())
 
+    if (dailyModeRef.current) {
+      setDailyBest(saveDailyBest(score, dailyDateKey))
+    }
+
     // Achievements are unlocked in-engine (Game.ts); sync stored state here
     setAchievements(getStoredAchievements())
 
     setScreen('gameover')
-  }, [])
+  }, [dailyDateKey])
 
   const handleAchievementUnlocked = useCallback((_id: AchievementId, title: string, description: string) => {
     // Sincroniza estado React imediatamente ao desbloquear
@@ -111,17 +131,17 @@ export default function App() {
 
   const handleAction = useCallback(() => {
     if (screen === 'menu') {
-      setNewlyUnlocked([])
-      setScreen('playing')
+      enterPlay(false)
     } else if (screen === 'gameover') {
       if (needsRankingName && !rankingSaved) {
         saveRanking()
       } else {
+        // Retry preserves the current mode (normal or daily).
         setNewlyUnlocked([])
         setScreen('playing')
       }
     }
-  }, [screen, needsRankingName, rankingSaved, saveRanking])
+  }, [screen, needsRankingName, rankingSaved, saveRanking, enterPlay])
 
 
   useEffect(() => {
@@ -148,17 +168,19 @@ export default function App() {
         <MenuScreen
           t={t}
           onStart={handleAction}
+          onDaily={() => enterPlay(true)}
           onTutorial={() => setScreen('tutorial')}
           onSettings={() => setScreen('settings')}
           muted={settings.muted}
           onToggleMute={toggleMute}
+          dailyBest={dailyBest}
         />
       )}
 
       {screen === 'tutorial' && (
         <TutorialScreen
           t={t}
-          onStartGame={() => { setNewlyUnlocked([]); setScreen('playing') }}
+          onStartGame={() => enterPlay(false)}
           onBack={() => setScreen('menu')}
         />
       )}
@@ -170,15 +192,27 @@ export default function App() {
           achievements={achievements}
           onUpdate={updateSettings}
           onBack={() => setScreen('menu')}
-          onPlay={() => { setNewlyUnlocked([]); setScreen('playing') }}
+          onPlay={() => enterPlay(false)}
         />
       )}
 
-      {screen === 'playing' && <GameCanvas onGameOver={handleGameOver} onAchievementUnlocked={handleAchievementUnlocked} settings={settings} />}
+      {screen === 'playing' && (
+        <GameCanvas
+          onGameOver={handleGameOver}
+          onAchievementUnlocked={handleAchievementUnlocked}
+          settings={settings}
+          seed={dailyMode ? dailySeed : undefined}
+        />
+      )}
 
       {screen === 'gameover' && (
         <div className="screen-wrapper gameover">
           <div className="panel gameover-panel">
+            {dailyMode && (
+              <div className="gameover-daily-badge">
+                {t.dailyBadge} · {dailyDateKey}
+              </div>
+            )}
             <h1 className="gameover-title">{t.gameoverTitle}</h1>
 
             <div className="divider gameover-divider" />

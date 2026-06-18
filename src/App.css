@@ -622,6 +622,42 @@ h1.gameover-title {
   border-color: #334466;
 }
 
+/* Daily challenge entry */
+.menu-btn--daily {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  background: rgba(40, 30, 70, 0.5);
+  color: #d9c6ff;
+  border: 1px solid rgba(150, 120, 230, 0.55);
+  letter-spacing: 3px;
+}
+
+.menu-btn--daily:hover {
+  color: #f0e8ff;
+  border-color: rgba(180, 150, 255, 0.9);
+  box-shadow: 0 0 16px rgba(140, 110, 230, 0.35);
+}
+
+.menu-daily-best {
+  margin-top: 8px;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #9a86c8;
+}
+
+.gameover-daily-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #c0a8ff;
+  text-align: center;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
 /* ============================================================
    TUTORIAL SCREEN — REDESIGN
    ============================================================ */

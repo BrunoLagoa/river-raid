@@ -3,18 +3,22 @@ import { Game } from '@/game/Game'
 import SwipeControls from './SwipeControls'
 import type { GameSettings } from '@/game/SettingsService'
 import type { AchievementId } from '@/game/AchievementService'
+import { createSeededRandom } from '@/game/random'
 import { getStrings } from '@/i18n'
 
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
   onAchievementUnlocked?: (id: AchievementId, title: string, description: string) => void
   settings: GameSettings
+  /** When set, the run is deterministic (daily challenge); otherwise Math.random. */
+  seed?: number
 }
 
-export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings }: GameCanvasProps) {
+export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings, seed }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
   const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
+  const seedRef = useRef(seed)
 
   const handleSwipePosition = useCallback((x: number | null, y: number | null) => {
     gameRef.current?.setTouchPosition(x, y)
@@ -50,7 +54,8 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
 
     resize()
 
-    const game = new Game(canvas, Math.random, initialObjectiveProfileRef.current)
+    const rng = seedRef.current != null ? createSeededRandom(seedRef.current) : Math.random
+    const game = new Game(canvas, rng, initialObjectiveProfileRef.current)
     gameRef.current = game
     game.setOnGameOver((score, highScore) => {
       onGameOver(score, highScore)

@@ -9,9 +9,12 @@ export interface Strings {
   menuBtnStart: string
   menuBtnTutorial: string
   menuBtnSettings: string
+  menuBtnDaily: string
+  menuDailyBest: string
   menuPressEnter: string
   menuMute: string
   menuUnmute: string
+  dailyBadge: string
 
   // Tutorial
   tutorialSubtitle: string
@@ -94,9 +97,12 @@ const en: Strings = {
   menuBtnStart: 'START',
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'SETTINGS',
+  menuBtnDaily: 'DAILY CHALLENGE',
+  menuDailyBest: "Today's best",
   menuPressEnter: '▸ TAP OR PRESS ENTER TO START ◂',
   menuMute: 'MUTE SOUND',
   menuUnmute: 'UNMUTE SOUND',
+  dailyBadge: 'DAILY CHALLENGE',
 
   tutorialSubtitle: '— MISSION BRIEFING —',
   tutorialTitle: 'HOW TO PLAY',
@@ -204,9 +210,12 @@ const ptBR: Strings = {
   menuBtnStart: 'INICIAR',
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'OPÇÕES',
+  menuBtnDaily: 'DESAFIO DIÁRIO',
+  menuDailyBest: 'Melhor de hoje',
   menuPressEnter: '▸ TOQUE OU PRESSIONE ENTER PARA INICIAR ◂',
   menuMute: 'SILENCIAR SOM',
   menuUnmute: 'ATIVAR SOM',
+  dailyBadge: 'DESAFIO DIÁRIO',
 
   tutorialSubtitle: '— INSTRUÇÕES —',
   tutorialTitle: 'COMO JOGAR',
