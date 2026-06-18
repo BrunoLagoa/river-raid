@@ -1,3 +1,65 @@
+// ---------------------------------------------------------------------------
+// Trilha ambiente "MIDI-style" — composta e tocada pelo motor de osciladores.
+// Tema heroico de aventura em Ré menor. Progressão épica:
+//   Dm | Bb | F | C | Dm | Gm | A | A   (i - VI - III - VII / i - iv - V - V)
+// Apenas o som de fundo usa estes dados; os demais SFX permanecem como antes.
+// ---------------------------------------------------------------------------
+
+const NOTE: Record<string, number> = {
+  G1: 49.0, A1: 55.0, Bb1: 58.27,
+  C2: 65.41, D2: 73.42, F2: 87.31, G2: 98.0,
+  C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.0, A3: 220.0, Bb3: 233.08,
+  C4: 261.63, Db4: 277.18, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.0, A4: 440.0, Bb4: 466.16,
+  C5: 523.25, Db5: 554.37, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.0,
+}
+
+// Melodia principal — 8 compassos de 16 semicolcheias. '.' sustenta a nota
+// anterior, '-' é pausa. Linha cantável e heroica que respira com o jogo.
+const LEAD: string[] = [
+  // 1 · Dm — chamado heroico
+  'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
+  // 2 · Bb — resposta descendente
+  '-', '.', 'F5', '.', 'D5', '.', 'Bb4', '.', 'D5', '.', '.', '.', '.', '.', '.', '.',
+  // 3 · F — abertura luminosa
+  'C5', '.', '.', '.', 'A4', '.', '.', '.', 'F4', '.', 'A4', '.', 'C5', '.', '.', '.',
+  // 4 · C — clímax e suspiro
+  'E5', '.', 'D5', '.', 'C5', '.', '.', '.', 'G4', '.', '.', '.', '.', '.', '.', '.',
+  // 5 · Dm — retomada do tema
+  'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
+  // 6 · Gm — tensão crescente
+  'Bb4', '.', '.', '.', 'G4', '.', '.', '.', 'D5', '.', '.', '.', 'Bb4', '.', '.', '.',
+  // 7 · A — voo épico (dominante maior, C#)
+  'Db5', '.', '.', '.', 'E5', '.', '.', '.', 'A5', '.', 'G5', '.', 'E5', '.', 'Db5', '.',
+  // 8 · A — resolução suspensa, prepara o loop
+  'D5', '.', '.', '.', 'Db5', '.', '.', '.', 'A4', '.', '.', '.', '-', '.', '-', '.',
+]
+
+// Raiz do baixo por compasso (pulso de aventura).
+const BASS_ROOTS = ['D2', 'Bb1', 'F2', 'C2', 'D2', 'G1', 'A1', 'A1']
+
+// Acordes do pad emocional por compasso (sustentados o compasso inteiro).
+const PAD_CHORDS: string[][] = [
+  ['D3', 'F3', 'A3'],   // Dm
+  ['Bb1', 'D3', 'F3'],  // Bb
+  ['F3', 'A3', 'C4'],   // F
+  ['C3', 'E3', 'G3'],   // C
+  ['D3', 'F3', 'A3'],   // Dm
+  ['G3', 'Bb3', 'D4'],  // Gm
+  ['A3', 'Db4', 'E4'],  // A
+  ['A3', 'Db4', 'E4'],  // A
+]
+
+interface NoteEvent {
+  freq: number
+  steps: number
+}
+
+interface CompiledSong {
+  lead: Map<number, NoteEvent>
+  bass: Map<number, NoteEvent>
+  pad: Map<number, number[]>
+}
+
 export class SoundManager {
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
@@ -5,11 +67,12 @@ export class SoundManager {
   private volume = 0.3
   private musicTimer: number | null = null
   private musicStep = 0
-  private currentMusicVariation = 0
+  private compiled: CompiledSong | null = null
 
-  private static readonly MELODY = [659.25, 783.99, 880, 783.99, 698.46, 783.99, 987.77, 880]
-  private static readonly MELODY_VAR_1 = [880, 987.77, 1046.50, 987.77, 880, 783.99, 880, 659.25]
-  private static readonly BASS = [164.81, 164.81, 196, 196, 174.61, 174.61, 220, 196]
+  // 132 BPM em semicolcheias → trilha enérgica de ação.
+  private static readonly STEP_MS = 114
+  private static readonly STEPS_PER_BAR = 16
+  private static readonly TOTAL_STEPS = LEAD.length // 8 compassos × 16
 
 
   init(): void {
@@ -54,6 +117,7 @@ export class SoundManager {
   startMusic(): void {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain || this.musicTimer !== null) return
+    if (!this.compiled) this.compiled = SoundManager.compileSong()
     this.musicStep = 0
     this.playMusicStep()
   }
@@ -63,6 +127,34 @@ export class SoundManager {
       window.clearTimeout(this.musicTimer)
       this.musicTimer = null
     }
+  }
+
+  // Converte os tokens da composição em eventos prontos para o sequenciador.
+  private static compileSong(): CompiledSong {
+    const lead = new Map<number, NoteEvent>()
+    for (let i = 0; i < LEAD.length; i++) {
+      const tok = LEAD[i]
+      if (tok === '.' || tok === '-') continue
+      const freq = NOTE[tok]
+      if (freq === undefined) continue
+      let steps = 1
+      while (LEAD[i + steps] === '.') steps++
+      lead.set(i, { freq, steps })
+    }
+
+    const bass = new Map<number, NoteEvent>()
+    const pad = new Map<number, number[]>()
+    const bars = LEAD.length / SoundManager.STEPS_PER_BAR
+    for (let b = 0; b < bars; b++) {
+      const base = b * SoundManager.STEPS_PER_BAR
+      const root = NOTE[BASS_ROOTS[b]]
+      // Pulso de baixo a cada semínima.
+      for (const q of [0, 4, 8, 12]) bass.set(base + q, { freq: root, steps: 3 })
+      // Pad sustentado pelo compasso inteiro.
+      pad.set(base, PAD_CHORDS[b].map((n) => NOTE[n]))
+    }
+
+    return { lead, bass, pad }
   }
 
   startEngine(): void {
@@ -78,46 +170,131 @@ export class SoundManager {
 
   private playMusicStep(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    if (!ctx || !this.masterGain || !this.compiled) return
 
     const start = ctx.currentTime + 0.02
+    const stepSec = SoundManager.STEP_MS / 1000
+    const step = this.musicStep % SoundManager.TOTAL_STEPS
 
-    // Switch variation every 4 measures (32 steps)
-    if (this.musicStep > 0 && this.musicStep % 32 === 0) {
-      this.currentMusicVariation = (this.currentMusicVariation + 1) % 2
+    // Pad emocional — acordes sustentados que dão profundidade à cena.
+    const chord = this.compiled.pad.get(step)
+    if (chord) {
+      const barSec = SoundManager.STEPS_PER_BAR * stepSec
+      for (const freq of chord) {
+        this.playVoice(freq, start, barSec * 0.96, 'triangle', 0.014, barSec * 0.25)
+      }
     }
-    const currentMelody = this.currentMusicVariation === 0 ? SoundManager.MELODY : SoundManager.MELODY_VAR_1
-    const melodyFreq = currentMelody[this.musicStep % currentMelody.length]
-    const bassFreq = SoundManager.BASS[this.musicStep % SoundManager.BASS.length]
 
-    const leadOsc = ctx.createOscillator()
-    const leadGain = ctx.createGain()
-    leadOsc.type = 'square'
-    leadOsc.frequency.setValueAtTime(melodyFreq, start)
-    leadGain.gain.setValueAtTime(0.02, start)
-    leadGain.gain.exponentialRampToValueAtTime(0.001, start + 0.14)
-    leadOsc.connect(leadGain)
-    leadGain.connect(this.masterGain)
-    leadOsc.start(start)
-    leadOsc.stop(start + 0.16)
-
-    if (bassFreq > 0) {
-      const bassOsc = ctx.createOscillator()
-      const bassGain = ctx.createGain()
-      bassOsc.type = 'triangle'
-      bassOsc.frequency.setValueAtTime(bassFreq, start)
-      bassGain.gain.setValueAtTime(0.012, start)
-      bassGain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
-      bassOsc.connect(bassGain)
-      bassGain.connect(this.masterGain)
-      bassOsc.start(start)
-      bassOsc.stop(start + 0.18)
+    // Baixo pulsante — motor de aventura.
+    const bassEv = this.compiled.bass.get(step)
+    if (bassEv) {
+      this.playVoice(bassEv.freq, start, bassEv.steps * stepSec, 'triangle', 0.06, 0.04)
     }
+
+    // Melodia heroica — square com camada grave (triangle) para calor/emoção.
+    const leadEv = this.compiled.lead.get(step)
+    if (leadEv) {
+      const dur = leadEv.steps * stepSec
+      this.playVoice(leadEv.freq, start, dur, 'square', 0.05, Math.min(0.12, dur * 0.4))
+      this.playVoice(leadEv.freq / 2, start, dur, 'triangle', 0.022, Math.min(0.12, dur * 0.4))
+    }
+
+    // Bateria — groove de ação.
+    const beat = step % SoundManager.STEPS_PER_BAR
+    if (beat === 0 || beat === 8) this.drumKick(start)
+    if (beat === 4 || beat === 12) this.drumSnare(start)
+    if (beat % 2 === 0) this.drumHat(start)
 
     this.musicStep += 1
     this.musicTimer = window.setTimeout(() => {
       this.playMusicStep()
-    }, 180)
+    }, SoundManager.STEP_MS)
+  }
+
+  // Voz genérica com envelope ataque/sustentação/decaimento (ADSR simplificado).
+  private playVoice(
+    freq: number,
+    start: number,
+    dur: number,
+    type: OscillatorType,
+    peak: number,
+    release: number,
+  ): void {
+    if (!this.ctx || !this.masterGain) return
+    const ctx = this.ctx
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = type
+    osc.frequency.setValueAtTime(freq, start)
+    const attack = Math.min(0.03, dur * 0.3)
+    gain.gain.setValueAtTime(0.0001, start)
+    gain.gain.exponentialRampToValueAtTime(peak, start + attack)
+    gain.gain.setValueAtTime(peak, start + Math.max(attack, dur - release))
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur)
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(start)
+    osc.stop(start + dur + 0.02)
+  }
+
+  private drumKick(start: number): void {
+    if (!this.ctx || !this.masterGain) return
+    const ctx = this.ctx
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(150, start)
+    osc.frequency.exponentialRampToValueAtTime(45, start + 0.12)
+    gain.gain.setValueAtTime(0.22, start)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
+    osc.connect(gain)
+    gain.connect(this.masterGain)
+    osc.start(start)
+    osc.stop(start + 0.18)
+  }
+
+  private drumSnare(start: number): void {
+    if (!this.ctx || !this.masterGain) return
+    const ctx = this.ctx
+    const dur = 0.14
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length)
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'highpass'
+    filter.frequency.setValueAtTime(1200, start)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.11, start)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
+    noise.connect(filter)
+    filter.connect(gain)
+    gain.connect(this.masterGain)
+    noise.start(start)
+    noise.stop(start + dur)
+  }
+
+  private drumHat(start: number): void {
+    if (!this.ctx || !this.masterGain) return
+    const ctx = this.ctx
+    const dur = 0.03
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'highpass'
+    filter.frequency.setValueAtTime(7000, start)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.04, start)
+    gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
+    noise.connect(filter)
+    filter.connect(gain)
+    gain.connect(this.masterGain)
+    noise.start(start)
+    noise.stop(start + dur)
   }
 
   shoot(): void {
