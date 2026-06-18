@@ -87,7 +87,7 @@ describe('CollisionSystem', () => {
   it('consome bala inimiga quando player esta invencivel', () => {
     const ctx = makeCtx()
     ctx.player.invincibilityTimer = 1
-    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, active: true, fromPlane: false })
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, vx: 0, active: true, fromPlane: false })
 
     CollisionSystem.resolveCollisions(ctx)
 
@@ -134,7 +134,7 @@ describe('CollisionSystem', () => {
   it('quebra escudo ao colidir com bala inimiga e evita morte', () => {
     const ctx = makeCtx()
     ctx.player.shieldActive = true
-    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 220, active: true, fromPlane: false })
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 220, vx: 0, active: true, fromPlane: false })
 
     CollisionSystem.resolveCollisions(ctx)
 
@@ -145,7 +145,7 @@ describe('CollisionSystem', () => {
 
   it('bala inimiga mata player sem escudo e sem invencibilidade', () => {
     const ctx = makeCtx()
-    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, active: true, fromPlane: false })
+    ctx.enemyManager.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 180, vx: 0, active: true, fromPlane: false })
 
     CollisionSystem.resolveCollisions(ctx)
 
@@ -409,8 +409,8 @@ describe('CollisionSystem', () => {
   it('checkPlayerVsEnemyBullets cobre candidatos invalidos e sem overlap', () => {
     const ctx = makeCtx()
     ctx.enemyManager.bullets.push(
-      { x: 300, y: 300, width: 4, height: 8, speed: 180, active: true, fromPlane: false },
-      { x: 100, y: 100, width: 4, height: 8, speed: 180, active: false, fromPlane: false },
+      { x: 300, y: 300, width: 4, height: 8, speed: 180, vx: 0, active: true, fromPlane: false },
+      { x: 100, y: 100, width: 4, height: 8, speed: 180, vx: 0, active: false, fromPlane: false },
     )
 
     const querySpy = vi.spyOn(SpatialGrid.prototype, 'query').mockImplementation((_r, out) => {

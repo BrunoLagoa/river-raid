@@ -165,10 +165,6 @@ export const ENEMY_COLORS: Record<EnemyType, string> = {
 }
 
 export class EnemyManager {
-  private static readonly AI_EDGE_SOFT_ZONE = 36
-  private static readonly AI_CENTER_STEER_BASIC = 0.4
-  private static readonly AI_CENTER_STEER_SMART = 1.2
-  private static readonly AI_CENTER_STEER_ELITE = 1.8
   private static readonly AI_ORIGIN_RECENTER_BASIC = 0.9
   private static readonly AI_ORIGIN_RECENTER_SMART = 1.4
   private static readonly AI_ORIGIN_RECENTER_ELITE = 2.0
@@ -732,12 +728,6 @@ export class EnemyManager {
     if (tier === 'smart') return ENEMY_TIER_SMART_AMPLITUDE_MULT
     if (tier === 'elite') return ENEMY_TIER_ELITE_AMPLITUDE_MULT
     return ENEMY_TIER_BASIC_AMPLITUDE_MULT
-  }
-
-  private getTierCenterSteer(tier: AiTier): number {
-    if (tier === 'smart') return EnemyManager.AI_CENTER_STEER_SMART
-    if (tier === 'elite') return EnemyManager.AI_CENTER_STEER_ELITE
-    return EnemyManager.AI_CENTER_STEER_BASIC
   }
 
   private getTierOriginRecenter(tier: AiTier): number {
