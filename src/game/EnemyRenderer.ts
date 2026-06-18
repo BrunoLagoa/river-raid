@@ -1,35 +1,44 @@
-import type { Enemy, EnemyBullet } from './EnemyManager'
+import type { Enemy, EnemyBullet, EnemyType } from './EnemyManager'
+
+// Distinct initial per enemy type — a shape/text cue independent of colour,
+// drawn over each enemy when colourblind mode is enabled.
+const TYPE_INITIAL: Record<EnemyType, string> = {
+  helicopter: 'H',
+  plane: 'P',
+  boat: 'B',
+  bridge: 'X',
+  tank: 'T',
+  gunboat: 'G',
+}
 
 export class EnemyRenderer {
-  render(ctx: CanvasRenderingContext2D, enemies: Enemy[], bullets: EnemyBullet[], gameTime: number): void {
-    const byType = new Map<string, Enemy[]>()
-    for (const enemy of enemies) {
-      if (!enemy.active) continue
-      const arr = byType.get(enemy.type)
-      if (arr) arr.push(enemy)
-      else byType.set(enemy.type, [enemy])
+  render(ctx: CanvasRenderingContext2D, enemies: Enemy[], bullets: EnemyBullet[], gameTime: number, colorblind = false): void {
+    // Single dispatch loop — each enemy draws independently, so no need to
+    // group by type into a per-frame Map (avoids GC churn in this hot path).
+    for (const e of enemies) {
+      if (!e.active) continue
+      switch (e.type) {
+        case 'helicopter': this.renderHelicopter(ctx, e, gameTime); break
+        case 'plane': this.renderPlane(ctx, e); break
+        case 'boat': this.renderBoat(ctx, e); break
+        case 'bridge': this.renderBridge(ctx, e); break
+        case 'tank': this.renderTank(ctx, e); break
+        case 'gunboat': this.renderGunboat(ctx, e); break
+      }
     }
 
-    for (const [type, list] of byType) {
-      switch (type) {
-        case 'helicopter':
-          for (const e of list) this.renderHelicopter(ctx, e, gameTime)
-          break
-        case 'plane':
-          for (const e of list) this.renderPlane(ctx, e)
-          break
-        case 'boat':
-          for (const e of list) this.renderBoat(ctx, e)
-          break
-        case 'bridge':
-          for (const e of list) this.renderBridge(ctx, e)
-          break
-        case 'tank':
-          for (const e of list) this.renderTank(ctx, e)
-          break
-        case 'gunboat':
-          for (const e of list) this.renderGunboat(ctx, e)
-          break
+    if (colorblind) {
+      ctx.font = 'bold 11px "Courier New", monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      for (const e of enemies) {
+        if (!e.active || e.type === 'bridge') continue
+        const label = TYPE_INITIAL[e.type]
+        const y = e.y - e.height / 2 - 7
+        ctx.fillStyle = '#000000'
+        ctx.fillText(label, e.x + 1, y + 1)
+        ctx.fillStyle = '#ffffff'
+        ctx.fillText(label, e.x, y)
       }
     }
 

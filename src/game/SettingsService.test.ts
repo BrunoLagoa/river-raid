@@ -39,8 +39,10 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'invalid' as never,
+        difficulty: 'normal',
         language: 'en',
       })
 
@@ -73,8 +75,10 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'conservative',
+        difficulty: 'normal',
         language: 'xx' as never,
       })
 
@@ -89,8 +93,10 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'conservative',
+        difficulty: 'normal',
         language: 'pt-BR',
       })
 

@@ -39,6 +39,24 @@ const TOAST_FADE_DURATION = 0.5
 
 export class UI {
   private toasts: AchievementToast[] = []
+  private pausedLabel = 'PAUSED'
+  private pauseHintLabel = 'Press P or ESC to resume'
+  private distanceLabel = 'DIST'
+  private distanceMeters = 0
+
+  /** Localized pause-overlay strings (defaults are English). */
+  setPauseLabels(paused: string, hint: string): void {
+    this.pausedLabel = paused
+    this.pauseHintLabel = hint
+  }
+
+  setDistanceLabel(label: string): void {
+    this.distanceLabel = label
+  }
+
+  setDistanceMeters(meters: number): void {
+    this.distanceMeters = meters
+  }
 
   pushToast(title: string, description: string): void {
     // Replace existing toast with the same title to avoid duplicates
@@ -93,6 +111,15 @@ export class UI {
     for (let i = 0; i < lives; i++) {
       this.drawMiniPlane(ctx, 22 + i * 22, 38)
     }
+
+    // Distance — centered readout for a sense of progress
+    ctx.textAlign = 'center'
+    ctx.font = 'bold 10px "Courier New", monospace'
+    ctx.fillStyle = '#aaaacc'
+    ctx.fillText(this.distanceLabel, canvasWidth / 2, 12)
+    ctx.font = 'bold 16px "Courier New", monospace'
+    ctx.fillStyle = '#88ddff'
+    ctx.fillText(`${this.distanceMeters.toLocaleString()} m`, canvasWidth / 2, 28)
 
     const barWidth = 100
     const barHeight = 12
@@ -264,11 +291,11 @@ export class UI {
       ctx.fillStyle = '#44aaff'
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
-      ctx.fillText('PAUSED', canvasWidth / 2, ctx.canvas.height / 2 - 16)
+      ctx.fillText(this.pausedLabel, canvasWidth / 2, ctx.canvas.height / 2 - 16)
 
       ctx.font = '14px "Courier New", monospace'
       ctx.fillStyle = '#88aacc'
-      ctx.fillText('Press P or ESC to resume', canvasWidth / 2, ctx.canvas.height / 2 + 20)
+      ctx.fillText(this.pauseHintLabel, canvasWidth / 2, ctx.canvas.height / 2 + 20)
     }
 
     this.renderToasts(ctx, canvasWidth)

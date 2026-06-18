@@ -2,12 +2,20 @@ import type { Rect } from './CollisionSystem'
 
 export class SpatialGrid {
   private readonly cellSize: number
-  private readonly buckets = new Map<string, number[]>()
+  private readonly buckets = new Map<number, number[]>()
   private readonly marks = new Map<number, number>()
   private queryStamp = 0
 
   constructor(cellSize = 64) {
     this.cellSize = cellSize
+  }
+
+  // Pack two signed cell coords into one integer key — avoids the per-insert
+  // string allocation of a `${gx},${gy}` key. Unique for |coord| < 32768 cells,
+  // far beyond any realistic canvas; collisions would only cost an extra AABB
+  // recheck, never a missed hit.
+  private static key(gx: number, gy: number): number {
+    return ((gx & 0xffff) << 16) | (gy & 0xffff)
   }
 
   clear(): void {
@@ -22,7 +30,7 @@ export class SpatialGrid {
 
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
-        const key = `${gx},${gy}`
+        const key = SpatialGrid.key(gx, gy)
         let bucket = this.buckets.get(key)
         if (!bucket) {
           bucket = []
@@ -44,7 +52,7 @@ export class SpatialGrid {
 
     for (let gy = minY; gy <= maxY; gy++) {
       for (let gx = minX; gx <= maxX; gx++) {
-        const key = `${gx},${gy}`
+        const key = SpatialGrid.key(gx, gy)
         const bucket = this.buckets.get(key)
         if (!bucket) continue
 

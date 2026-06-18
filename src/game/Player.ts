@@ -1,6 +1,7 @@
 import { ObjectPool } from './ObjectPool'
 import {
   PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
+  PLAYER_VERTICAL_SPEED, PLAYER_MIN_Y_RATIO, PLAYER_MAX_Y_MARGIN,
   PLAYER_SHOOT_INTERVAL, PLAYER_MAX_BULLETS,
   PLAYER_BULLET_SPEED, PLAYER_BULLET_W, PLAYER_BULLET_H,
   PLAYER_EXPLODING_DURATION, PLAYER_RESPAWN_Y_OFFSET,
@@ -26,6 +27,8 @@ export class Player {
   width = PLAYER_WIDTH
   height = PLAYER_HEIGHT
   speed = PLAYER_SPEED
+  verticalSpeed = PLAYER_VERTICAL_SPEED
+  private canvasHeight: number
   state: GameState = 'alive'
   private bulletPool = new ObjectPool<Bullet>(
     PLAYER_MAX_BULLETS,
@@ -49,14 +52,24 @@ export class Player {
   private explodingTimer = 0
   private readonly explodingDuration = PLAYER_EXPLODING_DURATION
 
-  setTouchTarget(x: number | null): void {
+  setTouchTarget(x: number | null, y: number | null = null): void {
     this.touchTargetX = x
+    this.touchTargetY = y
   }
   private touchTargetX: number | null = null
+  private touchTargetY: number | null = null
 
   constructor(canvasWidth: number, canvasHeight: number) {
     this.x = canvasWidth / 2
     this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
+    this.canvasHeight = canvasHeight
+  }
+
+  /** Clamp a Y to the allowed vertical travel range. */
+  private clampY(y: number): number {
+    const top = this.canvasHeight * PLAYER_MIN_Y_RATIO
+    const bottom = this.canvasHeight - PLAYER_MAX_Y_MARGIN
+    return Math.max(top, Math.min(bottom, y))
   }
 
   attachInput(): void {
@@ -71,7 +84,8 @@ export class Player {
   }
 
   resize(_canvasWidth: number, canvasHeight: number, leftBound: number, rightBound: number): void {
-    this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
+    this.canvasHeight = canvasHeight
+    this.y = this.clampY(this.y)
     this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
   }
 
@@ -102,6 +116,21 @@ export class Player {
         }
       }
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
+
+      // Vertical movement — forward (up) / back (down), clamped to the travel range.
+      if (this.touchTargetY !== null) {
+        const dy = this.touchTargetY - this.y
+        const maxMove = this.verticalSpeed * dt
+        this.y = Math.abs(dy) <= maxMove ? this.touchTargetY : this.y + Math.sign(dy) * maxMove
+      } else {
+        if (this.keys.has('ArrowUp') || this.keys.has('w')) {
+          this.y -= this.verticalSpeed * dt
+        }
+        if (this.keys.has('ArrowDown') || this.keys.has('s')) {
+          this.y += this.verticalSpeed * dt
+        }
+      }
+      this.y = this.clampY(this.y)
 
       if (this.doubleShotTimer > 0) this.doubleShotTimer -= dt
       if (this.rapidFireTimer > 0) this.rapidFireTimer -= dt
@@ -296,8 +325,10 @@ export class Player {
 
   /** Respawn mid-game after losing a life. Recenters the player and grants invincibility. */
   respawn(canvasWidth: number, canvasHeight: number): void {
+    this.canvasHeight = canvasHeight
     this.x = canvasWidth / 2
     this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
+    this.touchTargetY = null
     this.state = 'alive'
     this.bulletPool.resetAll()
     this.shootCooldown = 0
@@ -317,6 +348,7 @@ export class Player {
   }
 
   reset(canvasWidth: number, canvasHeight: number): void {
+    this.canvasHeight = canvasHeight
     this.x = canvasWidth / 2
     this.y = canvasHeight - PLAYER_RESPAWN_Y_OFFSET
     this.state = 'alive'
@@ -332,6 +364,7 @@ export class Player {
     this.animTimer = 0
     this.keys.clear()
     this.touchTargetX = null
+    this.touchTargetY = null
   }
 
   private onKeyDown = (e: KeyboardEvent): void => {

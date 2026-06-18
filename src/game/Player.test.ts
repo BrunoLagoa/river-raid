@@ -340,4 +340,55 @@ describe('Player edge cases', () => {
     p.update(1, 0, 800)
     expect(p.rapidFireTimer).toBeLessThan(3)
   })
+
+  it('move para cima (frente) com ArrowUp/W', () => {
+    const p = new Player(800, 600)
+    const startY = p.y
+
+    p.keys.add('ArrowUp')
+    p.update(0.1, 0, 800)
+    expect(p.y).toBeLessThan(startY)
+
+    const afterUp = p.y
+    p.keys.clear()
+    p.keys.add('w')
+    p.update(0.1, 0, 800)
+    expect(p.y).toBeLessThan(afterUp)
+  })
+
+  it('move para baixo (ré) com ArrowDown/S', () => {
+    const p = new Player(800, 600)
+    // sobe primeiro para ter espaço de descida dentro dos limites
+    p.keys.add('ArrowUp')
+    p.update(0.5, 0, 800)
+    const startY = p.y
+
+    p.keys.clear()
+    p.keys.add('ArrowDown')
+    p.update(0.1, 0, 800)
+    expect(p.y).toBeGreaterThan(startY)
+  })
+
+  it('clampeia o movimento vertical aos limites do canvas', () => {
+    const p = new Player(800, 600)
+    const topBound = 600 * 0.32
+    const bottomBound = 600 - 40
+
+    p.keys.add('ArrowUp')
+    for (let i = 0; i < 60; i++) p.update(0.1, 0, 800)
+    expect(p.y).toBeGreaterThanOrEqual(topBound - 0.001)
+
+    p.keys.clear()
+    p.keys.add('ArrowDown')
+    for (let i = 0; i < 60; i++) p.update(0.1, 0, 800)
+    expect(p.y).toBeLessThanOrEqual(bottomBound + 0.001)
+  })
+
+  it('segue o alvo de toque em 2D (x e y)', () => {
+    const p = new Player(800, 600)
+    p.setTouchTarget(200, 300)
+    p.update(1.0, 0, 800) // dt grande para snap
+    expect(p.x).toBe(200)
+    expect(p.y).toBe(300)
+  })
 })

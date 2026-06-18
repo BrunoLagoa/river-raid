@@ -1109,29 +1109,29 @@ describe('Game achievement system', () => {
   it('restart reseta rastreadores de conquistas', () => {
     const canvas = createMockCanvas()
     const game = new Game(canvas)
-    type GamePrivate = {
-      achievementEnemiesKilled: number
-      achievementPowerUpsCollected: number
-      achievementFuelHighTimer: number
-      achievementBridgeDestroyed: boolean
-      achievementLostLife: boolean
+    type TrackerPrivate = {
+      enemiesKilled: number
+      powerUpsCollected: number
+      fuelHighTimer: number
+      bridgeDestroyed: boolean
+      lostLife: boolean
     }
-    const g = game as unknown as GamePrivate
+    const tracker = (game as unknown as { achievements: TrackerPrivate }).achievements
 
-    g.achievementEnemiesKilled = 10
-    g.achievementPowerUpsCollected = 5
-    g.achievementFuelHighTimer = 30
-    g.achievementBridgeDestroyed = true
-    g.achievementLostLife = true
+    tracker.enemiesKilled = 10
+    tracker.powerUpsCollected = 5
+    tracker.fuelHighTimer = 30
+    tracker.bridgeDestroyed = true
+    tracker.lostLife = true
 
     game.restart()
     game.stop()
 
-    expect(g.achievementEnemiesKilled).toBe(0)
-    expect(g.achievementPowerUpsCollected).toBe(0)
-    expect(g.achievementFuelHighTimer).toBe(0)
-    expect(g.achievementBridgeDestroyed).toBe(false)
-    expect(g.achievementLostLife).toBe(false)
+    expect(tracker.enemiesKilled).toBe(0)
+    expect(tracker.powerUpsCollected).toBe(0)
+    expect(tracker.fuelHighTimer).toBe(0)
+    expect(tracker.bridgeDestroyed).toBe(false)
+    expect(tracker.lostLife).toBe(false)
   })
 
   it('untouchable e desbloqueado ao fim do jogo sem mortes', () => {
@@ -1310,7 +1310,7 @@ describe('Game achievement system', () => {
     const game = new Game(canvas)
 
     vi.spyOn(CollisionSystem, 'resolveCollisions').mockImplementation((ctx) => {
-      for (let i = 0; i < 10; i++) ctx.onPowerUpCollected?.()
+      for (let i = 0; i < 10; i++) ctx.onPowerUpCollected?.('shield')
     })
 
     game.start()

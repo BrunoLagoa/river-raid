@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import GameCanvas from './components/GameCanvas'
 import MenuScreen from './components/MenuScreen'
 import TutorialScreen from './components/TutorialScreen'
@@ -6,6 +6,7 @@ import SettingsScreen from './components/SettingsScreen'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
 import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
+import { SoundManager } from './game/SoundManager'
 import { getStrings } from './i18n'
 
 import './App.css'
@@ -33,7 +34,40 @@ export default function App() {
   const [rankingSaved, setRankingSaved] = useState(false)
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null)
 
+  const menuSoundRef = useRef<SoundManager | null>(null)
+
   const t = useMemo(() => getStrings(settings.language), [settings.language])
+
+  const toggleMute = useCallback(() => {
+    setSettings((prev) => saveStoredSettings({ ...prev, muted: !prev.muted }))
+  }, [])
+
+  // Trilha das telas fora do jogo (menu/tutorial/opções/game over).
+  // O jogo (GameCanvas) tem seu próprio SoundManager; aqui usamos um dedicado.
+  useEffect(() => {
+    const onMenuScreens =
+      screen === 'menu' || screen === 'tutorial' || screen === 'settings' || screen === 'gameover'
+
+    if (!onMenuScreens) {
+      menuSoundRef.current?.stopMusic()
+      return
+    }
+
+    if (!menuSoundRef.current) menuSoundRef.current = new SoundManager()
+    const sound = menuSoundRef.current
+    sound.init()
+    sound.setVolume(settings.masterVolume)
+    if (sound.isMuted() !== settings.muted) sound.toggleMute()
+    // AudioContext só soa após um gesto do usuário; o scheduler tenta resume()
+    // a cada passo, então a trilha começa assim que houver qualquer interação.
+    sound.startMenuMusic()
+  }, [screen, settings.muted, settings.masterVolume])
+
+  // Libera o contexto de áudio ao desmontar o app.
+  useEffect(() => () => {
+    menuSoundRef.current?.destroy()
+    menuSoundRef.current = null
+  }, [])
 
   const updateSettings = useCallback((patch: Partial<GameSettings>) => {
     setSettings((prev) => saveStoredSettings({ ...prev, ...patch }))
@@ -109,13 +143,15 @@ export default function App() {
   }, [screen, needsRankingName, rankingSaved, handleAction])
 
   return (
-    <div className="app-container">
+    <div className={`app-container${settings.reducedMotion ? ' reduced-motion' : ''}`}>
       {screen === 'menu' && (
         <MenuScreen
           t={t}
           onStart={handleAction}
           onTutorial={() => setScreen('tutorial')}
           onSettings={() => setScreen('settings')}
+          muted={settings.muted}
+          onToggleMute={toggleMute}
         />
       )}
 
@@ -179,8 +215,8 @@ export default function App() {
                   >
                     <span className="achievement-unlocked-star">&#9733;</span>
                     <div className="achievement-unlocked-text">
-                      <span className="achievement-unlocked-title">{a.title}</span>
-                      <span className="achievement-unlocked-desc">{a.description}</span>
+                      <span className="achievement-unlocked-title">{t.achievementCatalog[a.id]?.title ?? a.title}</span>
+                      <span className="achievement-unlocked-desc">{t.achievementCatalog[a.id]?.description ?? a.description}</span>
                     </div>
                   </div>
                 ))}
@@ -233,7 +269,14 @@ export default function App() {
               </div>
             )}
 
-            <p className="restart-hint" onClick={handleAction} style={{ cursor: 'pointer' }}>
+            <p
+              className="restart-hint"
+              onClick={handleAction}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleAction() } }}
+              role="button"
+              tabIndex={0}
+              style={{ cursor: 'pointer' }}
+            >
               {t.gameoverPressEnter}
             </p>
           </div>

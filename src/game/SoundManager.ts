@@ -7,47 +7,11 @@
 
 const NOTE: Record<string, number> = {
   G1: 49.0, A1: 55.0, Bb1: 58.27,
-  C2: 65.41, D2: 73.42, F2: 87.31, G2: 98.0,
-  C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.0, A3: 220.0, Bb3: 233.08,
-  C4: 261.63, Db4: 277.18, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.0, A4: 440.0, Bb4: 466.16,
+  C2: 65.41, D2: 73.42, E2: 82.41, F2: 87.31, G2: 98.0,
+  C3: 130.81, D3: 146.83, E3: 164.81, F3: 174.61, G3: 196.0, Ab3: 207.65, A3: 220.0, Bb3: 233.08, B3: 246.94,
+  C4: 261.63, Db4: 277.18, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.0, Ab4: 415.3, A4: 440.0, Bb4: 466.16, B4: 493.88,
   C5: 523.25, Db5: 554.37, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.0,
 }
-
-// Melodia principal — 8 compassos de 16 semicolcheias. '.' sustenta a nota
-// anterior, '-' é pausa. Linha cantável e heroica que respira com o jogo.
-const LEAD: string[] = [
-  // 1 · Dm — chamado heroico
-  'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
-  // 2 · Bb — resposta descendente
-  '-', '.', 'F5', '.', 'D5', '.', 'Bb4', '.', 'D5', '.', '.', '.', '.', '.', '.', '.',
-  // 3 · F — abertura luminosa
-  'C5', '.', '.', '.', 'A4', '.', '.', '.', 'F4', '.', 'A4', '.', 'C5', '.', '.', '.',
-  // 4 · C — clímax e suspiro
-  'E5', '.', 'D5', '.', 'C5', '.', '.', '.', 'G4', '.', '.', '.', '.', '.', '.', '.',
-  // 5 · Dm — retomada do tema
-  'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
-  // 6 · Gm — tensão crescente
-  'Bb4', '.', '.', '.', 'G4', '.', '.', '.', 'D5', '.', '.', '.', 'Bb4', '.', '.', '.',
-  // 7 · A — voo épico (dominante maior, C#)
-  'Db5', '.', '.', '.', 'E5', '.', '.', '.', 'A5', '.', 'G5', '.', 'E5', '.', 'Db5', '.',
-  // 8 · A — resolução suspensa, prepara o loop
-  'D5', '.', '.', '.', 'Db5', '.', '.', '.', 'A4', '.', '.', '.', '-', '.', '-', '.',
-]
-
-// Raiz do baixo por compasso (pulso de aventura).
-const BASS_ROOTS = ['D2', 'Bb1', 'F2', 'C2', 'D2', 'G1', 'A1', 'A1']
-
-// Acordes do pad emocional por compasso (sustentados o compasso inteiro).
-const PAD_CHORDS: string[][] = [
-  ['D3', 'F3', 'A3'],   // Dm
-  ['Bb1', 'D3', 'F3'],  // Bb
-  ['F3', 'A3', 'C4'],   // F
-  ['C3', 'E3', 'G3'],   // C
-  ['D3', 'F3', 'A3'],   // Dm
-  ['G3', 'Bb3', 'D4'],  // Gm
-  ['A3', 'Db4', 'E4'],  // A
-  ['A3', 'Db4', 'E4'],  // A
-]
 
 interface NoteEvent {
   freq: number
@@ -60,6 +24,93 @@ interface CompiledSong {
   pad: Map<number, number[]>
 }
 
+// Uma trilha = melodia ('.' sustenta, '-' pausa), raízes de baixo e acordes de
+// pad por compasso (16 semicolcheias cada), além de timbre e estilo de bateria.
+interface MusicTrack {
+  stepMs: number
+  leadType: OscillatorType
+  drums: 'full' | 'soft' | 'none'
+  lead: string[]
+  bassRoots: string[]
+  padChords: string[][]
+}
+
+// --- Trilha de jogo: tema heroico de aventura em Ré menor (132 BPM) ----------
+// Progressão: Dm | Bb | F | C | Dm | Gm | A | A
+const GAME_TRACK: MusicTrack = {
+  stepMs: 114,
+  leadType: 'square',
+  drums: 'full',
+  lead: [
+    // 1 · Dm — chamado heroico
+    'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
+    // 2 · Bb — resposta descendente
+    '-', '.', 'F5', '.', 'D5', '.', 'Bb4', '.', 'D5', '.', '.', '.', '.', '.', '.', '.',
+    // 3 · F — abertura luminosa
+    'C5', '.', '.', '.', 'A4', '.', '.', '.', 'F4', '.', 'A4', '.', 'C5', '.', '.', '.',
+    // 4 · C — clímax e suspiro
+    'E5', '.', 'D5', '.', 'C5', '.', '.', '.', 'G4', '.', '.', '.', '.', '.', '.', '.',
+    // 5 · Dm — retomada do tema
+    'A4', '.', '.', '.', 'D5', '.', '.', '.', 'F5', '.', 'E5', '.', 'D5', '.', '.', '.',
+    // 6 · Gm — tensão crescente
+    'Bb4', '.', '.', '.', 'G4', '.', '.', '.', 'D5', '.', '.', '.', 'Bb4', '.', '.', '.',
+    // 7 · A — voo épico (dominante maior, C#)
+    'Db5', '.', '.', '.', 'E5', '.', '.', '.', 'A5', '.', 'G5', '.', 'E5', '.', 'Db5', '.',
+    // 8 · A — resolução suspensa, prepara o loop
+    'D5', '.', '.', '.', 'Db5', '.', '.', '.', 'A4', '.', '.', '.', '-', '.', '-', '.',
+  ],
+  bassRoots: ['D2', 'Bb1', 'F2', 'C2', 'D2', 'G1', 'A1', 'A1'],
+  padChords: [
+    ['D3', 'F3', 'A3'],   // Dm
+    ['Bb1', 'D3', 'F3'],  // Bb
+    ['F3', 'A3', 'C4'],   // F
+    ['C3', 'E3', 'G3'],   // C
+    ['D3', 'F3', 'A3'],   // Dm
+    ['G3', 'Bb3', 'D4'],  // Gm
+    ['A3', 'Db4', 'E4'],  // A
+    ['A3', 'Db4', 'E4'],  // A
+  ],
+}
+
+// --- Trilha do menu: synthwave neon, sonhador e nostálgico (100 BPM) ---------
+// Tom Lá menor, progressão "épica" Am | F | C | G (vi-IV-I-V), com virada
+// Am | F | G | E para um suspiro de expectativa antes do loop. Timbre suave
+// (triangle), sem kick/snare — só um chimbal arejado segurando o pulso.
+const MENU_TRACK: MusicTrack = {
+  stepMs: 150,
+  leadType: 'triangle',
+  drums: 'soft',
+  lead: [
+    // 1 · Am — abertura serena
+    'E4', '.', '.', '.', 'A4', '.', '.', '.', 'C5', '.', 'B4', '.', 'A4', '.', '.', '.',
+    // 2 · F — respira
+    '-', '.', 'C5', '.', 'A4', '.', 'F4', '.', 'A4', '.', '.', '.', '.', '.', '.', '.',
+    // 3 · C — luz crescente
+    'G4', '.', '.', '.', 'C5', '.', '.', '.', 'E5', '.', 'D5', '.', 'C5', '.', '.', '.',
+    // 4 · G — frase suspensa
+    'D5', '.', 'B4', '.', 'G4', '.', '.', '.', '-', '.', '.', '.', '.', '.', '.', '.',
+    // 5 · Am — retomada do tema
+    'E4', '.', '.', '.', 'A4', '.', '.', '.', 'C5', '.', 'B4', '.', 'A4', '.', '.', '.',
+    // 6 · F — voo emotivo
+    'F5', '.', '.', '.', 'E5', '.', '.', '.', 'C5', '.', 'A4', '.', 'F4', '.', '.', '.',
+    // 7 · G — antecipação
+    'G4', '.', '.', '.', 'B4', '.', '.', '.', 'D5', '.', '.', '.', 'G4', '.', '.', '.',
+    // 8 · E — tensão doce (dominante maior, G#) que pede o recomeço
+    'Ab4', '.', '.', '.', 'B4', '.', '.', '.', 'E5', '.', '.', '.', '-', '.', '-', '.',
+  ],
+  bassRoots: ['A1', 'F2', 'C2', 'G2', 'A1', 'F2', 'G2', 'E2'],
+  padChords: [
+    ['A3', 'C4', 'E4'],   // Am
+    ['F3', 'A3', 'C4'],   // F
+    ['C3', 'E3', 'G3'],   // C
+    ['G3', 'B3', 'D4'],   // G
+    ['A3', 'C4', 'E4'],   // Am
+    ['F3', 'A3', 'C4'],   // F
+    ['G3', 'B3', 'D4'],   // G
+    ['E3', 'Ab3', 'B3'],  // E
+  ],
+}
+
 export class SoundManager {
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
@@ -67,12 +118,9 @@ export class SoundManager {
   private volume = 0.3
   private musicTimer: number | null = null
   private musicStep = 0
-  private compiled: CompiledSong | null = null
+  private active: { track: MusicTrack; compiled: CompiledSong; totalSteps: number } | null = null
 
-  // 132 BPM em semicolcheias → trilha enérgica de ação.
-  private static readonly STEP_MS = 114
   private static readonly STEPS_PER_BAR = 16
-  private static readonly TOTAL_STEPS = LEAD.length // 8 compassos × 16
 
 
   init(): void {
@@ -85,7 +133,7 @@ export class SoundManager {
 
   resume(): void {
     if (this.ctx?.state === 'suspended') {
-      this.ctx.resume()
+      void this.ctx.resume()
     }
   }
 
@@ -114,10 +162,24 @@ export class SoundManager {
     return this.ctx
   }
 
+  // Trilha de jogo — tema heroico de aventura.
   startMusic(): void {
+    this.playTrack(GAME_TRACK)
+  }
+
+  // Trilha de menu — synthwave neon, sonhador.
+  startMenuMusic(): void {
+    this.playTrack(MENU_TRACK)
+  }
+
+  private playTrack(track: MusicTrack): void {
     const ctx = this.ensureCtx()
     if (!ctx || !this.masterGain || this.musicTimer !== null) return
-    if (!this.compiled) this.compiled = SoundManager.compileSong()
+    this.active = {
+      track,
+      compiled: SoundManager.compileSong(track),
+      totalSteps: track.lead.length,
+    }
     this.musicStep = 0
     this.playMusicStep()
   }
@@ -127,31 +189,33 @@ export class SoundManager {
       window.clearTimeout(this.musicTimer)
       this.musicTimer = null
     }
+    this.active = null
   }
 
-  // Converte os tokens da composição em eventos prontos para o sequenciador.
-  private static compileSong(): CompiledSong {
+  // Converte os tokens de uma trilha em eventos prontos para o sequenciador.
+  private static compileSong(track: MusicTrack): CompiledSong {
+    const { lead: tokens } = track
     const lead = new Map<number, NoteEvent>()
-    for (let i = 0; i < LEAD.length; i++) {
-      const tok = LEAD[i]
+    for (let i = 0; i < tokens.length; i++) {
+      const tok = tokens[i]
       if (tok === '.' || tok === '-') continue
       const freq = NOTE[tok]
       if (freq === undefined) continue
       let steps = 1
-      while (LEAD[i + steps] === '.') steps++
+      while (tokens[i + steps] === '.') steps++
       lead.set(i, { freq, steps })
     }
 
     const bass = new Map<number, NoteEvent>()
     const pad = new Map<number, number[]>()
-    const bars = LEAD.length / SoundManager.STEPS_PER_BAR
+    const bars = tokens.length / SoundManager.STEPS_PER_BAR
     for (let b = 0; b < bars; b++) {
       const base = b * SoundManager.STEPS_PER_BAR
-      const root = NOTE[BASS_ROOTS[b]]
+      const root = NOTE[track.bassRoots[b]]
       // Pulso de baixo a cada semínima.
       for (const q of [0, 4, 8, 12]) bass.set(base + q, { freq: root, steps: 3 })
       // Pad sustentado pelo compasso inteiro.
-      pad.set(base, PAD_CHORDS[b].map((n) => NOTE[n]))
+      pad.set(base, track.padChords[b].map((n) => NOTE[n]))
     }
 
     return { lead, bass, pad }
@@ -170,14 +234,15 @@ export class SoundManager {
 
   private playMusicStep(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain || !this.compiled) return
+    if (!ctx || !this.masterGain || !this.active) return
 
+    const { track, compiled, totalSteps } = this.active
     const start = ctx.currentTime + 0.02
-    const stepSec = SoundManager.STEP_MS / 1000
-    const step = this.musicStep % SoundManager.TOTAL_STEPS
+    const stepSec = track.stepMs / 1000
+    const step = this.musicStep % totalSteps
 
     // Pad emocional — acordes sustentados que dão profundidade à cena.
-    const chord = this.compiled.pad.get(step)
+    const chord = compiled.pad.get(step)
     if (chord) {
       const barSec = SoundManager.STEPS_PER_BAR * stepSec
       for (const freq of chord) {
@@ -185,30 +250,35 @@ export class SoundManager {
       }
     }
 
-    // Baixo pulsante — motor de aventura.
-    const bassEv = this.compiled.bass.get(step)
+    // Baixo pulsante — motor da trilha.
+    const bassEv = compiled.bass.get(step)
     if (bassEv) {
       this.playVoice(bassEv.freq, start, bassEv.steps * stepSec, 'triangle', 0.06, 0.04)
     }
 
-    // Melodia heroica — square com camada grave (triangle) para calor/emoção.
-    const leadEv = this.compiled.lead.get(step)
+    // Melodia — timbre da trilha com camada grave (triangle) para calor/emoção.
+    const leadEv = compiled.lead.get(step)
     if (leadEv) {
       const dur = leadEv.steps * stepSec
-      this.playVoice(leadEv.freq, start, dur, 'square', 0.05, Math.min(0.12, dur * 0.4))
+      this.playVoice(leadEv.freq, start, dur, track.leadType, 0.05, Math.min(0.12, dur * 0.4))
       this.playVoice(leadEv.freq / 2, start, dur, 'triangle', 0.022, Math.min(0.12, dur * 0.4))
     }
 
-    // Bateria — groove de ação.
+    // Bateria — varia conforme o estilo da trilha.
     const beat = step % SoundManager.STEPS_PER_BAR
-    if (beat === 0 || beat === 8) this.drumKick(start)
-    if (beat === 4 || beat === 12) this.drumSnare(start)
-    if (beat % 2 === 0) this.drumHat(start)
+    if (track.drums === 'full') {
+      if (beat === 0 || beat === 8) this.drumKick(start)
+      if (beat === 4 || beat === 12) this.drumSnare(start)
+      if (beat % 2 === 0) this.drumHat(start)
+    } else if (track.drums === 'soft') {
+      if (beat === 0) this.drumKick(start)
+      if (beat === 4 || beat === 12) this.drumHat(start)
+    }
 
     this.musicStep += 1
     this.musicTimer = window.setTimeout(() => {
       this.playMusicStep()
-    }, SoundManager.STEP_MS)
+    }, track.stepMs)
   }
 
   // Voz genérica com envelope ataque/sustentação/decaimento (ADSR simplificado).
@@ -552,7 +622,7 @@ export class SoundManager {
     this.stopMusic()
     this.stopEngine()
     if (this.ctx) {
-      this.ctx.close()
+      void this.ctx.close()
       this.ctx = null
       this.masterGain = null
     }

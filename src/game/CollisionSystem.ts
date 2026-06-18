@@ -5,11 +5,16 @@ import type { Fx } from './Fx'
 import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
-import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION, POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION } from './constants'
+import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION, POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION, BRIDGE_FUEL_DROP_CHANCE } from './constants'
 import { SpatialGrid } from './SpatialGrid'
+import type { RandomSource } from './random'
 
 const enemyGrid = new SpatialGrid(64)
 const bulletGrid = new SpatialGrid(64)
+// Reused across queries to avoid per-frame array allocation in hot paths.
+const candidates: number[] = []
+
+interface GridItem { x: number; y: number; width: number; height: number; active: boolean }
 
 export interface Rect {
   x: number
@@ -34,7 +39,9 @@ export interface CollisionContext {
   registerHit: () => void
   onEnemyDestroyed?: (enemyType: EnemyType) => void
   onFuelCollected?: (count: number) => void
-  onPowerUpCollected?: () => void
+  onPowerUpCollected?: (type: string) => void
+  /** Deterministic RNG; falls back to Math.random if not provided. */
+  random?: RandomSource
 }
 
 export class CollisionSystem {
@@ -58,12 +65,26 @@ export class CollisionSystem {
     }
 
     if (CollisionSystem.checkPlayerVsBanks(ctx)) return
+
+    // Build the enemy grid once per frame — both player-vs-enemies and
+    // bullets-vs-enemies reuse it (previously rebuilt twice).
+    CollisionSystem.buildGrid(ctx.enemyManager.enemies, enemyGrid)
+
     if (CollisionSystem.checkPlayerVsEnemies(ctx, playerRect)) return
     if (CollisionSystem.checkPlayerVsEnemyBullets(ctx, playerRect)) return
 
     CollisionSystem.checkBulletsVsEnemies(ctx)
     CollisionSystem.checkPlayerVsFuel(ctx, playerRect)
     CollisionSystem.checkPlayerVsPowerUps(ctx, playerRect)
+  }
+
+  private static buildGrid(items: GridItem[], grid: SpatialGrid): void {
+    grid.clear()
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      if (!it.active) continue
+      grid.insert(i, it)
+    }
   }
 
   private static killPlayer(ctx: CollisionContext, px: number, py: number, color: string): void {
@@ -87,14 +108,6 @@ export class CollisionSystem {
   private static checkPlayerVsEnemies(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    enemyGrid.clear()
-    for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
-      const enemy = ctx.enemyManager.enemies[i]
-      if (!enemy.active) continue
-      enemyGrid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
-    }
-
-    const candidates: number[] = []
     enemyGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
@@ -123,14 +136,7 @@ export class CollisionSystem {
   private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    bulletGrid.clear()
-    for (let i = 0; i < ctx.enemyManager.bullets.length; i++) {
-      const bullet = ctx.enemyManager.bullets[i]
-      if (!bullet.active) continue
-      bulletGrid.insert(i, { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height })
-    }
-
-    const candidates: number[] = []
+    CollisionSystem.buildGrid(ctx.enemyManager.bullets, bulletGrid)
     bulletGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
@@ -161,15 +167,6 @@ export class CollisionSystem {
   }
 
   private static checkBulletsVsEnemies(ctx: CollisionContext): void {
-    enemyGrid.clear()
-    for (let i = 0; i < ctx.enemyManager.enemies.length; i++) {
-      const enemy = ctx.enemyManager.enemies[i]
-      if (!enemy.active) continue
-      enemyGrid.insert(i, { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height })
-    }
-
-    const candidates: number[] = []
-
     for (const bullet of ctx.player.bullets) {
       if (!bullet.active) continue
       const bulletRect: Rect = {
@@ -207,7 +204,7 @@ export class CollisionSystem {
           ctx.registerHit()
           ctx.onEnemyDestroyed?.(enemy.type)
 
-          if (enemy.type === 'bridge' && Math.random() < 0.5) {
+          if (enemy.type === 'bridge' && (ctx.random ?? Math.random)() < BRIDGE_FUEL_DROP_CHANCE) {
             ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
           } else {
             ctx.powerUpSystem.trySpawnAt(enemy.x, enemy.y)
@@ -266,7 +263,7 @@ export class CollisionSystem {
         if (p.type !== 'rapid_fire' && p.type !== 'magnet_fuel' && p.type !== 'bomb') ctx.sound.fuelCollect()
         ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
-        ctx.onPowerUpCollected?.()
+        ctx.onPowerUpCollected?.(p.type)
       }
     }
   }

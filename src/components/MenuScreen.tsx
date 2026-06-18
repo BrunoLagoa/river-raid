@@ -5,14 +5,27 @@ interface MenuScreenProps {
   onStart: () => void
   onTutorial: () => void
   onSettings: () => void
+  muted: boolean
+  onToggleMute: () => void
 }
 
-export default function MenuScreen({ t, onStart, onTutorial, onSettings }: MenuScreenProps) {
+export default function MenuScreen({ t, onStart, onTutorial, onSettings, muted, onToggleMute }: MenuScreenProps) {
   return (
     <div className="screen-wrapper menu">
       <div className="menu-scanlines" aria-hidden="true" />
 
       <div className="panel menu-panel">
+        <button
+          type="button"
+          className={`menu-mute-btn ${muted ? 'is-muted' : ''}`}
+          onClick={onToggleMute}
+          aria-label={muted ? t.menuUnmute : t.menuMute}
+          aria-pressed={muted}
+          title={muted ? t.menuUnmute : t.menuMute}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+
         <div className="menu-title-block">
           <div className="menu-subtitle">{t.menuSubtitle}</div>
           <h1 className="title menu-title-flicker">RIVER RAID</h1>
@@ -26,10 +39,11 @@ export default function MenuScreen({ t, onStart, onTutorial, onSettings }: MenuS
             <div className="control-card-label">{t.menuLabelMove}</div>
             <div className="control-card-keys">
               <span className="key-badge">◄</span>
+              <span className="key-badge">▲</span>
+              <span className="key-badge">▼</span>
               <span className="key-badge">►</span>
               <span className="key-sep">/</span>
-              <span className="key-badge">A</span>
-              <span className="key-badge">D</span>
+              <span className="key-badge">WASD</span>
               <span className="key-sep">/</span>
               <span className="key-touch">TOUCH</span>
             </div>

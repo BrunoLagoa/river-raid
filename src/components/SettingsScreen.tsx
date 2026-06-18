@@ -71,6 +71,17 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             <label className="settings-toggle">
               <input
                 type="checkbox"
+                checked={settings.colorblindMode}
+                onChange={(e) => onUpdate({ colorblindMode: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelColorblind}</span>
+            </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
                 checked={settings.gamepadEnabled}
                 onChange={(e) => onUpdate({ gamepadEnabled: e.target.checked })}
                 className="settings-checkbox"
@@ -84,6 +95,19 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
 
           {/* Selects row */}
           <div className="settings-selects">
+            <div className="settings-select-group">
+              <div className="settings-select-label">{t.settingsLabelDifficulty}</div>
+              <select
+                value={settings.difficulty}
+                onChange={(e) => onUpdate({ difficulty: e.target.value as GameSettings['difficulty'] })}
+                className="settings-select"
+              >
+                <option value="easy">{t.difficultyEasy}</option>
+                <option value="normal">{t.difficultyNormal}</option>
+                <option value="hard">{t.difficultyHard}</option>
+              </select>
+            </div>
+
             <div className="settings-select-group">
               <div className="settings-select-label">{t.settingsLabelObjectiveProfile}</div>
               <select
@@ -119,13 +143,13 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
                 <span className={`settings-achievement-icon ${a.unlocked ? 'unlocked-pulse' : ''}`}>
                   {a.unlocked ? '★' : '☆'}
                 </span>
-                <span className="settings-achievement-name">{a.title}</span>
+                <span className="settings-achievement-name">{t.achievementCatalog[a.id]?.title ?? a.title}</span>
                 <span className="settings-achievement-hint">
                   <span className="settings-achievement-hint-icon">ⓘ</span>
                   <span className="settings-achievement-tooltip">
                     <span className="settings-achievement-tooltip-section">
                       <span className="settings-achievement-tooltip-label">{t.settingsTooltipHowTo}</span>
-                      <span className="settings-achievement-tooltip-text">{a.description}</span>
+                      <span className="settings-achievement-tooltip-text">{t.achievementCatalog[a.id]?.description ?? a.description}</span>
                     </span>
                     <span className="settings-achievement-tooltip-divider" />
                     <span className="settings-achievement-tooltip-section">

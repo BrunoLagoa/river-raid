@@ -1,6 +1,10 @@
 export const PLAYER_WIDTH = 28
 export const PLAYER_HEIGHT = 32
 export const PLAYER_SPEED = 300
+export const PLAYER_VERTICAL_SPEED = 240
+// Vertical travel limits (ship can move forward/back within these bounds).
+export const PLAYER_MIN_Y_RATIO = 0.32        // highest point: 32% from the top
+export const PLAYER_MAX_Y_MARGIN = 40         // lowest point: this many px from the bottom
 export const PLAYER_SHOOT_INTERVAL = 0.18
 export const PLAYER_MAX_BULLETS = 20
 export const PLAYER_BULLET_SPEED = 500
@@ -56,6 +60,50 @@ export const DEFAULT_LIVES = 3
 export const GAME_OVER_DELAY = 1200
 export const RESPAWN_DELAY = 1300
 export const HIGH_SCORE_KEY = 'river-raid-highscore'
+
+// Loop / frame
+export const DT_CLAMP_MAX = 0.05
+
+// Pixels of river scroll per displayed "meter" of distance
+export const DISTANCE_PX_PER_METER = 12
+
+// Smoke trail (player exhaust)
+export const SMOKE_TRAIL_SPAWN_CHANCE = 0.5
+export const SMOKE_TRAIL_FAST_SPEED_MOD = 1.2
+export const SMOKE_TRAIL_SLOW_SPEED_MOD = 0.6
+
+// Bomb shockwave render
+export const SHOCKWAVE_MAX_RADIUS_RATIO = 0.85
+export const SHOCKWAVE_BASE_ALPHA = 0.55
+
+// Drop chance when a bridge is destroyed
+export const BRIDGE_FUEL_DROP_CHANCE = 0.5
+
+// Achievement thresholds
+export const ACHIEVEMENT_SHARPSHOOTER_KILLS = 50
+export const ACHIEVEMENT_POWER_COLLECTOR_COUNT = 10
+export const ACHIEVEMENT_FUEL_SAVER_SECONDS = 60
+export const ACHIEVEMENT_FUEL_SAVER_FUEL_PCT = 75
+export const ACHIEVEMENT_SURVIVOR_SCORE = 10000
+export const ACHIEVEMENT_HIGH_FLYER_SCORE = 50000
+export const ACHIEVEMENT_COMBO_MASTER_MULT = 4
+
+// Difficulty presets — scale spawn pressure and fuel drain.
+// 'normal' keeps the original balance (all multipliers 1.0) so existing
+// behaviour/tests are unchanged; easy/hard adjust around it.
+export type Difficulty = 'easy' | 'normal' | 'hard'
+export interface DifficultyPreset {
+  enemySpawnRateMult: number
+  fuelDrainMult: number
+}
+export const DIFFICULTY_PRESETS: Record<Difficulty, DifficultyPreset> = {
+  easy: { enemySpawnRateMult: 0.75, fuelDrainMult: 0.8 },
+  normal: { enemySpawnRateMult: 1.0, fuelDrainMult: 1.0 },
+  hard: { enemySpawnRateMult: 1.35, fuelDrainMult: 1.25 },
+}
+export function isDifficulty(v: unknown): v is Difficulty {
+  return v === 'easy' || v === 'normal' || v === 'hard'
+}
 
 export const ENEMY_SPAWN_DUAL_TIME = 10
 export const ENEMY_SPAWN_TRIPLE_TIME = 30

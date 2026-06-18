@@ -626,7 +626,7 @@ export class EnemyManager {
       best = Math.min(best, counts.get(lane) as number)
     }
     const candidates = lanes.filter((lane) => (counts.get(lane) as number) === best)
-    return candidates[Math.floor(this.random() * candidates.length)] as LaneIntent
+    return candidates[Math.floor(this.random() * candidates.length)]
   }
 
   private getSafeBounds(
@@ -964,8 +964,8 @@ export class EnemyManager {
     return { high: narrow || highCurve }
   }
 
-  render(ctx: CanvasRenderingContext2D): void {
-    this.renderer.render(ctx, this.enemies, this.bullets, this.gameTime)
+  render(ctx: CanvasRenderingContext2D, colorblind = false): void {
+    this.renderer.render(ctx, this.enemies, this.bullets, this.gameTime, colorblind)
   }
 
   reset(canvasWidth: number, canvasHeight: number): void {

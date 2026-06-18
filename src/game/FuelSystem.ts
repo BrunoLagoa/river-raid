@@ -19,6 +19,7 @@ export class FuelSystem {
   tanks: FuelTank[] = []
   fuel = FUEL_INITIAL
   drainRate = FUEL_DRAIN_RATE
+  drainMultiplier = 1
   private random: RandomSource
   private spawnTimer = 0
   private spawnInterval = FUEL_SPAWN_INTERVAL
@@ -34,8 +35,8 @@ export class FuelSystem {
   }
 
   update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
-    // Dynamic fuel drain: faster speed = more consumption
-    const dynamicDrain = this.drainRate + scrollSpeed * FUEL_DRAIN_SPEED_FACTOR
+    // Dynamic fuel drain: faster speed = more consumption (scaled by difficulty)
+    const dynamicDrain = (this.drainRate + scrollSpeed * FUEL_DRAIN_SPEED_FACTOR) * this.drainMultiplier
     this.fuel = Math.max(0, this.fuel - dynamicDrain * dt)
 
     this.spawnTimer -= dt

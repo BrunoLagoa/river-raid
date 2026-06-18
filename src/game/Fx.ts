@@ -215,26 +215,19 @@ export class Fx {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    const colorGroups = new Map<string, Particle[]>()
+    // Single pass — set style/alpha per particle. With the particle cap this is
+    // cheaper than allocating a per-frame Map to batch by colour.
+    let lastColor = ''
     for (const p of this.particles) {
       if (!p.active) continue
-      const alpha = p.life / p.maxLife
+      const alpha = Math.max(0, p.life / p.maxLife)
       if (alpha <= 0) continue
-      const groups = colorGroups.get(p.color)
-      if (groups) {
-        groups.push(p)
-      } else {
-        colorGroups.set(p.color, [p])
+      if (p.color !== lastColor) {
+        ctx.fillStyle = p.color
+        lastColor = p.color
       }
-    }
-
-    for (const [color, particles] of colorGroups) {
-      ctx.fillStyle = color
-      for (const p of particles) {
-        const alpha = Math.max(0, p.life / p.maxLife)
-        ctx.globalAlpha = alpha
-        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
-      }
+      ctx.globalAlpha = alpha
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
     }
 
     ctx.globalAlpha = 1
@@ -268,7 +261,9 @@ export class Fx {
   }
 
   getActiveParticleCount(): number {
-    return this.particles.filter(p => p.active).length
+    let n = 0
+    for (const p of this.particles) if (p.active) n++
+    return n
   }
 
   get activeCount(): number {

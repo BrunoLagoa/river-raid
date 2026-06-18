@@ -381,6 +381,50 @@ h1.gameover-title {
   z-index: 1;
 }
 
+/* Mute toggle */
+.menu-mute-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 3;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  color: #9ecbff;
+  background: rgba(20, 40, 70, 0.35);
+  border: 1px solid rgba(120, 170, 255, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 0 12px rgba(80, 140, 255, 0.15);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, transform 0.1s ease;
+}
+
+.menu-mute-btn:hover {
+  border-color: rgba(150, 200, 255, 0.8);
+  box-shadow: 0 0 18px rgba(100, 160, 255, 0.4);
+  background: rgba(30, 60, 100, 0.5);
+}
+
+.menu-mute-btn:active {
+  transform: scale(0.94);
+}
+
+.menu-mute-btn:focus-visible {
+  outline: 2px solid rgba(150, 200, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.menu-mute-btn.is-muted {
+  color: #6b7a90;
+  border-color: rgba(120, 140, 170, 0.3);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
 /* Title block */
 .menu-title-block {
   margin-bottom: 4px;
@@ -510,6 +554,18 @@ h1.gameover-title {
 
 .menu-btn:hover::after {
   opacity: 1;
+}
+
+/* Keyboard focus ring — accessible navigation across all screen buttons */
+.menu-btn:focus-visible,
+.settings-select:focus-visible,
+.settings-checkbox:focus-visible + .settings-toggle-track,
+.restart-hint:focus-visible,
+.name-input:focus-visible,
+.save-button:focus-visible {
+  outline: 2px solid #9ecbff;
+  outline-offset: 3px;
+  box-shadow: 0 0 14px rgba(120, 180, 255, 0.5);
 }
 
 /* Primary: glowing blue */
@@ -1115,4 +1171,86 @@ h1.gameover-title {
 
 .settings-achievement-icon.unlocked-pulse {
   animation: achievement-pulse 2.4s ease-in-out infinite;
+}
+
+/* ── Tutorial power-up legend ──────────────────────────────────────────────── */
+.tutorial-powerups-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: #6699cc;
+  margin: 14px 0 8px;
+  text-transform: uppercase;
+}
+
+.tutorial-powerups {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 18px;
+}
+
+.tutorial-powerup {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tutorial-powerup-badge {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-weight: bold;
+  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.tutorial-powerup-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.tutorial-powerup-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #cfe6ff;
+  letter-spacing: 1px;
+}
+
+.tutorial-powerup-desc {
+  font-size: 11px;
+  color: #88a0b8;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────────
+   Gated by the in-app setting (.reduced-motion) AND the OS preference. Disables
+   looping/decorative animations (title flicker, scanlines, glow pulses) while
+   keeping one-shot transitions that aid orientation. */
+.reduced-motion .menu-title-flicker,
+.reduced-motion .menu-scanlines,
+.reduced-motion .menu-btn--primary,
+.reduced-motion .start-text,
+.reduced-motion .settings-achievement-icon.unlocked-pulse,
+.reduced-motion .new-best,
+.reduced-motion [class*='flicker'] {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-title-flicker,
+  .menu-scanlines,
+  .menu-btn--primary,
+  .start-text,
+  .settings-achievement-icon.unlocked-pulse,
+  .new-best,
+  [class*='flicker'] {
+    animation: none !important;
+  }
 }

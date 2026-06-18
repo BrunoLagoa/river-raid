@@ -14,6 +14,8 @@ export class GameState {
   scrollSpeed = BASE_SCROLL_SPEED
   slowMotionTimer = 0
   fuelFlashTimer = 0
+  /** Total distance travelled down the river, in pixels of scroll. */
+  distance = 0
 
   reset(): void {
     this.lives = DEFAULT_LIVES
@@ -21,6 +23,11 @@ export class GameState {
     this.scrollSpeed = BASE_SCROLL_SPEED
     this.slowMotionTimer = 0
     this.fuelFlashTimer = 0
+    this.distance = 0
+  }
+
+  addDistance(pixels: number): void {
+    this.distance += pixels
   }
 
   updateSpeed(playerKeys: Set<string>): number {

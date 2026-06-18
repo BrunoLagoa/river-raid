@@ -10,6 +10,8 @@ export interface Strings {
   menuBtnTutorial: string
   menuBtnSettings: string
   menuPressEnter: string
+  menuMute: string
+  menuUnmute: string
 
   // Tutorial
   tutorialSubtitle: string
@@ -36,10 +38,15 @@ export interface Strings {
   settingsLabelVolume: string
   settingsLabelMute: string
   settingsLabelReducedMotion: string
+  settingsLabelColorblind: string
   settingsLabelGamepad: string
   settingsLabelObjectiveProfile: string
   settingsProfileConservative: string
   settingsProfileAggressive: string
+  settingsLabelDifficulty: string
+  difficultyEasy: string
+  difficultyNormal: string
+  difficultyHard: string
   settingsLabelLanguage: string
   settingsLangEn: string
   settingsLangPt: string
@@ -64,6 +71,19 @@ export interface Strings {
   gameoverBtnSave: string
   gameoverPressEnter: string
   gameoverAchievementsHeader: string
+
+  // HUD
+  hudPaused: string
+  hudPauseHint: string
+  hudDistance: string
+
+  // Power-ups (tutorial + pickup toast)
+  tutorialCardPowerups: string
+  powerupNames: Record<string, string>
+  powerupDescs: Record<string, string>
+
+  // Localized achievement catalog (title + how-to), keyed by AchievementId
+  achievementCatalog: Record<string, { title: string; description: string }>
 }
 
 const en: Strings = {
@@ -75,6 +95,8 @@ const en: Strings = {
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'SETTINGS',
   menuPressEnter: '▸ TAP OR PRESS ENTER TO START ◂',
+  menuMute: 'MUTE SOUND',
+  menuUnmute: 'UNMUTE SOUND',
 
   tutorialSubtitle: '— MISSION BRIEFING —',
   tutorialTitle: 'HOW TO PLAY',
@@ -82,8 +104,8 @@ const en: Strings = {
   tutorialCardNavigate: 'NAVIGATE',
   tutorialCardCombat: 'COMBAT',
   tutorialCardSurvive: 'SURVIVE',
-  tutorialNavigate1: 'Arrow keys or A / D',
-  tutorialNavigate2: 'Touch controls on mobile',
+  tutorialNavigate1: 'Arrows / WASD — all directions',
+  tutorialNavigate2: 'Drag anywhere on mobile',
   tutorialNavigate3: 'Left stick (gamepad)',
   tutorialCombat1: 'SPACE to shoot',
   tutorialCombat2: 'A button (gamepad)',
@@ -99,10 +121,15 @@ const en: Strings = {
   settingsLabelVolume: 'Master Volume',
   settingsLabelMute: 'Mute by default',
   settingsLabelReducedMotion: 'Reduced motion',
+  settingsLabelColorblind: 'Colorblind cues',
   settingsLabelGamepad: 'Enable gamepad',
   settingsLabelObjectiveProfile: 'Objective Profile',
   settingsProfileConservative: 'Conservative',
   settingsProfileAggressive: 'Aggressive',
+  settingsLabelDifficulty: 'Difficulty',
+  difficultyEasy: 'Easy',
+  difficultyNormal: 'Normal',
+  difficultyHard: 'Hard',
   settingsLabelLanguage: 'Language',
   settingsLangEn: 'English',
   settingsLangPt: 'Português',
@@ -135,6 +162,38 @@ const en: Strings = {
   gameoverBtnSave: 'SAVE',
   gameoverPressEnter: '> TAP OR PRESS ENTER TO RETRY <',
   gameoverAchievementsHeader: 'ACHIEVEMENTS UNLOCKED',
+
+  hudPaused: 'PAUSED',
+  hudPauseHint: 'Press P or ESC to resume',
+  hudDistance: 'DIST',
+
+  tutorialCardPowerups: 'POWER-UPS',
+  powerupNames: {
+    double_shot: 'Double Shot',
+    shield: 'Shield',
+    slow_motion: 'Slow Motion',
+    rapid_fire: 'Rapid Fire',
+    magnet_fuel: 'Fuel Magnet',
+    bomb: 'Smart Bomb',
+  },
+  powerupDescs: {
+    double_shot: 'Fires two bullets at once',
+    shield: 'Absorbs one hit',
+    slow_motion: 'Slows the world briefly',
+    rapid_fire: 'Shoot much faster',
+    magnet_fuel: 'Pulls fuel tanks toward you',
+    bomb: 'Destroys all on-screen enemies',
+  },
+  achievementCatalog: {
+    first_bridge:    { title: 'Bridge Breaker', description: 'Destroy a bridge' },
+    combo_master:    { title: 'Combo Master', description: 'Finish a run with combo x4 active' },
+    fuel_saver:      { title: 'Fuel Saver', description: 'Keep fuel above 75% for 60s' },
+    sharpshooter:    { title: 'Sharpshooter', description: 'Destroy 50 enemies in a run' },
+    survivor:        { title: 'Survivor', description: 'Reach 10,000 points in a run' },
+    power_collector: { title: 'Power Collector', description: 'Collect 10 power-ups in a run' },
+    high_flyer:      { title: 'High Flyer', description: 'Reach 50,000 points in a run' },
+    untouchable:     { title: 'Untouchable', description: 'Complete a run without losing a life' },
+  },
 }
 
 const ptBR: Strings = {
@@ -146,6 +205,8 @@ const ptBR: Strings = {
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'OPÇÕES',
   menuPressEnter: '▸ TOQUE OU PRESSIONE ENTER PARA INICIAR ◂',
+  menuMute: 'SILENCIAR SOM',
+  menuUnmute: 'ATIVAR SOM',
 
   tutorialSubtitle: '— INSTRUÇÕES —',
   tutorialTitle: 'COMO JOGAR',
@@ -153,8 +214,8 @@ const ptBR: Strings = {
   tutorialCardNavigate: 'NAVEGAR',
   tutorialCardCombat: 'COMBATE',
   tutorialCardSurvive: 'SOBREVIVER',
-  tutorialNavigate1: 'Setas ou A / D',
-  tutorialNavigate2: 'Controles de toque no mobile',
+  tutorialNavigate1: 'Setas / WASD — todas as direções',
+  tutorialNavigate2: 'Arraste em qualquer lugar no mobile',
   tutorialNavigate3: 'Analógico esquerdo (gamepad)',
   tutorialCombat1: 'ESPAÇO para atirar',
   tutorialCombat2: 'Botão A (gamepad)',
@@ -170,10 +231,15 @@ const ptBR: Strings = {
   settingsLabelVolume: 'Volume Principal',
   settingsLabelMute: 'Mudo por padrão',
   settingsLabelReducedMotion: 'Movimento reduzido',
+  settingsLabelColorblind: 'Indicadores p/ daltonismo',
   settingsLabelGamepad: 'Ativar gamepad',
   settingsLabelObjectiveProfile: 'Perfil de Objetivos',
   settingsProfileConservative: 'Conservador',
   settingsProfileAggressive: 'Agressivo',
+  settingsLabelDifficulty: 'Dificuldade',
+  difficultyEasy: 'Fácil',
+  difficultyNormal: 'Normal',
+  difficultyHard: 'Difícil',
   settingsLabelLanguage: 'Idioma',
   settingsLangEn: 'English',
   settingsLangPt: 'Português',
@@ -206,6 +272,38 @@ const ptBR: Strings = {
   gameoverBtnSave: 'SALVAR',
   gameoverPressEnter: '> TOQUE OU PRESSIONE ENTER PARA TENTAR NOVAMENTE <',
   gameoverAchievementsHeader: 'CONQUISTAS DESBLOQUEADAS',
+
+  hudPaused: 'PAUSADO',
+  hudPauseHint: 'Pressione P ou ESC para continuar',
+  hudDistance: 'DIST',
+
+  tutorialCardPowerups: 'POWER-UPS',
+  powerupNames: {
+    double_shot: 'Tiro Duplo',
+    shield: 'Escudo',
+    slow_motion: 'Câmera Lenta',
+    rapid_fire: 'Tiro Rápido',
+    magnet_fuel: 'Ímã de Combustível',
+    bomb: 'Bomba',
+  },
+  powerupDescs: {
+    double_shot: 'Dispara dois tiros de uma vez',
+    shield: 'Absorve um dano',
+    slow_motion: 'Desacelera o mundo por instantes',
+    rapid_fire: 'Atire muito mais rápido',
+    magnet_fuel: 'Atrai os tanques de combustível',
+    bomb: 'Destrói todos os inimigos na tela',
+  },
+  achievementCatalog: {
+    first_bridge:    { title: 'Quebra-Pontes', description: 'Destrua uma ponte' },
+    combo_master:    { title: 'Mestre do Combo', description: 'Termine uma run com combo x4 ativo' },
+    fuel_saver:      { title: 'Economista', description: 'Mantenha combustível acima de 75% por 60s' },
+    sharpshooter:    { title: 'Atirador de Elite', description: 'Destrua 50 inimigos em uma run' },
+    survivor:        { title: 'Sobrevivente', description: 'Alcance 10.000 pontos em uma run' },
+    power_collector: { title: 'Colecionador', description: 'Colete 10 power-ups em uma run' },
+    high_flyer:      { title: 'Ás dos Céus', description: 'Alcance 50.000 pontos em uma run' },
+    untouchable:     { title: 'Intocável', description: 'Complete uma run sem perder nenhuma vida' },
+  },
 }
 
 const translations: Record<Language, Strings> = { en, 'pt-BR': ptBR }

@@ -2,13 +2,37 @@ import { useRef, useCallback } from 'react'
 import './SwipeControls.css'
 
 interface SwipeControlsProps {
-  onSetPosition: (x: number | null) => void
+  onSetPosition: (x: number | null, y: number | null) => void
   onPause: () => void
   onMute: () => void
+  onFireDown: () => void
+  onFireUp: () => void
+  fireLabel: string
 }
 
-export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeControlsProps) {
+export default function SwipeControls({ onSetPosition, onPause, onMute, onFireDown, onFireUp, fireLabel }: SwipeControlsProps) {
   const touching = useRef(false)
+  const firing = useRef(false)
+
+  const handleFireDown = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      e.preventDefault()
+      e.currentTarget.setPointerCapture(e.pointerId)
+      firing.current = true
+      onFireDown()
+    },
+    [onFireDown]
+  )
+
+  const handleFireUp = useCallback(
+    (e: React.PointerEvent<HTMLButtonElement>) => {
+      if (!firing.current) return
+      e.preventDefault()
+      firing.current = false
+      onFireUp()
+    },
+    [onFireUp]
+  )
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
@@ -16,7 +40,7 @@ export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeC
       const el = e.currentTarget as HTMLElement
       el.setPointerCapture(e.pointerId)
       touching.current = true
-      onSetPosition(e.clientX)
+      onSetPosition(e.clientX, e.clientY)
     },
     [onSetPosition]
   )
@@ -25,7 +49,7 @@ export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeC
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!touching.current) return
       e.preventDefault()
-      onSetPosition(e.clientX)
+      onSetPosition(e.clientX, e.clientY)
     },
     [onSetPosition]
   )
@@ -39,14 +63,14 @@ export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeC
         el.releasePointerCapture(e.pointerId)
       }
       touching.current = false
-      onSetPosition(null)
+      onSetPosition(null, null)
     },
     [onSetPosition]
   )
 
   const handlePointerCancel = useCallback(() => {
     touching.current = false
-    onSetPosition(null)
+    onSetPosition(null, null)
   }, [onSetPosition])
 
   return (
@@ -70,6 +94,17 @@ export default function SwipeControls({ onSetPosition, onPause, onMute }: SwipeC
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
       />
+
+      <button
+        className="btn-fire"
+        aria-label={fireLabel}
+        onPointerDown={handleFireDown}
+        onPointerUp={handleFireUp}
+        onPointerCancel={handleFireUp}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {fireLabel}
+      </button>
     </div>
   )
 }

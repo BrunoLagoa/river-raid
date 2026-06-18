@@ -1,6 +1,7 @@
 import { Player } from './Player'
 import { World } from './World'
 import { CollisionSystem } from './CollisionSystem'
+import type { CollisionContext } from './CollisionSystem'
 import { UI } from './UI'
 import { EnemyManager } from './EnemyManager'
 import { FuelSystem } from './FuelSystem'
@@ -23,12 +24,19 @@ import {
   SLOW_MOTION_DURATION,
   GAME_OVER_DELAY, RESPAWN_DELAY, HIGH_SCORE_KEY,
   POWERUP_MAGNET_FUEL_SPEED,
+  DT_CLAMP_MAX,
+  SMOKE_TRAIL_SPAWN_CHANCE, SMOKE_TRAIL_FAST_SPEED_MOD, SMOKE_TRAIL_SLOW_SPEED_MOD,
+  SHOCKWAVE_MAX_RADIUS_RATIO, SHOCKWAVE_BASE_ALPHA,
+  DISTANCE_PX_PER_METER,
+  DIFFICULTY_PRESETS, type Difficulty, type DifficultyPreset,
 } from './constants'
 import {
   unlockAchievement,
   isAchievementUnlocked,
   type AchievementId,
 } from './AchievementService'
+import { AchievementTracker } from './AchievementTracker'
+import type { Strings } from '../i18n'
 export type GameCallback = (score: number, highScore: number) => void
 export type AchievementCallback = (id: AchievementId, title: string, description: string) => void
 
@@ -59,14 +67,18 @@ export class Game {
   private onGameOver: GameCallback | null = null
   private onAchievementUnlocked: AchievementCallback | null = null
   private gameOverTriggered = false
+  private reducedMotion = false
+  private colorblind = false
   private random: RandomSource
 
-  // Achievement trackers — reset each run
-  private achievementEnemiesKilled = 0
-  private achievementPowerUpsCollected = 0
-  private achievementFuelHighTimer = 0
-  private achievementBridgeDestroyed = false
-  private achievementLostLife = false
+  private achievements = new AchievementTracker((id) => this.tryUnlockAchievement(id))
+  private difficulty: DifficultyPreset = DIFFICULTY_PRESETS.normal
+  private locale: Strings | null = null
+
+  // Tracked so stop()/destroy() can cancel them — prevents respawn or the
+  // game-over callback from firing after the game has been torn down.
+  private respawnTimeoutId: ReturnType<typeof setTimeout> | null = null
+  private gameOverTimeoutId: ReturnType<typeof setTimeout> | null = null
 
   private scoring = new ScoringSystem()
   private state = new GameState()
@@ -145,8 +157,11 @@ export class Game {
     const updated = unlockAchievement(id)
     const achievement = updated.find((a) => a.id === id)
     if (!achievement) return
-    this.ui.pushToast(achievement.title, achievement.description)
-    this.onAchievementUnlocked?.(id, achievement.title, achievement.description)
+    const localized = this.locale?.achievementCatalog[id]
+    const title = localized?.title ?? achievement.title
+    const description = localized?.description ?? achievement.description
+    this.ui.pushToast(title, description)
+    this.onAchievementUnlocked?.(id, title, description)
   }
 
   start(): void {
@@ -168,9 +183,21 @@ export class Game {
     this.sound.stopMusic()
     this.sound.stopEngine()
     this.player.detachInput()
+    this.clearPendingTimers()
     if (this.rafId !== null) {
       cancelAnimationFrame(this.rafId)
       this.rafId = null
+    }
+  }
+
+  private clearPendingTimers(): void {
+    if (this.respawnTimeoutId !== null) {
+      clearTimeout(this.respawnTimeoutId)
+      this.respawnTimeoutId = null
+    }
+    if (this.gameOverTimeoutId !== null) {
+      clearTimeout(this.gameOverTimeoutId)
+      this.gameOverTimeoutId = null
     }
   }
 
@@ -193,12 +220,21 @@ export class Game {
     }
   }
 
-  setTouchPosition(screenX: number | null): void {
-    this.player.setTouchTarget(screenX)
+  setTouchPosition(screenX: number | null, screenY: number | null = null): void {
+    this.player.setTouchTarget(screenX, screenY)
   }
 
   setReducedMotion(enabled: boolean): void {
+    this.reducedMotion = enabled
     this.fx.setReducedMotion(enabled)
+  }
+
+  // Light haptic feedback on mobile; suppressed when reduced motion is on.
+  private vibrate(ms: number): void {
+    if (this.reducedMotion) return
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(ms)
+    }
   }
 
   setMasterVolume(volume: number): void {
@@ -207,6 +243,10 @@ export class Game {
 
   setGamepadEnabled(enabled: boolean): void {
     this.gamepadEnabled = enabled
+  }
+
+  setColorblind(enabled: boolean): void {
+    this.colorblind = enabled
   }
 
   setObjectiveBalanceProfile(profile: ObjectiveBalanceProfile): void {
@@ -234,20 +274,27 @@ export class Game {
     this.biomeSystem.reset()
     this.debugPanel.reset()
     this.objectives.reset()
-    // Reset per-run achievement trackers
-    this.achievementEnemiesKilled = 0
-    this.achievementPowerUpsCollected = 0
-    this.achievementFuelHighTimer = 0
-    this.achievementBridgeDestroyed = false
-    this.achievementLostLife = false
+    this.achievements.reset()
+    this.clearPendingTimers()
     this.start()
+  }
+
+  setDifficulty(difficulty: Difficulty): void {
+    this.difficulty = DIFFICULTY_PRESETS[difficulty]
+    this.fuelSystem.drainMultiplier = this.difficulty.fuelDrainMult
+  }
+
+  /** Provide localized strings for in-game text (pause overlay, toasts). */
+  setLocale(strings: Strings): void {
+    this.locale = strings
+    this.ui.setPauseLabels(strings.hudPaused, strings.hudPauseHint)
+    this.ui.setDistanceLabel(strings.hudDistance)
   }
 
   resize(width: number, height: number): void {
     this.canvas.width = width
     this.canvas.height = height
-    this.world.canvasWidth = width
-    this.world.canvasHeight = height
+    this.world.resize(width, height)
     this.enemyManager.setCanvasHeight(height)
     this.fuelSystem.setCanvasHeight(height)
     this.powerUpSystem.setCanvasHeight(height)
@@ -277,7 +324,7 @@ export class Game {
   private loop = (timestamp: number): void => {
     if (!this.running) return
 
-    const dt = Math.max(0, Math.min((timestamp - this.lastTime) / 1000, 0.05))
+    const dt = Math.max(0, Math.min((timestamp - this.lastTime) / 1000, DT_CLAMP_MAX))
     this.lastTime = timestamp
 
     if (!this.paused) {
@@ -304,6 +351,18 @@ export class Game {
     } else {
       this.player.keys.delete('ArrowLeft')
       this.player.keys.delete('ArrowRight')
+    }
+
+    const axisY = gp.axes[1] ?? 0
+    if (axisY < -0.25) {
+      this.player.keys.add('ArrowUp')
+      this.player.keys.delete('ArrowDown')
+    } else if (axisY > 0.25) {
+      this.player.keys.add('ArrowDown')
+      this.player.keys.delete('ArrowUp')
+    } else {
+      this.player.keys.delete('ArrowUp')
+      this.player.keys.delete('ArrowDown')
     }
 
     if (gp.buttons[0]?.pressed) this.player.keys.add(' ')
@@ -351,6 +410,7 @@ export class Game {
     this.pollGamepad()
     this.state.updateTime(dt)
     const speedMod = this.state.updateSpeed(this.player.keys)
+    this.state.addDistance(this.scrollSpeed * dt)
     this.scoring.update(dt)
     this.objectives.update(dt, this.comboMultiplier)
     this.sound.updateEngine()
@@ -366,7 +426,7 @@ export class Game {
     this.scenery.setSceneryWeights(biomeCfg.sceneryWeights)
     this.enemyManager.setEnemyBiomeConfig(
       biomeCfg.enemyWeights,
-      biomeCfg.enemySpawnRateMult,
+      biomeCfg.enemySpawnRateMult * this.difficulty.enemySpawnRateMult,
       biomeCfg.enemyTierBias,
     )
 
@@ -401,15 +461,7 @@ export class Game {
     this.renderSmokeTrail(speedMod)
     this.resolveGameplayCollisions()
 
-    // fuel_saver: track time with fuel above 75%
-    if (this.fuelSystem.fuel >= 75) {
-      this.achievementFuelHighTimer += dt
-      if (this.achievementFuelHighTimer >= 60) {
-        this.tryUnlockAchievement('fuel_saver')
-      }
-    } else {
-      this.achievementFuelHighTimer = 0
-    }
+    this.achievements.updateFuel(dt, this.fuelSystem.fuel)
 
     if (this.player.justShot) {
       this.sound.shoot()
@@ -441,11 +493,11 @@ export class Game {
   }
 
   private renderSmokeTrail(speedMod: number): void {
-    if (this.random() >= 0.5) return
+    if (this.random() >= SMOKE_TRAIL_SPAWN_CHANCE) return
 
     let trailColor = '#888888'
-    if (speedMod > 1.2) trailColor = '#aa7744'
-    else if (speedMod < 0.6) trailColor = '#555555'
+    if (speedMod > SMOKE_TRAIL_FAST_SPEED_MOD) trailColor = '#aa7744'
+    else if (speedMod < SMOKE_TRAIL_SLOW_SPEED_MOD) trailColor = '#555555'
     this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
   }
 
@@ -453,9 +505,9 @@ export class Game {
     const sw = this.fx.getShockwave()
     if (sw.timer <= 0) return
     const progress = 1 - sw.timer / sw.duration
-    const maxRadius = Math.max(this.canvas.width, this.canvas.height) * 0.85
+    const maxRadius = Math.max(this.canvas.width, this.canvas.height) * SHOCKWAVE_MAX_RADIUS_RATIO
     const radius = progress * maxRadius
-    const alpha = (1 - progress) * 0.55
+    const alpha = (1 - progress) * SHOCKWAVE_BASE_ALPHA
     ctx.save()
     ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`
     ctx.lineWidth = 4 + (1 - progress) * 8
@@ -465,55 +517,60 @@ export class Game {
     ctx.restore()
   }
 
-  private resolveGameplayCollisions(): void {
-    CollisionSystem.resolveCollisions({
-      player: this.player,
-      enemyManager: this.enemyManager,
-      fuelSystem: this.fuelSystem,
-      powerUpSystem: this.powerUpSystem,
-      fx: this.fx,
-      sound: this.sound,
-      world: this.world,
-      comboMultiplier: this.comboMultiplier,
-      triggerGameOver: () => this.triggerGameOver(),
-      handlePlayerDeath: () => this.handlePlayerDeath(),
-      addScore: (points) => {
-        this.scoring.addScore(points)
-        this.objectives.onScoreGained(points)
-      },
-      registerHit: () => {
-        this.registerHit()
-      },
-      activateSlowMotion: () => {
-        this.slowMotionTimer = SLOW_MOTION_DURATION
-      },
-      onEnemyDestroyed: (enemyType) => {
-        this.objectives.onEnemyDestroyed(enemyType)
-        this.achievementEnemiesKilled++
-        if (this.achievementEnemiesKilled >= 50) this.tryUnlockAchievement('sharpshooter')
-        if (enemyType === 'bridge') {
-          if (!this.achievementBridgeDestroyed) {
-            this.achievementBridgeDestroyed = true
-            this.tryUnlockAchievement('first_bridge')
-          }
-        }
-      },
-      onFuelCollected: (count) => {
-        this.objectives.onFuelCollected(count)
-      },
-      onPowerUpCollected: () => {
-        this.achievementPowerUpsCollected++
-        if (this.achievementPowerUpsCollected >= 10) this.tryUnlockAchievement('power_collector')
+  // Built once and reused — only comboMultiplier changes per frame, so we avoid
+  // re-allocating the context object plus ~10 closures every frame.
+  private collisionCtx: CollisionContext | null = null
+
+  private getCollisionContext(): CollisionContext {
+    if (!this.collisionCtx) {
+      this.collisionCtx = {
+        player: this.player,
+        enemyManager: this.enemyManager,
+        fuelSystem: this.fuelSystem,
+        powerUpSystem: this.powerUpSystem,
+        fx: this.fx,
+        sound: this.sound,
+        world: this.world,
+        comboMultiplier: this.comboMultiplier,
+        triggerGameOver: () => this.triggerGameOver(),
+        handlePlayerDeath: () => this.handlePlayerDeath(),
+        addScore: (points) => {
+          this.scoring.addScore(points)
+          this.objectives.onScoreGained(points)
+        },
+        registerHit: () => this.registerHit(),
+        activateSlowMotion: () => {
+          this.slowMotionTimer = SLOW_MOTION_DURATION
+        },
+        onEnemyDestroyed: (enemyType) => {
+          this.objectives.onEnemyDestroyed(enemyType)
+          this.achievements.onEnemyDestroyed(enemyType)
+        },
+        onFuelCollected: (count) => this.objectives.onFuelCollected(count),
+        onPowerUpCollected: (type) => {
+          this.achievements.onPowerUpCollected()
+          const name = this.locale?.powerupNames[type]
+          const desc = this.locale?.powerupDescs[type]
+          if (name) this.ui.pushToast(name, desc ?? '')
+        },
+        random: this.random,
       }
-    })
+    }
+    return this.collisionCtx
+  }
+
+  private resolveGameplayCollisions(): void {
+    const ctx = this.getCollisionContext()
+    ctx.comboMultiplier = this.comboMultiplier
+    CollisionSystem.resolveCollisions(ctx)
   }
 
   private updateDebugMetrics(): void {
     this.debugPanel.updateMetrics({
       entityCounts: {
         enemies: this.enemyManager.activeEnemyCount,
-        fuelTanks: this.fuelSystem.tanks.filter(t => t.active).length,
-        powerUps: this.powerUpSystem.powerUps.filter(p => p.active).length,
+        fuelTanks: this.countActive(this.fuelSystem.tanks),
+        powerUps: this.countActive(this.powerUpSystem.powerUps),
         bullets: this.player.bullets.length,
         particles: this.fx.activeCount,
       },
@@ -522,6 +579,12 @@ export class Game {
       playerX: this.player.x,
       playerY: this.player.y,
     })
+  }
+
+  private countActive(items: ReadonlyArray<{ active: boolean }>): number {
+    let n = 0
+    for (const item of items) if (item.active) n++
+    return n
   }
 
   private collectActiveEntities<T extends { x: number; y: number; active: boolean }>(
@@ -537,6 +600,7 @@ export class Game {
   }
 
   private render(): void {
+    this.ui.setDistanceMeters(Math.floor(this.state.distance / DISTANCE_PX_PER_METER))
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
     const palette = this.atmosphere.getPalette()
@@ -555,7 +619,7 @@ export class Game {
     // Gameplay entities always remain bright for readability
     this.fuelSystem.render(this.ctx)
     this.powerUpSystem.render(this.ctx)
-    this.enemyManager.render(this.ctx)
+    this.enemyManager.render(this.ctx, this.colorblind)
     this.player.render(this.ctx)
     this.fx.render(this.ctx)
     this.renderShockwave(this.ctx)
@@ -589,13 +653,15 @@ export class Game {
 
   handlePlayerDeath(): void {
     if (this.gameOverTriggered) return
-    this.achievementLostLife = true
+    this.achievements.onPlayerDeath()
+    this.vibrate(60)
     this.lives--
     this.registerMiss() // Reset combo on death
 
     if (this.lives > 0) {
       // Still has lives — respawn after the explosion animation (~1.2s)
-      setTimeout(() => {
+      this.respawnTimeoutId = setTimeout(() => {
+        this.respawnTimeoutId = null
         if (!this.running || this.gameOverTriggered) return
         // Give minimum fuel on respawn so player isn't stuck in a fuel-out loop
         if (this.fuelSystem.fuel < FUEL_RESPAWN_MIN) {
@@ -613,11 +679,7 @@ export class Game {
     if (this.gameOverTriggered) return
     this.gameOverTriggered = true
 
-    // Unlock end-of-run achievements
-    if (!this.achievementLostLife) this.tryUnlockAchievement('untouchable')
-    if (this.score >= 10000) this.tryUnlockAchievement('survivor')
-    if (this.score >= 50000) this.tryUnlockAchievement('high_flyer')
-    if (this.comboMultiplier >= 4) this.tryUnlockAchievement('combo_master')
+    this.achievements.onGameOver(this.score, this.comboMultiplier)
 
     this.fx.addShake(15, 0.6)
     this.sound.gameOver()
@@ -625,7 +687,8 @@ export class Game {
     if (isNewBest) {
       this.saveHighScore()
     }
-    setTimeout(() => {
+    this.gameOverTimeoutId = setTimeout(() => {
+      this.gameOverTimeoutId = null
       this.onGameOver?.(this.score, this.getHighScore())
     }, GAME_OVER_DELAY)
   }

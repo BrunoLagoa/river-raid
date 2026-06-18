@@ -55,7 +55,9 @@ export class Scenery {
   }
 
   get activeCount(): number {
-    return this.objects.filter(o => o.active).length
+    let n = 0
+    for (const o of this.objects) if (o.active) n++
+    return n
   }
 
   update(
@@ -134,37 +136,20 @@ export class Scenery {
   }
 
   render(ctx: CanvasRenderingContext2D, brightness = 1.0): void {
-    const byType = new Map<SceneryType, SceneryObject[]>()
-    for (const obj of this.objects) {
-      if (obj.y < -obj.height || obj.y > this.canvasHeight + obj.height) continue
-      const arr = byType.get(obj.type)
-      if (arr) arr.push(obj)
-      else byType.set(obj.type, [obj])
-    }
-
     ctx.save()
     if (brightness < 0.99) ctx.globalAlpha = brightness
 
-    for (const [type, list] of byType) {
-      switch (type) {
-        case 'palm':
-          for (const o of list) this.renderPalm(ctx, o)
-          break
-        case 'tree':
-          for (const o of list) this.renderTree(ctx, o)
-          break
-        case 'house':
-          for (const o of list) this.renderHouse(ctx, o)
-          break
-        case 'bush':
-          for (const o of list) this.renderBush(ctx, o)
-          break
-        case 'rock':
-          for (const o of list) this.renderRock(ctx, o)
-          break
-        case 'fueltank':
-          for (const o of list) this.renderFuelTank(ctx, o)
-          break
+    // Single dispatch loop — no per-frame Map grouping (each object draws
+    // independently, so grouping bought nothing but GC churn).
+    for (const o of this.objects) {
+      if (o.y < -o.height || o.y > this.canvasHeight + o.height) continue
+      switch (o.type) {
+        case 'palm': this.renderPalm(ctx, o); break
+        case 'tree': this.renderTree(ctx, o); break
+        case 'house': this.renderHouse(ctx, o); break
+        case 'bush': this.renderBush(ctx, o); break
+        case 'rock': this.renderRock(ctx, o); break
+        case 'fueltank': this.renderFuelTank(ctx, o); break
       }
     }
     ctx.restore()

@@ -3,6 +3,7 @@ import { Game } from '@/game/Game'
 import SwipeControls from './SwipeControls'
 import type { GameSettings } from '@/game/SettingsService'
 import type { AchievementId } from '@/game/AchievementService'
+import { getStrings } from '@/i18n'
 
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
@@ -15,8 +16,8 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
   const gameRef = useRef<Game | null>(null)
   const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
 
-  const handleSwipePosition = useCallback((x: number | null) => {
-    gameRef.current?.setTouchPosition(x)
+  const handleSwipePosition = useCallback((x: number | null, y: number | null) => {
+    gameRef.current?.setTouchPosition(x, y)
   }, [])
 
   const handlePause = useCallback(() => {
@@ -25,6 +26,14 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
 
   const handleMute = useCallback(() => {
     gameRef.current?.sound.toggleMute()
+  }, [])
+
+  const handleFireDown = useCallback(() => {
+    gameRef.current?.simulateKey(' ', true)
+  }, [])
+
+  const handleFireUp = useCallback(() => {
+    gameRef.current?.simulateKey(' ', false)
   }, [])
 
   useEffect(() => {
@@ -66,6 +75,9 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     gameRef.current.setMasterVolume(settings.masterVolume)
     gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
     gameRef.current.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)
+    gameRef.current.setDifficulty(settings.difficulty)
+    gameRef.current.setColorblind(settings.colorblindMode)
+    gameRef.current.setLocale(getStrings(settings.language))
     const isMuted = gameRef.current.sound.isMuted()
     if (settings.muted !== isMuted) {
       gameRef.current.sound.toggleMute()
@@ -82,6 +94,9 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
         onSetPosition={handleSwipePosition}
         onPause={handlePause}
         onMute={handleMute}
+        onFireDown={handleFireDown}
+        onFireUp={handleFireUp}
+        fireLabel={getStrings(settings.language).menuLabelFire}
       />
     </div>
   )

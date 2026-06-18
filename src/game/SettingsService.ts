@@ -1,5 +1,6 @@
 import { readSecureJSON, writeSecureJSON } from './StorageService'
 import { isObjectiveBalanceProfile, type ObjectiveBalanceProfile } from './ObjectiveSystem'
+import { isDifficulty, type Difficulty } from './constants'
 
 export type Language = 'en' | 'pt-BR'
 
@@ -11,8 +12,10 @@ export interface GameSettings {
   masterVolume: number
   muted: boolean
   reducedMotion: boolean
+  colorblindMode: boolean
   gamepadEnabled: boolean
   objectiveBalanceProfile: ObjectiveBalanceProfile
+  difficulty: Difficulty
   language: Language
 }
 
@@ -22,8 +25,10 @@ const DEFAULT_SETTINGS: GameSettings = {
   masterVolume: 0.3,
   muted: false,
   reducedMotion: false,
+  colorblindMode: false,
   gamepadEnabled: true,
   objectiveBalanceProfile: 'conservative',
+  difficulty: 'normal',
   language: 'en',
 }
 
@@ -33,10 +38,12 @@ export function getStoredSettings(): GameSettings {
     masterVolume: typeof raw.masterVolume === 'number' ? Math.max(0, Math.min(1, raw.masterVolume)) : DEFAULT_SETTINGS.masterVolume,
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
+    colorblindMode: typeof raw.colorblindMode === 'boolean' ? raw.colorblindMode : DEFAULT_SETTINGS.colorblindMode,
     gamepadEnabled: typeof raw.gamepadEnabled === 'boolean' ? raw.gamepadEnabled : DEFAULT_SETTINGS.gamepadEnabled,
     objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
       ? raw.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
+    difficulty: isDifficulty(raw.difficulty) ? raw.difficulty : DEFAULT_SETTINGS.difficulty,
     language: isLanguage(raw.language) ? raw.language : DEFAULT_SETTINGS.language,
   }
 }
@@ -46,10 +53,12 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     masterVolume: Math.max(0, Math.min(1, next.masterVolume)),
     muted: !!next.muted,
     reducedMotion: !!next.reducedMotion,
+    colorblindMode: !!next.colorblindMode,
     gamepadEnabled: !!next.gamepadEnabled,
     objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)
       ? next.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
+    difficulty: isDifficulty(next.difficulty) ? next.difficulty : DEFAULT_SETTINGS.difficulty,
     language: isLanguage(next.language) ? next.language : DEFAULT_SETTINGS.language,
   }
   writeSecureJSON(SETTINGS_KEY, normalized)

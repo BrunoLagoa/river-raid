@@ -478,6 +478,13 @@ export class World {
 
   // ── Reset ────────────────────────────────────────────────────────────────────
 
+  /** Update canvas dimensions on viewport resize (keeps existing river state). */
+  resize(canvasWidth: number, canvasHeight: number): void {
+    this.canvasWidth = canvasWidth
+    this.canvasHeight = canvasHeight
+    this.rebuildWaveSamples()
+  }
+
   reset(canvasWidth: number, canvasHeight: number): void {
     this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
