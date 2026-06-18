@@ -161,11 +161,17 @@ export const ENEMY_TIER_ELITE_STRAFE_SPEED = 30
 export const ENEMY_TIER_SMART_STRAFE_FREQ = 1.8
 export const ENEMY_TIER_ELITE_STRAFE_FREQ = 2.4
 
+// AI tier unlock schedule. Before SMART, every enemy is 'basic' (dumb straight
+// fire). From SMART on, 'smart' aimers appear; from ELITE on, 'elite' leaders
+// appear and the long-game escalation (below) takes over.
+export const ENEMY_TIER_SMART_UNLOCK_TIME = 30  // s — warm-up ends, aimers appear
+export const ENEMY_TIER_ELITE_UNLOCK_TIME = 80  // s — leaders appear, escalation begins
+
 // Long-game escalation. The early-game ramps (spawn rate, active cap, tier
 // unlocks) all saturate by ~100s; without this the difficulty would plateau.
 // Escalation grows linearly from 0 at START to 1 at FULL and keeps the late
 // game climbing — soft-capped so it never becomes impossible.
-export const ENEMY_ESCALATION_START = 100      // s — when escalation begins
+export const ENEMY_ESCALATION_START = 80       // s — when escalation begins (= elite unlock)
 export const ENEMY_ESCALATION_FULL = 360       // s — when escalation maxes out
 // At full escalation, shift this much weight from 'smart' to 'elite' so veteran
 // runs face progressively more aiming/leading enemies.

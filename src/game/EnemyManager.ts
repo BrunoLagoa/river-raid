@@ -14,14 +14,12 @@ import {
   ENEMY_TIER_ELITE_SHOOT_INTERVAL_MULT, ENEMY_TIER_BASIC_BULLET_SPEED_MULT,
   ENEMY_TIER_SMART_BULLET_SPEED_MULT, ENEMY_TIER_ELITE_BULLET_SPEED_MULT,
   ENEMY_TIER_BASIC_SHOOT_RANDOM_MULT, ENEMY_TIER_SMART_SHOOT_RANDOM_MULT,
-  ENEMY_TIER_ELITE_SHOOT_RANDOM_MULT, ENEMY_TIER_BASIC_PHASE_SPEED_MULT,
-  ENEMY_TIER_SMART_PHASE_SPEED_MULT, ENEMY_TIER_ELITE_PHASE_SPEED_MULT,
+  ENEMY_TIER_ELITE_SHOOT_RANDOM_MULT,
   ENEMY_TIER_BASIC_AMPLITUDE_MULT, ENEMY_TIER_SMART_AMPLITUDE_MULT,
-  ENEMY_TIER_ELITE_AMPLITUDE_MULT, ENEMY_TIER_SMART_STRAFE_SPEED,
-  ENEMY_TIER_ELITE_STRAFE_SPEED, ENEMY_TIER_SMART_STRAFE_FREQ,
-  ENEMY_TIER_ELITE_STRAFE_FREQ,
+  ENEMY_TIER_ELITE_AMPLITUDE_MULT,
   ENEMY_ESCALATION_START, ENEMY_ESCALATION_FULL,
   ENEMY_ESCALATION_ELITE_SHIFT, ENEMY_ESCALATION_SHOOT_SPEEDUP,
+  ENEMY_TIER_SMART_UNLOCK_TIME, ENEMY_TIER_ELITE_UNLOCK_TIME,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 import type { RandomSource } from './random'
@@ -50,23 +48,11 @@ export interface AimTarget {
   y: number
 }
 
-/** Structural shape shared by enemies that oscillate sinusoidally across the river. */
-type OscillatingEnemy = BaseEnemy & {
-  phase: number
-  phaseSpeed: number
-  amplitude: number
-  originX: number
-}
-
 /** Per-frame steering context shared by all movement strategies of a single enemy. */
 interface MovementContext {
   safe: { left: number; right: number; center: number; halfSpan: number }
-  shouldUseRiverSteering: boolean
-  isRecovering: boolean
   laneTargetX: number
-  tierPhaseMult: number
   tierAmplitudeMult: number
-  recoverStrafeFactor: number
   repositionSteerFactor: number
 }
 
@@ -87,6 +73,22 @@ export interface BaseEnemy {
   stateTimer?: number
   laneIntent?: LaneIntent
   laneCooldown?: number
+  /** Lateral velocity (px/s) — carries momentum so motion has weight. */
+  vx?: number
+  /** Self-propelled vertical velocity (px/s), on top of the river scroll. */
+  vy?: number
+  /** Per-enemy phase offset that desyncs shared wave-based movement. */
+  moveSeed?: number
+}
+
+/** Lateral momentum profile per archetype: how fast and how agile it turns. */
+interface MoveProfile {
+  /** Max lateral speed in px/s. */
+  maxSpeed: number
+  /** Max change of lateral velocity per second (turn agility / weight). */
+  accel: number
+  /** Gain converting position error into desired velocity (snappiness). */
+  approach: number
 }
 
 export interface HelicopterEnemy extends BaseEnemy {
@@ -177,7 +179,6 @@ export class EnemyManager {
   private static readonly AI_BANK_RECOVER_PUSH_BASIC = 46
   private static readonly AI_BANK_RECOVER_PUSH_SMART = 66
   private static readonly AI_BANK_RECOVER_PUSH_ELITE = 84
-  private static readonly AI_RECOVER_STRAFE_DAMP = 0.25
   private static readonly SPAWN_CURVE_SAMPLE_STEPS = 22
   private static readonly SPAWN_CURVE_DRIFT_THRESHOLD = 28
   private static readonly SPAWN_NARROW_WIDTH_THRESHOLD = 170
@@ -198,6 +199,60 @@ export class EnemyManager {
   private static readonly AIM_MIN_DY = 24
   // Smoothing applied to the estimated player velocity used for elite lead.
   private static readonly AIM_TARGET_VX_SMOOTH = 0.6
+
+  // --- Movement personalities -------------------------------------------------
+  // Lateral momentum profiles: light/agile flyers vs heavy/sluggish surface units.
+  private static readonly MOVE_PROFILES: Record<EnemyType, MoveProfile> = {
+    helicopter: { maxSpeed: 150, accel: 700, approach: 6 },
+    plane: { maxSpeed: 210, accel: 560, approach: 5 },
+    boat: { maxSpeed: 70, accel: 150, approach: 3 },
+    tank: { maxSpeed: 40, accel: 110, approach: 2.4 },
+    gunboat: { maxSpeed: 130, accel: 520, approach: 5 },
+    bridge: { maxSpeed: 0, accel: 0, approach: 0 },
+  }
+  // Helicopter "stalker": hover bob amplitude and how hard it tracks the player.
+  private static readonly HELI_BOB = 12
+  private static readonly HELI_BOB_FREQ = 2.2
+  // Fan multiple stalkers around the player (by lane intent) instead of stacking.
+  private static readonly HELI_STALK_SPREAD = 44
+  // Plane "strafing run": sweep width (fraction of free span) and sweep cadence.
+  private static readonly PLANE_RUN_SPAN = 0.7
+  private static readonly PLANE_RUN_FREQ_SMART = 0.9
+  private static readonly PLANE_RUN_FREQ_ELITE = 1.25
+  private static readonly PLANE_RUN_PLAYER_BIAS = 0.25
+  // Boat "bank patrol": wide, slow sweep that eases at each bank.
+  private static readonly BOAT_PATROL_SPAN = 0.82
+  private static readonly BOAT_PATROL_FREQ = 0.5
+  private static readonly BOAT_RECENTER = 1.1
+  // Tank "dug-in": holds near a bank as the river curves.
+  private static readonly TANK_BANK_RATIO = 0.62
+  // Static gunboat gentle strafe; moving gunboat oscillation around eased center.
+  private static readonly GUNBOAT_STRAFE_SPAN = 0.45
+  private static readonly GUNBOAT_MOVE_SPAN = 0.5
+  private static readonly GUNBOAT_FREQ = 1.4
+  private static readonly GUNBOAT_RECENTER = 1.3
+  // --- Vertical movement (self-propulsion on top of the river scroll) ---------
+  // All vertical self-motion is mean-zero (oscillatory): enemies surge up and
+  // down but their average is zero, so the scroll always carries them off screen
+  // at the normal rate — camping is impossible by construction.
+  // Upper limit (fraction of canvas height) below which upward surge is damped so
+  // enemies don't fly back off the top edge.
+  private static readonly VERT_BAND_TOP = 0.10
+  private static readonly VERT_ACCEL = 420
+  // Vertical surge/bob amplitudes (px/s) and cadence per archetype.
+  private static readonly PLANE_SWOOP_SPEED = 80
+  private static readonly PLANE_SWOOP_FREQ = 1.5
+  private static readonly HELI_SURGE_SPEED = 48
+  private static readonly HELI_SURGE_FREQ = 1.1
+  private static readonly BOAT_BOB_SPEED = 24
+  private static readonly GUNBOAT_BOB_SPEED = 28
+  private static readonly SURFACE_BOB_FREQ = 0.85
+  // Elite-only subtle dodge: how far ahead it reads bullets and how hard it jukes.
+  private static readonly DODGE_LOOKAHEAD = 150
+  private static readonly DODGE_X_RANGE = 34
+  private static readonly DODGE_STRENGTH = 26
+  private static readonly DODGE_MAX = 40
+  private moveSeedCounter = 0
 
   private random: RandomSource
   private canvasWidth: number
@@ -220,9 +275,14 @@ export class EnemyManager {
       stateTimer: 0,
       laneIntent: 0,
       laneCooldown: 0,
+      vx: 0,
+      vy: 0,
+      moveSeed: 0,
     }),
     (enemy) => {
       enemy.active = true
+      enemy.vx = 0
+      enemy.vy = 0
     },
   )
 
@@ -292,6 +352,7 @@ export class EnemyManager {
     riverSegments: { centerX: number; width: number; y: number }[],
     scrollSpeed = 120,
     target?: AimTarget,
+    playerBullets?: ReadonlyArray<{ x: number; y: number; active: boolean }>,
   ): void {
     this.gameTime += dt
     this.trackTarget(dt, target)
@@ -332,7 +393,6 @@ export class EnemyManager {
       enemy.bankRecoverCooldown = Math.max(0, (enemy.bankRecoverCooldown ?? 0) - dt)
       enemy.bankRecoverTimer = Math.max(0, (enemy.bankRecoverTimer ?? 0) - dt)
 
-      const tierPhaseMult = this.getTierPhaseSpeedMult(enemy.aiTier)
       const tierAmplitudeMult = this.getTierAmplitudeMult(enemy.aiTier)
       const shouldUseRiverSteering = enemy.y > 0
       const halfWidth = enemy.width / 2
@@ -382,30 +442,29 @@ export class EnemyManager {
 
       const ctx: MovementContext = {
         safe,
-        shouldUseRiverSteering,
-        isRecovering,
         laneTargetX: this.getLaneTargetX(enemy, safe),
-        tierPhaseMult,
         tierAmplitudeMult,
-        recoverStrafeFactor: isRecovering ? EnemyManager.AI_RECOVER_STRAFE_DAMP : 1,
         repositionSteerFactor: (enemy.aiState ?? 'patrol') === 'reposition'
           ? EnemyManager.AI_REPOSITION_STEER_MULT
           : 1,
       }
 
-      // Oscillating types (and movement-capable gunboats) sway sinusoidally and
-      // chase their lane anchor; strafing types (planes, static gunboats) drift
-      // toward the player's lane. Each strategy lives in one place now.
-      if (enemy.type === 'helicopter' || enemy.type === 'boat' || enemy.type === 'tank') {
-        this.applyOscillatingMovement(enemy, dt, ctx)
-      } else if (enemy.type === 'gunboat') {
-        if (enemy.hasMovement) {
-          this.applyOscillatingMovement(enemy, dt, ctx)
-        } else {
-          this.applyStrafeMovement(enemy, dt, ctx)
-        }
-      } else if (enemy.type === 'plane') {
-        this.applyStrafeMovement(enemy, dt, ctx)
+      // Movement = pick a personality target, then steer toward it with momentum.
+      // Bank recovery owns motion while active (it already pushed x above), so we
+      // only drive the personality when not recovering and on-screen.
+      if (enemy.type !== 'bridge' && shouldUseRiverSteering && !isRecovering) {
+        const desiredX = this.computeDesiredX(enemy, dt, ctx, target)
+          + this.computeDodge(enemy, playerBullets)
+        this.steerTo(enemy, this.clampToSafeBounds(desiredX, safe), dt)
+      } else if (isRecovering) {
+        // Keep momentum consistent with the recovery push so it doesn't snap back.
+        enemy.vx = (enemy.bankRecoverDir ?? 0) * this.getTierRecoverPush(enemy.aiTier)
+      }
+
+      // Self-propelled vertical movement (planes swoop, helis surge, boats bob),
+      // layered on top of the scroll current already applied above.
+      if (enemy.type !== 'bridge' && shouldUseRiverSteering) {
+        this.applyVerticalMovement(enemy, dt)
       }
 
       if (enemy.type !== 'bridge') {
@@ -470,50 +529,137 @@ export class EnemyManager {
   }
 
   /**
-   * Sinusoidal sway with lane-anchored origin recentering, shared by
-   * helicopters, boats, tanks and movement-capable gunboats.
+   * Accelerate the enemy's lateral velocity toward the velocity needed to reach
+   * desiredX, capped by its archetype profile, then integrate position. The
+   * stored velocity is what gives motion weight and fluidity (no instant snap).
    */
-  private applyOscillatingMovement(enemy: OscillatingEnemy, dt: number, ctx: MovementContext): void {
-    enemy.phase += enemy.phaseSpeed * ctx.tierPhaseMult * dt
-    if (ctx.shouldUseRiverSteering) {
-      const laneWeight = this.getTierLaneWeight(enemy.aiTier)
-      const anchorX = ctx.isRecovering
-        ? ctx.safe.center
-        : ctx.safe.center + (ctx.laneTargetX - ctx.safe.center) * laneWeight
-      const recenter = this.getTierOriginRecenter(enemy.aiTier) * (ctx.isRecovering ? 1.5 : ctx.repositionSteerFactor)
-      enemy.originX += (anchorX - enemy.originX) * recenter * dt
-      const effectiveAmplitude = Math.min(
-        enemy.amplitude * ctx.tierAmplitudeMult * ctx.recoverStrafeFactor,
-        Math.max(6, ctx.safe.halfSpan - 6),
-      )
-      const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
-      enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
-    } else {
-      enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * ctx.tierAmplitudeMult
-    }
+  private steerTo(enemy: Enemy, desiredX: number, dt: number): void {
+    const profile = EnemyManager.MOVE_PROFILES[enemy.type]
+    const vDesired = Math.max(-profile.maxSpeed, Math.min(profile.maxSpeed, (desiredX - enemy.x) * profile.approach))
+    const maxDv = profile.accel * dt
+    const dv = Math.max(-maxDv, Math.min(maxDv, vDesired - (enemy.vx ?? 0)))
+    enemy.vx = (enemy.vx ?? 0) + dv
+    enemy.x += enemy.vx * dt
+  }
+
+  /** Shared desync'd wave value in [-1, 1] for an enemy's movement. */
+  private moveWave(enemy: Enemy, freq: number): number {
+    return Math.sin(this.gameTime * freq + (enemy.moveSeed ?? 0))
   }
 
   /**
-   * Edge-aware lateral strafe that drifts toward the player's lane, shared by
-   * planes and static gunboats. Basic tier holds course (zero strafe speed).
+   * Personality target X per archetype — the heart of "smarter" movement.
+   * Helicopters stalk the player's column; planes commit to wide strafing runs;
+   * boats patrol bank-to-bank; tanks dig in near a bank; gunboats keep their
+   * oscillation. Basic tier of strafing types holds course (test-preserving).
    */
-  private applyStrafeMovement(enemy: Enemy, dt: number, ctx: MovementContext): void {
-    const strafeSpeed = enemy.aiTier === 'elite'
-      ? ENEMY_TIER_ELITE_STRAFE_SPEED
-      : enemy.aiTier === 'smart'
-        ? ENEMY_TIER_SMART_STRAFE_SPEED
-        : 0
-    if (strafeSpeed === 0) return
-    const strafeFreq = enemy.aiTier === 'elite' ? ENEMY_TIER_ELITE_STRAFE_FREQ : ENEMY_TIER_SMART_STRAFE_FREQ
-    const wave = Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed
-    if (ctx.shouldUseRiverSteering) {
-      const nearestEdge = Math.min(enemy.x - ctx.safe.left, ctx.safe.right - enemy.x)
-      const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
-      enemy.x += wave * edgeFactor * ctx.recoverStrafeFactor * dt
-      enemy.x += (ctx.laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * ctx.repositionSteerFactor * dt
-    } else {
-      enemy.x += wave * dt
+  private computeDesiredX(enemy: Enemy, dt: number, ctx: MovementContext, target?: AimTarget): number {
+    const { safe } = ctx
+    const tierAmp = ctx.tierAmplitudeMult
+
+    if (enemy.type === 'helicopter') {
+      // Stalker: ease the hover origin toward the player's column (lane center
+      // without a target), then bob gently around it for a menacing hover.
+      const anchor = target
+        ? this.clampToSafeBounds(target.x + (enemy.laneIntent ?? 0) * EnemyManager.HELI_STALK_SPREAD, safe)
+        : safe.center + (ctx.laneTargetX - safe.center) * this.getTierLaneWeight(enemy.aiTier)
+      const ease = this.getTierOriginRecenter(enemy.aiTier) * ctx.repositionSteerFactor
+      enemy.originX += (anchor - (enemy.originX ?? enemy.x)) * ease * dt
+      const bob = this.moveWave(enemy, EnemyManager.HELI_BOB_FREQ) * Math.min(EnemyManager.HELI_BOB * tierAmp, safe.halfSpan * 0.25)
+      return (enemy.originX ?? enemy.x) + bob
     }
+
+    if (enemy.type === 'plane') {
+      if (enemy.aiTier === 'basic') return enemy.x // dumb planes hold course
+      const freq = enemy.aiTier === 'elite' ? EnemyManager.PLANE_RUN_FREQ_ELITE : EnemyManager.PLANE_RUN_FREQ_SMART
+      const span = safe.halfSpan * EnemyManager.PLANE_RUN_SPAN
+      const bias = target ? (this.clampToSafeBounds(target.x, safe) - safe.center) * EnemyManager.PLANE_RUN_PLAYER_BIAS : 0
+      return safe.center + bias + this.moveWave(enemy, freq) * span
+    }
+
+    if (enemy.type === 'boat') {
+      // Wide, slow bank-to-bank patrol; momentum eases it at each turn.
+      enemy.originX = (enemy.originX ?? enemy.x) + (safe.center - (enemy.originX ?? enemy.x)) * EnemyManager.BOAT_RECENTER * dt
+      return enemy.originX + this.moveWave(enemy, EnemyManager.BOAT_PATROL_FREQ) * safe.halfSpan * EnemyManager.BOAT_PATROL_SPAN
+    }
+
+    if (enemy.type === 'tank') {
+      // Dug-in near a bank; the sluggish profile makes it hold position.
+      const side = enemy.laneIntent ?? 0
+      return safe.center + side * safe.halfSpan * EnemyManager.TANK_BANK_RATIO
+    }
+
+    if (enemy.type === 'gunboat') {
+      if (!enemy.hasMovement) {
+        if (enemy.aiTier === 'basic') return enemy.x
+        return safe.center + this.moveWave(enemy, EnemyManager.GUNBOAT_FREQ) * safe.halfSpan * EnemyManager.GUNBOAT_STRAFE_SPAN
+      }
+      enemy.originX = (enemy.originX ?? enemy.x) + (safe.center - (enemy.originX ?? enemy.x)) * EnemyManager.GUNBOAT_RECENTER * dt
+      return enemy.originX + this.moveWave(enemy, EnemyManager.GUNBOAT_FREQ) * safe.halfSpan * EnemyManager.GUNBOAT_MOVE_SPAN
+    }
+
+    return enemy.x
+  }
+
+  /**
+   * Subtle elite-only evasion: a small lateral nudge away from a player bullet
+   * that is closing in and roughly column-aligned. Strong enough to feel alive,
+   * capped so it never makes elites untouchable.
+   */
+  private computeDodge(enemy: Enemy, playerBullets?: ReadonlyArray<{ x: number; y: number; active: boolean }>): number {
+    if (enemy.aiTier !== 'elite' || !playerBullets) return 0
+    let push = 0
+    for (const b of playerBullets) {
+      if (!b.active || b.y < enemy.y) continue // player bullets travel upward toward the enemy
+      const dy = b.y - enemy.y
+      if (dy > EnemyManager.DODGE_LOOKAHEAD) continue
+      const dx = enemy.x - b.x
+      if (Math.abs(dx) > EnemyManager.DODGE_X_RANGE) continue
+      const closeness = 1 - dy / EnemyManager.DODGE_LOOKAHEAD
+      push += (dx >= 0 ? 1 : -1) * EnemyManager.DODGE_STRENGTH * closeness
+    }
+    return Math.max(-EnemyManager.DODGE_MAX, Math.min(EnemyManager.DODGE_MAX, push))
+  }
+
+  /**
+   * Self-propelled vertical motion layered on the scroll current. The desired
+   * velocity is constrained so enemies stay inside an operating band and always
+   * keep a minimum net descent — they roam up/down but never camp or overrun the
+   * player, and always eventually leave the screen.
+   */
+  private applyVerticalMovement(enemy: Enemy, dt: number): void {
+    let desired = this.computeBobVy(enemy)
+
+    // Only damp upward surge near the very top so enemies don't fly back off the
+    // screen edge. This biases motion *downward* there (self-correcting). We must
+    // NOT add a symmetric bottom clamp: combined with a surge stronger than the
+    // scroll it would reflect enemies upward and trap them (they'd never exit).
+    // Mean-zero surge + the always-downward scroll already guarantees an exit.
+    const topY = this.canvasHeight * EnemyManager.VERT_BAND_TOP
+    if (enemy.y < topY && desired < 0) desired = 0
+
+    const maxDv = EnemyManager.VERT_ACCEL * dt
+    const dv = Math.max(-maxDv, Math.min(maxDv, desired - (enemy.vy ?? 0)))
+    enemy.vy = (enemy.vy ?? 0) + dv
+    enemy.y += enemy.vy * dt
+  }
+
+  /** Mean-zero oscillatory vertical velocity (px/s): planes swoop, helis surge, surface units bob. */
+  private computeBobVy(enemy: Enemy): number {
+    if (enemy.type === 'plane') {
+      if (enemy.aiTier === 'basic') return 0
+      return this.moveWave(enemy, EnemyManager.PLANE_SWOOP_FREQ) * EnemyManager.PLANE_SWOOP_SPEED
+    }
+    if (enemy.type === 'helicopter') {
+      return this.moveWave(enemy, EnemyManager.HELI_SURGE_FREQ) * EnemyManager.HELI_SURGE_SPEED
+    }
+    if (enemy.type === 'boat') {
+      return this.moveWave(enemy, EnemyManager.SURFACE_BOB_FREQ) * EnemyManager.BOAT_BOB_SPEED
+    }
+    if (enemy.type === 'gunboat') {
+      return this.moveWave(enemy, EnemyManager.SURFACE_BOB_FREQ) * EnemyManager.GUNBOAT_BOB_SPEED
+    }
+    return 0 // tanks are ground emplacements — they hold their vertical line
   }
 
   /**
@@ -580,12 +726,6 @@ export class EnemyManager {
     if (tier === 'smart') return ENEMY_TIER_SMART_SHOOT_RANDOM_MULT
     if (tier === 'elite') return ENEMY_TIER_ELITE_SHOOT_RANDOM_MULT
     return ENEMY_TIER_BASIC_SHOOT_RANDOM_MULT
-  }
-
-  private getTierPhaseSpeedMult(tier: AiTier): number {
-    if (tier === 'smart') return ENEMY_TIER_SMART_PHASE_SPEED_MULT
-    if (tier === 'elite') return ENEMY_TIER_ELITE_PHASE_SPEED_MULT
-    return ENEMY_TIER_BASIC_PHASE_SPEED_MULT
   }
 
   private getTierAmplitudeMult(tier: AiTier): number {
@@ -699,9 +839,9 @@ export class EnemyManager {
   private resolveAiTier(type: EnemyType): AiTier {
     // Base probabilities by game time
     let basicW: number, smartW: number, eliteW: number
-    if (this.gameTime < 40) {
+    if (this.gameTime < ENEMY_TIER_SMART_UNLOCK_TIME) {
       basicW = 1; smartW = 0; eliteW = 0
-    } else if (this.gameTime < 100) {
+    } else if (this.gameTime < ENEMY_TIER_ELITE_UNLOCK_TIME) {
       if (type === 'plane' || type === 'gunboat') {
         basicW = 0; smartW = 1; eliteW = 0
       } else {
@@ -759,7 +899,7 @@ export class EnemyManager {
     if (this.biomeEnemyWeights) {
       baseWeights = Object.entries(this.biomeEnemyWeights) as [EnemyType, number][]
     } else {
-      const zone = this.gameTime < 35 ? 0 : this.gameTime < 90 ? 1 : 2
+      const zone = this.gameTime < ENEMY_TIER_SMART_UNLOCK_TIME ? 0 : this.gameTime < ENEMY_TIER_ELITE_UNLOCK_TIME ? 1 : 2
       baseWeights = zone === 0
         ? [
             ['helicopter', 42],
@@ -942,6 +1082,10 @@ export class EnemyManager {
       stateTimer: 0,
       laneIntent: this.resolveLaneFromX(x, segBounds),
       laneCooldown: this.getNextLaneCooldown(),
+      vx: 0,
+      vy: 0,
+      // Golden-angle stride gives well-spread phase offsets without touching RNG.
+      moveSeed: (this.moveSeedCounter++ * 2.399963) % (Math.PI * 2),
     } as Partial<Enemy>
   }
 
@@ -971,5 +1115,6 @@ export class EnemyManager {
     this.gameTime = 0
     this.lastTargetX = null
     this.targetVx = 0
+    this.moveSeedCounter = 0
   }
 }

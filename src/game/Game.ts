@@ -453,7 +453,9 @@ export class Game {
     const aimTarget = this.player.state === 'alive'
       ? { x: this.player.x, y: this.player.y }
       : undefined
-    this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed, aimTarget)
+    // Elite enemies read live player bullets to juke out of the line of fire.
+    const incomingBullets = this.player.state === 'alive' ? this.player.bullets : undefined
+    this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed, aimTarget, incomingBullets)
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
