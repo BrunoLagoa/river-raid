@@ -52,8 +52,8 @@ describe('BiomeSystem', () => {
 
   // ── Hold phase ──────────────────────────────────────────────────────────────
 
-  it('stays in forest after 100 s', () => {
-    sys.update(100)
+  it('stays in forest during the hold phase', () => {
+    sys.update(HOLD - 10)
     expect(sys.getCurrentBiomeId()).toBe('forest')
     expect(sys.getConfig().inTransition).toBe(false)
   })
@@ -105,7 +105,7 @@ describe('BiomeSystem', () => {
 
   // ── Arrival at desert ───────────────────────────────────────────────────────
 
-  it('arrives at desert after 120 s', () => {
+  it('arrives at desert after one biome cycle', () => {
     sys.update(BIOME_DURATION)
     expect(sys.getCurrentBiomeId()).toBe('desert')
     const cfg = sys.getConfig()
@@ -139,10 +139,18 @@ describe('BiomeSystem', () => {
     expect(industrial).toBeGreaterThan(forest)
   })
 
-  // ── Loop: industrial → forest ───────────────────────────────────────────────
+  // ── Third cycle: industrial → snow ──────────────────────────────────────────
 
-  it('loops back to forest after 3 full cycles', () => {
+  it('arrives at snow after 3 full cycles', () => {
     sys.update(BIOME_DURATION * 3 + BIOME_FADE_DURATION)
+    expect(sys.getCurrentBiomeId()).toBe('snow')
+    expect(sys.getConfig().inTransition).toBe(false)
+  })
+
+  // ── Loop: snow → forest ─────────────────────────────────────────────────────
+
+  it('loops back to forest after 4 full cycles', () => {
+    sys.update(BIOME_DURATION * 4 + BIOME_FADE_DURATION)
     expect(sys.getCurrentBiomeId()).toBe('forest')
     expect(sys.getConfig().inTransition).toBe(false)
   })
@@ -167,7 +175,8 @@ describe('BiomeSystem', () => {
     bulk.update(HOLD + 5)
 
     const incremental = new BiomeSystem()
-    for (let i = 0; i < 1150; i++) {
+    const steps = Math.round((HOLD + 5) / 0.1)   // match bulk's HOLD + 5 seconds
+    for (let i = 0; i < steps; i++) {
       incremental.update(0.1)
     }
 
@@ -196,7 +205,7 @@ describe('BiomeSystem', () => {
 
   it('refreshes hold config when dt stays within hold phase', () => {
     // dt < HOLD_DURATION: remaining=0, phase stays hold -> hits the else-if branch
-    sys.update(50)
+    sys.update(HOLD - 10)
     expect(sys.getCurrentBiomeId()).toBe('forest')
     expect(sys.getConfig().inTransition).toBe(false)
   })

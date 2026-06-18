@@ -211,37 +211,105 @@ export class Player {
     const cy = this.y
     ctx.save()
 
-    ctx.fillStyle = '#ccddee'
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - 16)
-    ctx.lineTo(cx - 6, cy + 4)
-    ctx.lineTo(cx - 6, cy + 14)
-    ctx.lineTo(cx + 6, cy + 14)
-    ctx.lineTo(cx + 6, cy + 4)
-    ctx.closePath()
-    ctx.fill()
+    // ── Swept wings (mirror left/right) ──────────────────────────────────────
+    for (const s of [-1, 1]) {
+      ctx.fillStyle = '#9fb3c8'
+      ctx.beginPath()
+      ctx.moveTo(cx + s * 2, cy - 2)
+      ctx.lineTo(cx + s * 14, cy + 8)
+      ctx.lineTo(cx + s * 14, cy + 11)
+      ctx.lineTo(cx + s * 4, cy + 8)
+      ctx.closePath()
+      ctx.fill()
+      // Leading-edge highlight
+      ctx.fillStyle = '#c3d2e2'
+      ctx.beginPath()
+      ctx.moveTo(cx + s * 2, cy - 2)
+      ctx.lineTo(cx + s * 14, cy + 8)
+      ctx.lineTo(cx + s * 11, cy + 8)
+      ctx.lineTo(cx + s * 2, cy)
+      ctx.closePath()
+      ctx.fill()
+      // Wingtip pod
+      ctx.fillStyle = '#7f93a8'
+      ctx.fillRect(cx + s * 14 - 1, cy + 6, 2, 5)
+    }
 
-    ctx.fillStyle = '#aabbcc'
-    ctx.fillRect(cx - 14, cy + 2, 8, 6)
-    ctx.fillRect(cx + 6, cy + 2, 8, 6)
+    // ── Rear tail fins ───────────────────────────────────────────────────────
+    ctx.fillStyle = '#8aa0b6'
+    for (const s of [-1, 1]) {
+      ctx.beginPath()
+      ctx.moveTo(cx + s * 1, cy + 9)
+      ctx.lineTo(cx + s * 7, cy + 14)
+      ctx.lineTo(cx + s * 3, cy + 14)
+      ctx.lineTo(cx + s * 1, cy + 11)
+      ctx.closePath()
+      ctx.fill()
+    }
 
-    ctx.fillStyle = '#4488cc'
+    // ── Fuselage dart (nose up) ──────────────────────────────────────────────
+    ctx.fillStyle = '#d6e2f0'
     ctx.beginPath()
-    ctx.moveTo(cx, cy - 16)
+    ctx.moveTo(cx, cy - 17)
     ctx.lineTo(cx - 4, cy - 4)
+    ctx.lineTo(cx - 4, cy + 10)
+    ctx.lineTo(cx - 3, cy + 14)
+    ctx.lineTo(cx + 3, cy + 14)
+    ctx.lineTo(cx + 4, cy + 10)
     ctx.lineTo(cx + 4, cy - 4)
     ctx.closePath()
     ctx.fill()
+    // Port-side shade
+    ctx.fillStyle = '#aabccd'
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - 17)
+    ctx.lineTo(cx - 4, cy - 4)
+    ctx.lineTo(cx - 4, cy + 10)
+    ctx.lineTo(cx - 1, cy + 12)
+    ctx.lineTo(cx - 1, cy - 8)
+    ctx.closePath()
+    ctx.fill()
+    // Spine highlight + blue accent
+    ctx.fillStyle = '#f2f8ff'
+    ctx.fillRect(cx - 1, cy - 12, 2, 18)
+    ctx.fillStyle = '#2f7fd6'
+    ctx.fillRect(cx - 4, cy + 4, 8, 2)
 
-    ctx.fillStyle = '#88ccff'
-    ctx.fillRect(cx - 2, cy - 10, 4, 6)
+    // ── Cockpit canopy ───────────────────────────────────────────────────────
+    ctx.fillStyle = '#bfe9ff'
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - 9)
+    ctx.lineTo(cx - 2, cy - 3)
+    ctx.lineTo(cx + 2, cy - 3)
+    ctx.closePath()
+    ctx.fill()
+    ctx.fillStyle = '#7fc8f0'
+    ctx.fillRect(cx - 2, cy - 4, 4, 1)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(cx - 1, cy - 8, 1, 2)
 
-    const flameOffsets = [3, 4, 3, 5]
+    // ── Blinking nav lights — port red, starboard green ──────────────────────
+    if (Math.floor(performance.now() / 250) % 2 === 0) {
+      ctx.fillStyle = '#ff5555'
+      ctx.fillRect(cx - 14, cy + 6, 2, 2)
+      ctx.fillStyle = '#55ff77'
+      ctx.fillRect(cx + 12, cy + 6, 2, 2)
+    }
+
+    // ── Afterburner exhaust (layered, animated) ──────────────────────────────
+    const flameOffsets = [4, 6, 4, 7]
     const flameH = flameOffsets[this.animFrame]
+    ctx.save()
+    ctx.globalAlpha = 0.45
+    ctx.fillStyle = '#ff8800'
+    ctx.fillRect(cx - 4, cy + 14, 8, flameH)
+    ctx.restore()
     ctx.fillStyle = '#ff8800'
     ctx.fillRect(cx - 3, cy + 14, 6, flameH)
     ctx.fillStyle = '#ffcc00'
-    ctx.fillRect(cx - 1, cy + 14, 2, flameH - 1)
+    ctx.fillRect(cx - 2, cy + 14, 4, flameH - 1)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(cx - 1, cy + 14, 2, Math.max(1, flameH - 3))
 
     ctx.restore()
   }

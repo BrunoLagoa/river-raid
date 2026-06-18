@@ -241,10 +241,38 @@ function makeCloud(canvasWidth: number, canvasHeight: number, randomY = true): C
   }
 }
 
+// ─── Snowflake ──────────────────────────────────────────────────────────────
+// Foreground falling-snow particles, only visible in the snow biome. Drift down
+// with a gentle horizontal sway; recycled at the top when they leave the screen.
+
+interface Snowflake {
+  x: number
+  y: number
+  size: number    // 1-3 px square
+  vy: number      // fall speed (px/s)
+  sway: number    // horizontal sway amplitude (px/s)
+  phase: number   // sway oscillator phase
+  opacity: number // baked-in opacity multiplier
+}
+
+const NUM_SNOWFLAKES = 90
+
+function makeSnowflake(canvasWidth: number, canvasHeight: number, randomY = true): Snowflake {
+  return {
+    x: Math.random() * canvasWidth,
+    y: randomY ? Math.random() * canvasHeight : -4 - Math.random() * 20,
+    size: 1 + Math.floor(Math.random() * 3),
+    vy: 28 + Math.random() * 46,
+    sway: 8 + Math.random() * 18,
+    phase: Math.random() * Math.PI * 2,
+    opacity: 0.5 + Math.random() * 0.5,
+  }
+}
+
 // ─── Atmosphere class ─────────────────────────────────────────────────────────
 
-const CYCLE_DURATION = 480   // 8 minutes total
-const PHASE_DURATION = 120   // 2 minutes per phase
+const CYCLE_DURATION = 120   // 2 minutes total
+const PHASE_DURATION = 30    // 30 seconds per phase
 const HOLD_FRACTION  = 0.35  // 35% of each phase holds the colour steady
 
 export class Atmosphere {
@@ -252,6 +280,8 @@ export class Atmosphere {
   private currentPaletteRaw: PaletteRaw = PALETTES[0]
   private phaseIndex = 0
   private clouds: Cloud[] = []
+  private snowflakes: Snowflake[] = []
+  private snowIntensity = 0
   private canvasWidth: number
   private canvasHeight: number
 
@@ -259,6 +289,7 @@ export class Atmosphere {
     this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
     this.initClouds()
+    this.initSnow()
   }
 
   // ── Initialisation ───────────────────────────────────────────────────────────
@@ -268,6 +299,18 @@ export class Atmosphere {
     for (let i = 0; i < NUM_CLOUDS; i++) {
       this.clouds.push(makeCloud(this.canvasWidth, this.canvasHeight, true))
     }
+  }
+
+  private initSnow(): void {
+    this.snowflakes = []
+    for (let i = 0; i < NUM_SNOWFLAKES; i++) {
+      this.snowflakes.push(makeSnowflake(this.canvasWidth, this.canvasHeight, true))
+    }
+  }
+
+  /** Intensidade da nevasca (0-1). Definida pelo Game conforme o bioma de neve. */
+  setSnow(intensity: number): void {
+    this.snowIntensity = Math.max(0, Math.min(1, intensity))
   }
 
   // ── Update ───────────────────────────────────────────────────────────────────
@@ -316,12 +359,34 @@ export class Atmosphere {
         cloud.speedRatio = fresh.speedRatio
       }
     }
+
+    // ── Snow particles ───────────────────────────────────────────────────────
+    // Always advanced (only ~90 flakes); rendered only when snowIntensity > 0.
+    for (const f of this.snowflakes) {
+      f.phase += dt * 1.2
+      f.y += (f.vy + scrollSpeed * 0.12) * dt
+      f.x += Math.sin(f.phase) * f.sway * dt
+      if (f.y > this.canvasHeight + 4) {
+        const fresh = makeSnowflake(this.canvasWidth, this.canvasHeight, false)
+        f.x = fresh.x; f.y = fresh.y; f.size = fresh.size
+        f.vy = fresh.vy; f.sway = fresh.sway; f.phase = fresh.phase; f.opacity = fresh.opacity
+      } else if (f.x < -4) {
+        f.x = this.canvasWidth + 4
+      } else if (f.x > this.canvasWidth + 4) {
+        f.x = -4
+      }
+    }
   }
 
   // ── Public palette getter ────────────────────────────────────────────────────
 
   getPalette(): ColorPalette {
     return rawToPalette(this.currentPaletteRaw)
+  }
+
+  /** Fase do ciclo dia/noite atual: 0=dia, 1=pôr do sol, 2=noite, 3=amanhecer. */
+  getPhaseIndex(): number {
+    return this.phaseIndex
   }
 
   // ── Render: Clouds ───────────────────────────────────────────────────────────
@@ -387,6 +452,27 @@ export class Atmosphere {
     }
   }
 
+  // ── Render: Snow weather ─────────────────────────────────────────────────────
+  // Foreground falling snow + a faint cold wash, scaled by snowIntensity so it
+  // fades in/out smoothly across the biome transition.
+
+  renderWeather(ctx: CanvasRenderingContext2D): void {
+    const s = this.snowIntensity
+    if (s <= 0.01) return
+    ctx.save()
+    // Faint icy wash over the whole scene
+    ctx.fillStyle = `rgba(214, 236, 255, ${(0.05 * s).toFixed(3)})`
+    ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+    // Falling flakes
+    ctx.fillStyle = '#ffffff'
+    for (const f of this.snowflakes) {
+      ctx.globalAlpha = f.opacity * s
+      ctx.fillRect(f.x, f.y, f.size, f.size)
+    }
+    ctx.globalAlpha = 1
+    ctx.restore()
+  }
+
   // ── Render: Scanlines ────────────────────────────────────────────────────────
   // Draw horizontal dark lines every 4px to simulate a CRT TV effect.
   // Using direct fillRect loop instead of CanvasPattern to avoid
@@ -414,6 +500,8 @@ export class Atmosphere {
     this.cycleTime = 0
     this.phaseIndex = 0
     this.currentPaletteRaw = PALETTES[0]
+    this.snowIntensity = 0
     this.initClouds()
+    this.initSnow()
   }
 }

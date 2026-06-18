@@ -18,10 +18,10 @@ import { lerpPaletteRaw } from './Atmosphere'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type BiomeId = 'forest' | 'desert' | 'industrial'
+export type BiomeId = 'forest' | 'desert' | 'industrial' | 'snow'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'gunboat' | 'tank' | 'bridge'
-export type SceneryType = 'palm' | 'tree' | 'house' | 'bush' | 'rock' | 'fueltank'
+export type SceneryType = 'palm' | 'tree' | 'house' | 'bush' | 'rock' | 'fueltank' | 'pine' | 'igloo' | 'snowman'
 export type AiTier = 'basic' | 'smart' | 'elite'
 
 export interface EffectiveBiomeConfig {
@@ -64,9 +64,9 @@ interface BiomeDefinition {
 // ─── Timing constants ─────────────────────────────────────────────────────────
 
 /** Total duration of each biome cycle in seconds */
-export const BIOME_DURATION = 120
+export const BIOME_DURATION = 30
 /** Duration of the cross-fade between biomes in seconds */
-export const BIOME_FADE_DURATION = 10
+export const BIOME_FADE_DURATION = 5
 /** Hold phase duration = total - fade */
 const HOLD_DURATION = BIOME_DURATION - BIOME_FADE_DURATION
 
@@ -94,6 +94,7 @@ const BIOMES: BiomeDefinition[] = [
     enemyTierBias: { basic: 1.0, smart: 1.0, elite: 1.0 },
     sceneryWeights: {
       palm: 25, tree: 35, house: 5, bush: 25, rock: 5, fueltank: 5,
+      pine: 0, igloo: 0, snowman: 0,
     },
     riverMinWidth: 100,
     riverMaxWidthRatio: 0.72,
@@ -120,6 +121,7 @@ const BIOMES: BiomeDefinition[] = [
     enemyTierBias: { basic: 0.9, smart: 1.1, elite: 1.0 },
     sceneryWeights: {
       palm: 5, tree: 0, house: 8, bush: 15, rock: 60, fueltank: 12,
+      pine: 0, igloo: 0, snowman: 0,
     },
     riverMinWidth: 110,
     riverMaxWidthRatio: 0.78,
@@ -146,13 +148,41 @@ const BIOMES: BiomeDefinition[] = [
     enemyTierBias: { basic: 0.7, smart: 1.2, elite: 1.4 },
     sceneryWeights: {
       palm: 0, tree: 5, house: 50, bush: 10, rock: 25, fueltank: 10,
+      pine: 0, igloo: 0, snowman: 0,
     },
     riverMinWidth: 80,
     riverMaxWidthRatio: 0.60,
   },
+
+  // ── Snow ─────────────────────────────────────────────────────────────────────
+  {
+    id: 'snow',
+    basePalette: {
+      landBase:       [205, 222, 238],
+      landEdgeDark:   [120, 140, 165],
+      landEdgeBright: [245, 250, 255],
+      waterBase:      [70,  120, 165],
+      waterFlow:      [110, 175, 215],
+      waterWave:      [205, 240, 255, 0.10],
+      waterDepth:     [30,   70, 120, 0.18],
+      shimmer:        [220, 240, 255, 0.12],
+      brightness: 1.15,
+    },
+    enemyWeights: {
+      helicopter: 15, plane: 25, boat: 5, gunboat: 20, tank: 25, bridge: 10,
+    },
+    enemySpawnRateMult: 1.0,
+    enemyTierBias: { basic: 0.85, smart: 1.15, elite: 1.25 },
+    sceneryWeights: {
+      palm: 0, tree: 0, house: 12, bush: 0, rock: 18, fueltank: 12,
+      pine: 40, igloo: 12, snowman: 6,
+    },
+    riverMinWidth: 95,
+    riverMaxWidthRatio: 0.66,
+  },
 ]
 
-const BIOME_ORDER: BiomeId[] = ['forest', 'desert', 'industrial']
+const BIOME_ORDER: BiomeId[] = ['forest', 'desert', 'industrial', 'snow']
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

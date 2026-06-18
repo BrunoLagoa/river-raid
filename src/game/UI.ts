@@ -95,53 +95,58 @@ export class UI {
   ): void {
     ctx.save()
 
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'
-    ctx.fillRect(0, 0, canvasWidth, 52)
+    // Top HUD band — taller, darker strip with an accent line so the
+    // readouts separate cleanly from the bright terrain below.
+    const barH = 60
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'
+    ctx.fillRect(0, 0, canvasWidth, barH)
+    ctx.fillStyle = 'rgba(130,175,215,0.32)'
+    ctx.fillRect(0, barH - 1, canvasWidth, 1)
 
-    ctx.font = 'bold 16px "Courier New", monospace'
-    ctx.fillStyle = '#ffee44'
+    // Score — top-left
+    ctx.font = 'bold 11px "Courier New", monospace'
+    ctx.fillStyle = '#aab4d0'
     ctx.textAlign = 'left'
-    ctx.fillText(`${score.toString().padStart(6, '0')}`, 14, 26)
-
-    ctx.font = 'bold 10px "Courier New", monospace'
-    ctx.fillStyle = '#aaaacc'
-    ctx.fillText('SCORE', 14, 12)
+    ctx.fillText('SCORE', 16, 17)
+    ctx.font = 'bold 22px "Courier New", monospace'
+    ctx.fillStyle = '#ffee44'
+    ctx.fillText(`${score.toString().padStart(6, '0')}`, 16, 40)
 
     // Life icons
     for (let i = 0; i < lives; i++) {
-      this.drawMiniPlane(ctx, 22 + i * 22, 38)
+      this.drawMiniPlane(ctx, 26 + i * 24, 52)
     }
 
     // Distance — centered readout for a sense of progress
     ctx.textAlign = 'center'
-    ctx.font = 'bold 10px "Courier New", monospace'
-    ctx.fillStyle = '#aaaacc'
-    ctx.fillText(this.distanceLabel, canvasWidth / 2, 12)
-    ctx.font = 'bold 16px "Courier New", monospace'
-    ctx.fillStyle = '#88ddff'
-    ctx.fillText(`${this.distanceMeters.toLocaleString()} m`, canvasWidth / 2, 28)
+    ctx.font = 'bold 11px "Courier New", monospace'
+    ctx.fillStyle = '#aab4d0'
+    ctx.fillText(this.distanceLabel, canvasWidth / 2, 17)
+    ctx.font = 'bold 22px "Courier New", monospace'
+    ctx.fillStyle = '#8fdcff'
+    ctx.fillText(`${this.distanceMeters.toLocaleString()} m`, canvasWidth / 2, 41)
 
-    const barWidth = 100
-    const barHeight = 12
-    const barX = canvasWidth - barWidth - 14
-    const barY = 6
+    const barWidth = 124
+    const barHeight = 18
+    const barX = canvasWidth - barWidth - 16
+    const barY = 9
 
-    ctx.font = 'bold 10px "Courier New", monospace'
+    ctx.font = 'bold 11px "Courier New", monospace'
     ctx.textAlign = 'right'
-    ctx.fillStyle = '#aaaacc'
-    ctx.fillText('FUEL', barX - 6, 16)
+    ctx.fillStyle = '#aab4d0'
+    ctx.fillText('FUEL', barX - 8, barY + 13)
 
-    ctx.fillStyle = '#222222'
+    ctx.fillStyle = '#1a1f26'
     ctx.fillRect(barX, barY, barWidth, barHeight)
 
     const fuelRatio = Math.max(0, Math.min(1, fuel / 100))
     let fuelColor: string
     if (fuelRatio > 0.4) {
-      fuelColor = '#00dd55'
+      fuelColor = '#22dd66'
     } else if (fuelRatio > 0.2) {
-      fuelColor = '#ddaa00'
+      fuelColor = '#eebb22'
     } else {
-      fuelColor = '#dd2200'
+      fuelColor = '#ee3322'
     }
 
     if (fuelRatio > 0) {
@@ -152,31 +157,31 @@ export class UI {
     const segCount = 10
     const segW = barWidth / segCount
     for (let i = 0; i < segCount; i++) {
-      ctx.fillStyle = 'rgba(0,0,0,0.3)'
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'
       ctx.fillRect(barX + i * segW + segW - 1, barY, 1, barHeight)
     }
 
-    ctx.strokeStyle = '#667788'
+    ctx.strokeStyle = '#7088a0'
     ctx.lineWidth = 1
     ctx.strokeRect(barX, barY, barWidth, barHeight)
 
     ctx.fillStyle = '#ffffff'
-    ctx.font = 'bold 8px monospace'
+    ctx.font = 'bold 12px "Courier New", monospace'
     ctx.textAlign = 'center'
-    ctx.fillText(`${Math.round(fuel)}%`, barX + barWidth / 2, barY + barHeight - 2)
+    ctx.fillText(`${Math.round(fuel)}%`, barX + barWidth / 2, barY + barHeight - 5)
 
-    // Add shortcuts legend below fuel bar
-    ctx.font = '9px "Courier New", monospace'
-    ctx.fillStyle = '#8899aa'
+    // Keyboard shortcut legend — below the fuel bar, roomier and lighter
+    ctx.font = '11px "Courier New", monospace'
+    ctx.fillStyle = '#9aabbd'
     ctx.textAlign = 'right'
-    ctx.fillText('P pausa', canvasWidth - 14, 32)
-    ctx.fillText('M muta o som', canvasWidth - 14, 44)
+    ctx.fillText('P  pausa', canvasWidth - 16, 44)
+    ctx.fillText('M  muta o som', canvasWidth - 16, 57)
 
     if (muted) {
-      ctx.font = 'bold 10px "Courier New", monospace'
-      ctx.fillStyle = '#ff4444'
+      ctx.font = 'bold 11px "Courier New", monospace'
+      ctx.fillStyle = '#ff5555'
       ctx.textAlign = 'right'
-      ctx.fillText('MUTED', canvasWidth - 100, 44)
+      ctx.fillText('MUTED', canvasWidth - 132, 57)
     }
 
     if (minimap) {
@@ -236,29 +241,33 @@ export class UI {
 
     if (objectiveData) {
       ctx.save()
-      ctx.fillStyle = objectiveData.completed ? 'rgba(0, 40, 20, 0.78)' : 'rgba(10, 18, 34, 0.78)'
-      ctx.strokeStyle = objectiveData.completed ? '#44dd88' : '#4d6a8f'
-      ctx.lineWidth = 1
-      const boxW = 240
-      const boxH = 52
       const boxX = 14
       const boxY = activeY
+      const boxW = Math.min(308, canvasWidth - boxX - 14)
+      const boxH = 66
+      const pad = 12
+
+      ctx.fillStyle = objectiveData.completed ? 'rgba(0, 42, 22, 0.82)' : 'rgba(10, 18, 34, 0.82)'
+      ctx.strokeStyle = objectiveData.completed ? '#44dd88' : '#4d6a8f'
+      ctx.lineWidth = 1
       ctx.fillRect(boxX, boxY, boxW, boxH)
       ctx.strokeRect(boxX + 0.5, boxY + 0.5, boxW - 1, boxH - 1)
 
+      // Accent stripe on the left edge for a quick visual anchor
+      ctx.fillStyle = objectiveData.completed ? '#44dd88' : '#55aaff'
+      ctx.fillRect(boxX, boxY, 3, boxH)
+
+      // Title
       ctx.fillStyle = objectiveData.completed ? '#88ffbb' : '#cfe4ff'
-      ctx.font = 'bold 10px "Courier New", monospace'
+      ctx.font = 'bold 11px "Courier New", monospace'
       ctx.textAlign = 'left'
-      ctx.fillText(objectiveData.title, boxX + 8, boxY + 13)
+      ctx.fillText(objectiveData.title, boxX + pad, boxY + 17)
 
-      ctx.fillStyle = '#ffffff'
-      ctx.font = 'bold 12px "Courier New", monospace'
-      ctx.fillText(objectiveData.detail, boxX + 8, boxY + 27)
-
-      const progressWidth = 88
-      const progressHeight = 6
-      const progressX = boxX + boxW - progressWidth - 10
-      const progressY = boxY + 11
+      // Progress bar — top right
+      const progressWidth = 96
+      const progressHeight = 7
+      const progressX = boxX + boxW - progressWidth - pad
+      const progressY = boxY + 9
       ctx.fillStyle = '#1a2432'
       ctx.fillRect(progressX, progressY, progressWidth, progressHeight)
       ctx.fillStyle = objectiveData.completed ? '#44dd88' : '#55aaff'
@@ -266,19 +275,29 @@ export class UI {
       ctx.strokeStyle = '#334455'
       ctx.strokeRect(progressX + 0.5, progressY + 0.5, progressWidth - 1, progressHeight - 1)
 
-      ctx.font = '9px "Courier New", monospace'
-      ctx.fillStyle = '#a9bed8'
+      // Detail — full width, larger so it reads at a glance
+      ctx.fillStyle = '#ffffff'
+      ctx.font = 'bold 14px "Courier New", monospace'
       ctx.textAlign = 'left'
+      ctx.fillText(objectiveData.detail, boxX + pad, boxY + 40)
+
+      // Bottom row — progress count, time remaining, reward
+      ctx.font = 'bold 11px "Courier New", monospace'
+      ctx.fillStyle = objectiveData.completed ? '#9affc6' : '#cfe4ff'
+      ctx.textAlign = 'left'
+      ctx.fillText(objectiveData.progressText, boxX + pad, boxY + 58)
+
       if (objectiveData.timeLeftText) {
-        ctx.fillText(objectiveData.timeLeftText, boxX + 8, boxY + 38)
+        ctx.font = '11px "Courier New", monospace'
+        ctx.fillStyle = '#a9bed8'
+        ctx.fillText(objectiveData.timeLeftText, boxX + pad + 64, boxY + 58)
       }
-      ctx.fillText(objectiveData.progressText, boxX + 8, boxY + 48)
+
+      ctx.font = 'bold 11px "Courier New", monospace'
       ctx.fillStyle = objectiveData.completed ? '#88ffbb' : '#ffcc66'
       ctx.textAlign = 'right'
-      ctx.fillText(objectiveData.statusText, boxX + boxW - 10, boxY + 48)
-      ctx.fillStyle = '#8899aa'
-      ctx.textAlign = 'right'
-      ctx.fillText(objectiveData.rewardText, progressX + progressWidth, boxY + 28)
+      ctx.fillText(objectiveData.statusText, boxX + boxW - pad, boxY + 58)
+
       ctx.restore()
       activeY += boxH + 6
     }
@@ -358,10 +377,10 @@ export class UI {
   }
 
   private renderMinimap(ctx: CanvasRenderingContext2D, canvasWidth: number, minimap: MinimapData): void {
-    const width = 120
-    const height = 82
-    const x = canvasWidth - width - 14
-    const y = 58
+    const width = 128
+    const height = 90
+    const x = canvasWidth - width - 16
+    const y = 70
     const visibleHeight = 280
     const scaleX = width / ctx.canvas.width
     const scaleY = height / visibleHeight
@@ -369,7 +388,7 @@ export class UI {
     ctx.save()
 
     // Background
-    ctx.fillStyle = 'rgba(4, 10, 20, 0.7)'
+    ctx.fillStyle = 'rgba(4, 10, 20, 0.78)'
     ctx.fillRect(x, y, width, height)
 
     // Clip ALL drawing to the minimap rect — nothing escapes the border
@@ -424,15 +443,17 @@ export class UI {
 
     ctx.restore()
 
-    // Border drawn AFTER restore so it's always on top and never clipped
+    // Header + border drawn AFTER restore so they're always on top and never clipped
     ctx.save()
-    ctx.strokeStyle = '#445566'
+    ctx.fillStyle = 'rgba(8, 16, 28, 0.9)'
+    ctx.fillRect(x, y, width, 16)
+    ctx.strokeStyle = '#5a7088'
     ctx.lineWidth = 1
     ctx.strokeRect(x, y, width, height)
-    ctx.fillStyle = '#8899aa'
-    ctx.font = '9px "Courier New", monospace'
+    ctx.fillStyle = '#b8c8da'
+    ctx.font = 'bold 10px "Courier New", monospace'
     ctx.textAlign = 'left'
-    ctx.fillText('RADAR', x + 6, y + 11)
+    ctx.fillText('RADAR', x + 8, y + 12)
     ctx.restore()
   }
 

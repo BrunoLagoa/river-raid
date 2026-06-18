@@ -19,6 +19,9 @@ const SCENERY_CONFIGS: Record<SceneryType, { width: number; height: number; weig
   bush: { width: 16, height: 10, weight: 22 },
   rock: { width: 14, height: 10, weight: 15 },
   fueltank: { width: 16, height: 20, weight: 6 },
+  pine: { width: 22, height: 38, weight: 30 },
+  igloo: { width: 30, height: 22, weight: 12 },
+  snowman: { width: 16, height: 26, weight: 6 },
 }
 
 const SPAWN_INTERVAL = 280
@@ -29,6 +32,7 @@ export class Scenery {
   private spawnProgress = 0
   private sceneryWeights: Record<SceneryType, number> = {
     palm: 20, tree: 25, house: 12, bush: 22, rock: 15, fueltank: 6,
+    pine: 0, igloo: 0, snowman: 0,
   }
 
   constructor(_canvasWidth: number, canvasHeight: number) {
@@ -150,6 +154,9 @@ export class Scenery {
         case 'bush': this.renderBush(ctx, o); break
         case 'rock': this.renderRock(ctx, o); break
         case 'fueltank': this.renderFuelTank(ctx, o); break
+        case 'pine': this.renderPine(ctx, o); break
+        case 'igloo': this.renderIgloo(ctx, o); break
+        case 'snowman': this.renderSnowman(ctx, o); break
       }
     }
     ctx.restore()
@@ -289,6 +296,102 @@ export class Scenery {
     ctx.strokeStyle = '#881100'
     ctx.lineWidth = 1
     ctx.strokeRect(cx - 3 * p, baseY - 5 * p, 6 * p, 8 * p)
+  }
+
+  private renderPine(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Snow-capped conifer: tapering green tiers with white snow on each branch.
+    const cx = obj.x
+    const baseY = obj.y + obj.height / 2
+    const p = 2
+
+    // Trunk
+    ctx.fillStyle = '#5a3a22'
+    ctx.fillRect(cx - p, baseY - 3 * p, 2 * p, 4 * p)
+
+    // Green tiers (wide bottom → narrow top)
+    ctx.fillStyle = '#2f6b3a'
+    ctx.fillRect(cx - 7 * p, baseY - 5 * p, 14 * p, 3 * p)
+    ctx.fillRect(cx - 5 * p, baseY - 8 * p, 10 * p, 3 * p)
+    ctx.fillRect(cx - 4 * p, baseY - 11 * p, 8 * p, 3 * p)
+    ctx.fillRect(cx - 3 * p, baseY - 14 * p, 6 * p, 3 * p)
+    ctx.fillRect(cx - 2 * p, baseY - 16 * p, 4 * p, 3 * p)
+
+    // Snow caps along the top of each tier
+    ctx.fillStyle = '#eef6ff'
+    ctx.fillRect(cx - 7 * p, baseY - 5 * p, 14 * p, p)
+    ctx.fillRect(cx - 5 * p, baseY - 8 * p, 10 * p, p)
+    ctx.fillRect(cx - 4 * p, baseY - 11 * p, 8 * p, p)
+    ctx.fillRect(cx - 3 * p, baseY - 14 * p, 6 * p, p)
+    ctx.fillRect(cx - 2 * p, baseY - 16 * p, 4 * p, p)
+    // Snow clumps for variety
+    ctx.fillRect(cx - 6 * p, baseY - 4 * p, 2 * p, p)
+    if (obj.variant === 1) ctx.fillRect(cx + 3 * p, baseY - 7 * p, 2 * p, p)
+  }
+
+  private renderIgloo(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Ice-block dome with a dark entrance tunnel.
+    const cx = obj.x
+    const baseY = obj.y + obj.height / 2
+    const p = 2
+
+    // Dome rows (rounded)
+    ctx.fillStyle = '#dbe8f5'
+    ctx.fillRect(cx - 8 * p, baseY - 2 * p, 16 * p, 3 * p)
+    ctx.fillRect(cx - 7 * p, baseY - 5 * p, 14 * p, 3 * p)
+    ctx.fillRect(cx - 5 * p, baseY - 8 * p, 10 * p, 3 * p)
+    ctx.fillRect(cx - 3 * p, baseY - 10 * p, 6 * p, 2 * p)
+
+    // Block seams (shaded) + highlight
+    ctx.fillStyle = '#b9cde0'
+    ctx.fillRect(cx - 8 * p, baseY - 2 * p, 16 * p, p)
+    ctx.fillRect(cx - 7 * p, baseY - 5 * p, 14 * p, p)
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(cx - 5 * p, baseY - 8 * p, 4 * p, p)
+
+    // Entrance arch (dark) + snow tunnel
+    ctx.fillStyle = '#3a4a5a'
+    ctx.fillRect(cx - 2 * p, baseY - p, 4 * p, 3 * p)
+    ctx.fillStyle = '#dbe8f5'
+    ctx.fillRect(cx - 3 * p, baseY - 3 * p, 6 * p, 2 * p)
+  }
+
+  private renderSnowman(ctx: CanvasRenderingContext2D, obj: SceneryObject): void {
+    // Three stacked snowballs, coal face, carrot nose, stick arms.
+    const cx = obj.x
+    const baseY = obj.y + obj.height / 2
+    const p = 2
+
+    // Bottom ball + shading
+    ctx.fillStyle = '#f2f8ff'
+    ctx.fillRect(cx - 4 * p, baseY - 4 * p, 8 * p, 5 * p)
+    ctx.fillStyle = '#d2e2f0'
+    ctx.fillRect(cx - 4 * p, baseY, 8 * p, p)
+
+    // Middle ball + head
+    ctx.fillStyle = '#f2f8ff'
+    ctx.fillRect(cx - 3 * p, baseY - 8 * p, 6 * p, 4 * p)
+    ctx.fillRect(cx - 2 * p, baseY - 12 * p, 4 * p, 4 * p)
+
+    // Coal eyes + button
+    ctx.fillStyle = '#222222'
+    ctx.fillRect(cx - 2 * p, baseY - 11 * p, p, p)
+    ctx.fillRect(cx + p, baseY - 11 * p, p, p)
+    ctx.fillRect(cx - p, baseY - 6 * p, 2 * p, p)
+
+    // Carrot nose
+    ctx.fillStyle = '#e8821e'
+    ctx.fillRect(cx, baseY - 10 * p, 2 * p, p)
+
+    // Stick arms
+    ctx.fillStyle = '#6b4a2a'
+    ctx.fillRect(cx - 6 * p, baseY - 7 * p, 2 * p, p)
+    ctx.fillRect(cx + 4 * p, baseY - 7 * p, 2 * p, p)
+
+    // Scarf (most variants)
+    if (obj.variant !== 2) {
+      ctx.fillStyle = '#cc3344'
+      ctx.fillRect(cx - 3 * p, baseY - 8 * p, 6 * p, p)
+    }
   }
 
   reset(_canvasWidth: number, canvasHeight: number): void {

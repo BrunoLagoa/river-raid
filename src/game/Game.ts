@@ -171,7 +171,7 @@ export class Game {
     this.paused = false
     this.sound.init()
     this.sound.resume()
-    this.sound.startMusic()
+    this.sound.startMusic(this.biomeSystem.getCurrentBiomeId())
     this.sound.startEngine()
     this.player.attachInput()
     this.lastTime = performance.now()
@@ -421,6 +421,10 @@ export class Game {
     // Update biome and distribute config to downstream systems
     this.biomeSystem.update(dt)
     const biomeCfg = this.biomeSystem.getConfig()
+    // Troca a trilha quando o rio entra em um novo bioma (no-op se igual).
+    this.sound.setBiomeMusic(this.biomeSystem.getCurrentBiomeId())
+    // Modula a trilha conforme a fase do dia (modo noturno).
+    this.sound.setMusicPhase(this.atmosphere.getPhaseIndex())
 
     this.world.setBiomeWidths(biomeCfg.riverMinWidth, biomeCfg.riverMaxWidthRatio)
     this.scenery.setSceneryWeights(biomeCfg.sceneryWeights)
@@ -431,6 +435,10 @@ export class Game {
     )
 
     this.world.update(envDt, this.scrollSpeed)
+    // Nevasca: intensidade segue o bioma de neve, com fade durante a transição.
+    const snow = (biomeCfg.fromBiomeId === 'snow' ? 1 - biomeCfg.blend : 0)
+      + (biomeCfg.toBiomeId === 'snow' ? biomeCfg.blend : 0)
+    this.atmosphere.setSnow(snow)
     this.atmosphere.update(dt, this.scrollSpeed, biomeCfg.basePalette)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
@@ -441,7 +449,11 @@ export class Game {
   }
 
   private updateGameplaySystems(envDt: number): void {
-    this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed)
+    // Smart/elite enemies aim at the live ship; don't feed them a dying target.
+    const aimTarget = this.player.state === 'alive'
+      ? { x: this.player.x, y: this.player.y }
+      : undefined
+    this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed, aimTarget)
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
     this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
@@ -625,6 +637,9 @@ export class Game {
     this.renderShockwave(this.ctx)
 
     this.ctx.restore()
+
+    // Falling snow — screen-space foreground, above the world but below the HUD.
+    this.atmosphere.renderWeather(this.ctx)
 
     this.ui.render(
       this.ctx, this.score, this.fuelSystem.fuel, this.canvas.width,

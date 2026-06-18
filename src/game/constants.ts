@@ -160,3 +160,15 @@ export const ENEMY_TIER_SMART_STRAFE_SPEED = 18
 export const ENEMY_TIER_ELITE_STRAFE_SPEED = 30
 export const ENEMY_TIER_SMART_STRAFE_FREQ = 1.8
 export const ENEMY_TIER_ELITE_STRAFE_FREQ = 2.4
+
+// Long-game escalation. The early-game ramps (spawn rate, active cap, tier
+// unlocks) all saturate by ~100s; without this the difficulty would plateau.
+// Escalation grows linearly from 0 at START to 1 at FULL and keeps the late
+// game climbing — soft-capped so it never becomes impossible.
+export const ENEMY_ESCALATION_START = 100      // s — when escalation begins
+export const ENEMY_ESCALATION_FULL = 360       // s — when escalation maxes out
+// At full escalation, shift this much weight from 'smart' to 'elite' so veteran
+// runs face progressively more aiming/leading enemies.
+export const ENEMY_ESCALATION_ELITE_SHIFT = 0.5
+// At full escalation, enemies fire up to this fraction faster (cadence speedup).
+export const ENEMY_ESCALATION_SHOOT_SPEEDUP = 0.18

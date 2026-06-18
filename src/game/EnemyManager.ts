@@ -20,6 +20,8 @@ import {
   ENEMY_TIER_ELITE_AMPLITUDE_MULT, ENEMY_TIER_SMART_STRAFE_SPEED,
   ENEMY_TIER_ELITE_STRAFE_SPEED, ENEMY_TIER_SMART_STRAFE_FREQ,
   ENEMY_TIER_ELITE_STRAFE_FREQ,
+  ENEMY_ESCALATION_START, ENEMY_ESCALATION_FULL,
+  ENEMY_ESCALATION_ELITE_SHIFT, ENEMY_ESCALATION_SHOOT_SPEEDUP,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 import type { RandomSource } from './random'
@@ -32,11 +34,40 @@ export type LaneIntent = -1 | 0 | 1
 export interface EnemyBullet {
   x: number
   y: number
+  /** Downward (vertical) speed in px/s. */
   speed: number
+  /** Horizontal speed in px/s. Non-zero only for aimed shots from smart/elite enemies. */
+  vx: number
   width: number
   height: number
   active: boolean
   fromPlane: boolean
+}
+
+/** Where the AI believes the player currently is. Enables aimed/leading fire. */
+export interface AimTarget {
+  x: number
+  y: number
+}
+
+/** Structural shape shared by enemies that oscillate sinusoidally across the river. */
+type OscillatingEnemy = BaseEnemy & {
+  phase: number
+  phaseSpeed: number
+  amplitude: number
+  originX: number
+}
+
+/** Per-frame steering context shared by all movement strategies of a single enemy. */
+interface MovementContext {
+  safe: { left: number; right: number; center: number; halfSpan: number }
+  shouldUseRiverSteering: boolean
+  isRecovering: boolean
+  laneTargetX: number
+  tierPhaseMult: number
+  tierAmplitudeMult: number
+  recoverStrafeFactor: number
+  repositionSteerFactor: number
 }
 
 export interface BaseEnemy {
@@ -159,6 +190,14 @@ export class EnemyManager {
   private static readonly AI_LANE_NEARBY_Y = 70
   private static readonly AI_REPOSITION_TIME = 0.45
   private static readonly AI_REPOSITION_STEER_MULT = 1.35
+  // Aimed fire: how far a bullet may slant horizontally relative to its fall
+  // speed. Capped so shots always travel mostly downward and stay dodgeable.
+  private static readonly AIM_MAX_RATIO = 0.7
+  // Minimum vertical gap before an enemy bothers aiming (avoids wild angles
+  // when the player is nearly level with the shooter).
+  private static readonly AIM_MIN_DY = 24
+  // Smoothing applied to the estimated player velocity used for elite lead.
+  private static readonly AIM_TARGET_VX_SMOOTH = 0.6
 
   private random: RandomSource
   private canvasWidth: number
@@ -189,9 +228,10 @@ export class EnemyManager {
 
   private bulletPool = new ObjectPool<EnemyBullet>(
     80,
-    () => ({ x: 0, y: 0, speed: 0, width: 4, height: 8, active: false, fromPlane: false }),
+    () => ({ x: 0, y: 0, speed: 0, vx: 0, width: 4, height: 8, active: false, fromPlane: false }),
     (bullet) => {
       bullet.active = true
+      bullet.vx = 0
     },
   )
 
@@ -220,6 +260,10 @@ export class EnemyManager {
   private biomeEnemyWeights: Record<EnemyType, number> | null = null
   private biomeSpawnRateMult = 1.0
   private biomeTierBias: Record<AiTier, number> = { basic: 1, smart: 1, elite: 1 }
+  // Player tracking for aimed fire — updated each frame from the target passed
+  // by Game. Null until a target is seen; targetVx is a smoothed estimate.
+  private lastTargetX: number | null = null
+  private targetVx = 0
 
   constructor(canvasWidth: number, canvasHeight: number, random: RandomSource = Math.random) {
     this.canvasWidth = canvasWidth
@@ -242,8 +286,15 @@ export class EnemyManager {
     this.biomeTierBias = tierBias
   }
 
-  update(dt: number, world: { getBoundsAtY: (y: number) => { left: number; right: number } }, riverSegments: { centerX: number; width: number; y: number }[], scrollSpeed = 120): void {
+  update(
+    dt: number,
+    world: { getBoundsAtY: (y: number) => { left: number; right: number } },
+    riverSegments: { centerX: number; width: number; y: number }[],
+    scrollSpeed = 120,
+    target?: AimTarget,
+  ): void {
     this.gameTime += dt
+    this.trackTarget(dt, target)
 
     this.spawnInterval = Math.max(
       ENEMY_SPAWN_INTERVAL_MIN,
@@ -329,135 +380,32 @@ export class EnemyManager {
         }
       }
 
-      const laneTargetX = this.getLaneTargetX(enemy, safe)
-      const isRepositioning = (enemy.aiState ?? 'patrol') === 'reposition'
-      const recoverStrafeFactor = isRecovering ? EnemyManager.AI_RECOVER_STRAFE_DAMP : 1
-      const repositionSteerFactor = isRepositioning ? EnemyManager.AI_REPOSITION_STEER_MULT : 1
-
-      if (enemy.type === 'helicopter') {
-        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        if (shouldUseRiverSteering) {
-          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
-          const anchorX = isRecovering
-            ? safe.center
-            : safe.center + (laneTargetX - safe.center) * laneWeight
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
-          enemy.originX += (anchorX - enemy.originX) * recenter * dt
-          const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
-            Math.max(6, safe.halfSpan - 6),
-          )
-          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
-          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
-        } else {
-          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
-        }
+      const ctx: MovementContext = {
+        safe,
+        shouldUseRiverSteering,
+        isRecovering,
+        laneTargetX: this.getLaneTargetX(enemy, safe),
+        tierPhaseMult,
+        tierAmplitudeMult,
+        recoverStrafeFactor: isRecovering ? EnemyManager.AI_RECOVER_STRAFE_DAMP : 1,
+        repositionSteerFactor: (enemy.aiState ?? 'patrol') === 'reposition'
+          ? EnemyManager.AI_REPOSITION_STEER_MULT
+          : 1,
       }
 
-      if (enemy.type === 'boat') {
-        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        if (shouldUseRiverSteering) {
-          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
-          const anchorX = isRecovering
-            ? safe.center
-            : safe.center + (laneTargetX - safe.center) * laneWeight
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
-          enemy.originX += (anchorX - enemy.originX) * recenter * dt
-          const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
-            Math.max(6, safe.halfSpan - 6),
-          )
-          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
-          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
-        } else {
-          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
-        }
-      }
-
-      if (enemy.type === 'tank') {
-        enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-        if (shouldUseRiverSteering) {
-          const laneWeight = this.getTierLaneWeight(enemy.aiTier)
-          const anchorX = isRecovering
-            ? safe.center
-            : safe.center + (laneTargetX - safe.center) * laneWeight
-          const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
-          enemy.originX += (anchorX - enemy.originX) * recenter * dt
-          const effectiveAmplitude = Math.min(
-            enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
-            Math.max(6, safe.halfSpan - 6),
-          )
-          const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
-          enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
-        } else {
-          enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
-        }
-      }
-
-      if (enemy.type === 'gunboat') {
+      // Oscillating types (and movement-capable gunboats) sway sinusoidally and
+      // chase their lane anchor; strafing types (planes, static gunboats) drift
+      // toward the player's lane. Each strategy lives in one place now.
+      if (enemy.type === 'helicopter' || enemy.type === 'boat' || enemy.type === 'tank') {
+        this.applyOscillatingMovement(enemy, dt, ctx)
+      } else if (enemy.type === 'gunboat') {
         if (enemy.hasMovement) {
-          enemy.phase += enemy.phaseSpeed * tierPhaseMult * dt
-          if (shouldUseRiverSteering) {
-            const laneWeight = this.getTierLaneWeight(enemy.aiTier)
-            const anchorX = isRecovering
-              ? safe.center
-              : safe.center + (laneTargetX - safe.center) * laneWeight
-            const recenter = this.getTierOriginRecenter(enemy.aiTier) * (isRecovering ? 1.5 : repositionSteerFactor)
-            enemy.originX += (anchorX - enemy.originX) * recenter * dt
-            const effectiveAmplitude = Math.min(
-              enemy.amplitude * tierAmplitudeMult * recoverStrafeFactor,
-              Math.max(6, safe.halfSpan - 6),
-            )
-            const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
-            enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
-          } else {
-            enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * tierAmplitudeMult
-          }
+          this.applyOscillatingMovement(enemy, dt, ctx)
         } else {
-          const strafeSpeed = enemy.aiTier === 'elite'
-            ? ENEMY_TIER_ELITE_STRAFE_SPEED
-            : enemy.aiTier === 'smart'
-              ? ENEMY_TIER_SMART_STRAFE_SPEED
-              : 0
-          const strafeFreq = enemy.aiTier === 'elite'
-            ? ENEMY_TIER_ELITE_STRAFE_FREQ
-            : enemy.aiTier === 'smart'
-              ? ENEMY_TIER_SMART_STRAFE_FREQ
-              : 0
-          if (strafeSpeed > 0) {
-            if (shouldUseRiverSteering) {
-              const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
-              const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
-              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
-              enemy.x += (laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * repositionSteerFactor * dt
-            } else {
-              enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
-            }
-          }
+          this.applyStrafeMovement(enemy, dt, ctx)
         }
-      }
-
-      if (enemy.type === 'plane') {
-        const strafeSpeed = enemy.aiTier === 'elite'
-          ? ENEMY_TIER_ELITE_STRAFE_SPEED
-          : enemy.aiTier === 'smart'
-            ? ENEMY_TIER_SMART_STRAFE_SPEED
-            : 0
-        const strafeFreq = enemy.aiTier === 'elite'
-          ? ENEMY_TIER_ELITE_STRAFE_FREQ
-          : enemy.aiTier === 'smart'
-            ? ENEMY_TIER_SMART_STRAFE_FREQ
-            : 0
-        if (strafeSpeed > 0) {
-          if (shouldUseRiverSteering) {
-            const nearestEdge = Math.min(enemy.x - safe.left, safe.right - enemy.x)
-            const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
-            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * edgeFactor * recoverStrafeFactor * dt
-            enemy.x += (laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * repositionSteerFactor * dt
-          } else {
-            enemy.x += Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed * dt
-          }
-        }
+      } else if (enemy.type === 'plane') {
+        this.applyStrafeMovement(enemy, dt, ctx)
       }
 
       if (enemy.type !== 'bridge') {
@@ -479,12 +427,15 @@ export class EnemyManager {
             bullet.x = enemy.x
             bullet.y = enemy.y + enemy.height / 2
             bullet.speed = baseBulletSpeed * tierBulletSpeed
+            bullet.vx = this.computeAimVx(enemy, bullet.speed, target)
             bullet.width = enemy.type === 'plane' ? 5 : 4
             bullet.height = enemy.type === 'plane' ? 10 : 8
             bullet.fromPlane = enemy.type === 'plane'
             const tierInterval = this.getTierShootIntervalMult(enemy.aiTier)
             const tierRandom = this.getTierShootRandomMult(enemy.aiTier)
-            enemy.shootCooldown = enemy.shootInterval * tierInterval + this.random() * 0.3 * tierRandom
+            // Late-game escalation tightens cadence on top of the tier multiplier.
+            const escalationSpeedup = 1 - this.getEscalation() * ENEMY_ESCALATION_SHOOT_SPEEDUP
+            enemy.shootCooldown = (enemy.shootInterval * tierInterval + this.random() * 0.3 * tierRandom) * escalationSpeedup
           }
         }
       }
@@ -495,11 +446,91 @@ export class EnemyManager {
     }
 
     for (const bullet of this.bullets) {
+      bullet.x += bullet.vx * dt
       bullet.y += bullet.speed * dt
       if (bullet.y > this.canvasHeight + 20) {
         bullet.active = false
       }
     }
+  }
+
+  /** Updates the smoothed player-velocity estimate used for elite leading fire. */
+  private trackTarget(dt: number, target?: AimTarget): void {
+    if (!target) {
+      this.lastTargetX = null
+      this.targetVx = 0
+      return
+    }
+    if (this.lastTargetX !== null && dt > 0) {
+      const instantVx = (target.x - this.lastTargetX) / dt
+      const s = EnemyManager.AIM_TARGET_VX_SMOOTH
+      this.targetVx = this.targetVx * s + instantVx * (1 - s)
+    }
+    this.lastTargetX = target.x
+  }
+
+  /**
+   * Sinusoidal sway with lane-anchored origin recentering, shared by
+   * helicopters, boats, tanks and movement-capable gunboats.
+   */
+  private applyOscillatingMovement(enemy: OscillatingEnemy, dt: number, ctx: MovementContext): void {
+    enemy.phase += enemy.phaseSpeed * ctx.tierPhaseMult * dt
+    if (ctx.shouldUseRiverSteering) {
+      const laneWeight = this.getTierLaneWeight(enemy.aiTier)
+      const anchorX = ctx.isRecovering
+        ? ctx.safe.center
+        : ctx.safe.center + (ctx.laneTargetX - ctx.safe.center) * laneWeight
+      const recenter = this.getTierOriginRecenter(enemy.aiTier) * (ctx.isRecovering ? 1.5 : ctx.repositionSteerFactor)
+      enemy.originX += (anchorX - enemy.originX) * recenter * dt
+      const effectiveAmplitude = Math.min(
+        enemy.amplitude * ctx.tierAmplitudeMult * ctx.recoverStrafeFactor,
+        Math.max(6, ctx.safe.halfSpan - 6),
+      )
+      const desiredX = enemy.originX + Math.sin(enemy.phase) * effectiveAmplitude
+      enemy.x += (desiredX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * dt
+    } else {
+      enemy.x = enemy.originX + Math.sin(enemy.phase) * enemy.amplitude * ctx.tierAmplitudeMult
+    }
+  }
+
+  /**
+   * Edge-aware lateral strafe that drifts toward the player's lane, shared by
+   * planes and static gunboats. Basic tier holds course (zero strafe speed).
+   */
+  private applyStrafeMovement(enemy: Enemy, dt: number, ctx: MovementContext): void {
+    const strafeSpeed = enemy.aiTier === 'elite'
+      ? ENEMY_TIER_ELITE_STRAFE_SPEED
+      : enemy.aiTier === 'smart'
+        ? ENEMY_TIER_SMART_STRAFE_SPEED
+        : 0
+    if (strafeSpeed === 0) return
+    const strafeFreq = enemy.aiTier === 'elite' ? ENEMY_TIER_ELITE_STRAFE_FREQ : ENEMY_TIER_SMART_STRAFE_FREQ
+    const wave = Math.sin(this.gameTime * strafeFreq + enemy.y * 0.01) * strafeSpeed
+    if (ctx.shouldUseRiverSteering) {
+      const nearestEdge = Math.min(enemy.x - ctx.safe.left, ctx.safe.right - enemy.x)
+      const edgeFactor = Math.max(0, Math.min(1, nearestEdge / EnemyManager.AI_EDGE_SOFT_ZONE))
+      enemy.x += wave * edgeFactor * ctx.recoverStrafeFactor * dt
+      enemy.x += (ctx.laneTargetX - enemy.x) * this.getTierCenterSteer(enemy.aiTier) * ctx.repositionSteerFactor * dt
+    } else {
+      enemy.x += wave * dt
+    }
+  }
+
+  /**
+   * Horizontal bullet velocity for aimed fire. Basic tier never aims (returns 0);
+   * smart aims at the player's current column, elite leads the player using the
+   * smoothed velocity estimate. The slant is capped so shots stay dodgeable.
+   */
+  private computeAimVx(enemy: Enemy, bulletSpeed: number, target?: AimTarget): number {
+    if (!target || enemy.aiTier === 'basic' || bulletSpeed <= 0) return 0
+    const dy = target.y - enemy.y
+    if (dy <= EnemyManager.AIM_MIN_DY) return 0
+    const timeToReach = dy / bulletSpeed
+    const lead = enemy.aiTier === 'elite' ? this.targetVx * timeToReach : 0
+    const aimX = target.x + lead
+    const desiredVx = (aimX - enemy.x) / timeToReach
+    const maxVx = bulletSpeed * EnemyManager.AIM_MAX_RATIO
+    return Math.max(-maxVx, Math.min(maxVx, desiredVx))
   }
 
   private canSpawnAnyMore(): boolean {
@@ -653,6 +684,18 @@ export class EnemyManager {
     return Math.max(safe.left, Math.min(safe.right, x))
   }
 
+  /**
+   * Long-game escalation factor in [0, 1]: 0 until ENEMY_ESCALATION_START, then
+   * ramps linearly to 1 at ENEMY_ESCALATION_FULL. Drives the late-game pressure
+   * (more elites, faster fire) that keeps difficulty climbing past the early
+   * ramps' saturation point.
+   */
+  private getEscalation(): number {
+    const span = ENEMY_ESCALATION_FULL - ENEMY_ESCALATION_START
+    if (span <= 0) return this.gameTime >= ENEMY_ESCALATION_FULL ? 1 : 0
+    return Math.max(0, Math.min(1, (this.gameTime - ENEMY_ESCALATION_START) / span))
+  }
+
   private resolveAiTier(type: EnemyType): AiTier {
     // Base probabilities by game time
     let basicW: number, smartW: number, eliteW: number
@@ -665,11 +708,16 @@ export class EnemyManager {
         basicW = 0.65; smartW = 0.35; eliteW = 0
       }
     } else {
+      // Late game: the elite share keeps growing with escalation so veteran runs
+      // face progressively smarter (aiming/leading) enemies instead of a plateau.
+      const eliteShift = this.getEscalation() * ENEMY_ESCALATION_ELITE_SHIFT
+      basicW = 0
       if (type === 'plane' || type === 'gunboat') {
-        basicW = 0; smartW = 0.5; eliteW = 0.5
+        eliteW = Math.min(1, 0.5 + eliteShift)
       } else {
-        basicW = 0; smartW = 0.75; eliteW = 0.25
+        eliteW = Math.min(1, 0.25 + eliteShift)
       }
+      smartW = 1 - eliteW
     }
 
     // Apply biome tier bias
@@ -790,25 +838,17 @@ export class EnemyManager {
     const aiTier = this.resolveAiTier(type)
     const enemy = this.enemyPool.acquire()
     const movementAmplitudeMult = spawnRisk.high ? EnemyManager.SPAWN_MOVEMENT_AMPLITUDE_MULT : 1
+    const segBounds = {
+      left: topSegment.centerX - topSegment.width / 2,
+      right: topSegment.centerX + topSegment.width / 2,
+      center: topSegment.centerX,
+    }
 
+    // NOTE: the order of this.random() calls below is load-bearing — seeded runs
+    // must stay reproducible. baseFields() consumes exactly one random (lane
+    // cooldown); keep it at the same position it occupied in the old literals.
     if (type === 'helicopter') {
-      Object.assign(enemy, {
-        type: 'helicopter',
-        aiTier,
-        x,
-        y,
-        width,
-        height: config.height,
-        speed: 80,
-        active: true,
-        points: config.points,
-        bankRecoverTimer: 0,
-        bankRecoverCooldown: 0,
-        bankRecoverDir: 0,
-        aiState: 'patrol',
-        stateTimer: 0,
-        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
-        laneCooldown: this.getNextLaneCooldown(),
+      Object.assign(enemy, this.baseFields(type, x, y, width, config, 80, aiTier, segBounds), {
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
@@ -816,80 +856,32 @@ export class EnemyManager {
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
         amplitude: (30 + this.random() * 40) * movementAmplitudeMult,
-      } as HelicopterEnemy)
+      } as Partial<HelicopterEnemy>)
       return true
     }
 
     if (type === 'plane') {
-      Object.assign(enemy, {
-        type: 'plane',
-        aiTier,
-        x,
-        y,
-        width,
-        height: config.height,
-        speed: 200,
-        active: true,
-        points: config.points,
-        bankRecoverTimer: 0,
-        bankRecoverCooldown: 0,
-        bankRecoverDir: 0,
-        aiState: 'patrol',
-        stateTimer: 0,
-        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
-        laneCooldown: this.getNextLaneCooldown(),
+      Object.assign(enemy, this.baseFields(type, x, y, width, config, 200, aiTier, segBounds), {
         canShoot: this.random() < 0.6,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (0.6 + this.random() * 0.4) * this.getTierShootIntervalMult(aiTier),
-      } as PlaneEnemy)
+      } as Partial<PlaneEnemy>)
       return true
     }
 
     if (type === 'boat') {
-      Object.assign(enemy, {
-        type: 'boat',
-        aiTier,
-        x,
-        y,
-        width,
-        height: config.height,
-        speed: 40,
-        active: true,
-        points: config.points,
-        bankRecoverTimer: 0,
-        bankRecoverCooldown: 0,
-        bankRecoverDir: 0,
-        aiState: 'patrol',
-        stateTimer: 0,
-        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
-        laneCooldown: this.getNextLaneCooldown(),
+      Object.assign(enemy, this.baseFields(type, x, y, width, config, 40, aiTier, segBounds), {
         originX: x,
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 0.8 + this.random() * 0.5,
         amplitude: (20 + this.random() * 20) * movementAmplitudeMult,
-      } as BoatEnemy)
+      } as Partial<BoatEnemy>)
       return true
     }
 
     if (type === 'gunboat') {
       const hasMovement = this.random() < 0.5
-      Object.assign(enemy, {
-        type: 'gunboat',
-        aiTier,
-        x,
-        y,
-        width,
-        height: config.height,
-        speed: 70,
-        active: true,
-        points: config.points,
-        bankRecoverTimer: 0,
-        bankRecoverCooldown: 0,
-        bankRecoverDir: 0,
-        aiState: 'patrol',
-        stateTimer: 0,
-        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
-        laneCooldown: this.getNextLaneCooldown(),
+      Object.assign(enemy, this.baseFields(type, x, y, width, config, 70, aiTier, segBounds), {
         canShoot: this.random() < 0.8,
         shootCooldown: 0.8 + this.random() * 1.2,
         shootInterval: (1.0 + this.random() * 0.5) * this.getTierShootIntervalMult(aiTier),
@@ -898,28 +890,12 @@ export class EnemyManager {
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
         amplitude: hasMovement ? (20 + this.random() * 20) * movementAmplitudeMult : 0,
-      } as GunboatEnemy)
+      } as Partial<GunboatEnemy>)
       return true
     }
 
     if (type === 'tank') {
-      Object.assign(enemy, {
-        type: 'tank',
-        aiTier,
-        x,
-        y,
-        width,
-        height: config.height,
-        speed: 55,
-        active: true,
-        points: config.points,
-        bankRecoverTimer: 0,
-        bankRecoverCooldown: 0,
-        bankRecoverDir: 0,
-        aiState: 'patrol',
-        stateTimer: 0,
-        laneIntent: this.resolveLaneFromX(x, { left: topSegment.centerX - topSegment.width / 2, right: topSegment.centerX + topSegment.width / 2, center: topSegment.centerX }),
-        laneCooldown: this.getNextLaneCooldown(),
+      Object.assign(enemy, this.baseFields(type, x, y, width, config, 55, aiTier, segBounds), {
         canShoot: this.random() < 0.5,
         shootCooldown: 1.0 + this.random() * 2.0,
         shootInterval: (2.0 + this.random()) * this.getTierShootIntervalMult(aiTier),
@@ -927,18 +903,36 @@ export class EnemyManager {
         phase: this.random() * Math.PI * 2,
         phaseSpeed: 2 + this.random(),
         amplitude: (30 + this.random() * 40) * movementAmplitudeMult,
-      } as TankEnemy)
+      } as Partial<TankEnemy>)
       return true
     }
 
-    Object.assign(enemy, {
-      type: 'bridge',
+    Object.assign(enemy, this.baseFields(type, x, y, width, config, 0, aiTier, segBounds))
+    return true
+  }
+
+  /**
+   * Common fields every enemy shares at spawn. Consumes exactly one random()
+   * (the lane cooldown), so callers must invoke it at the original RNG position.
+   */
+  private baseFields(
+    type: EnemyType,
+    x: number,
+    y: number,
+    width: number,
+    config: { height: number; points: number },
+    speed: number,
+    aiTier: AiTier,
+    segBounds: { left: number; right: number; center: number },
+  ): Partial<Enemy> {
+    return {
+      type,
       aiTier,
       x,
       y,
       width,
       height: config.height,
-      speed: 0,
+      speed,
       active: true,
       points: config.points,
       bankRecoverTimer: 0,
@@ -946,10 +940,9 @@ export class EnemyManager {
       bankRecoverDir: 0,
       aiState: 'patrol',
       stateTimer: 0,
-      laneIntent: 0,
+      laneIntent: this.resolveLaneFromX(x, segBounds),
       laneCooldown: this.getNextLaneCooldown(),
-    } as BridgeEnemy)
-    return true
+    } as Partial<Enemy>
   }
 
   private getSpawnRisk(riverSegments: { centerX: number; width: number; y: number }[]): { high: boolean } {
@@ -976,5 +969,7 @@ export class EnemyManager {
     this.spawnTimer = 0
     this.spawnInterval = ENEMY_SPAWN_INTERVAL_START
     this.gameTime = 0
+    this.lastTargetX = null
+    this.targetVx = 0
   }
 }

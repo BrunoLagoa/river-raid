@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { SoundManager } from './SoundManager'
 import { mockAudioContext } from './test-helpers/audio'
 
@@ -39,6 +39,46 @@ describe('SoundManager', () => {
   describe('resume', () => {
     it('resume nao falha se ctx null', () => {
       expect(() => sm.resume()).not.toThrow()
+    })
+  })
+
+  describe('biome music', () => {
+    beforeEach(() => {
+      mockAudioContext()
+      sm = new SoundManager()
+    })
+
+    afterEach(() => {
+      sm.stopMusic()
+    })
+
+    it('startMusic aceita bioma e nao falha', () => {
+      expect(() => sm.startMusic('desert')).not.toThrow()
+    })
+
+    it('setBiomeMusic troca de bioma sem falhar', () => {
+      sm.startMusic('forest')
+      expect(() => sm.setBiomeMusic('industrial')).not.toThrow()
+    })
+
+    it('setBiomeMusic aceita o bioma de neve', () => {
+      sm.startMusic('forest')
+      expect(() => sm.setBiomeMusic('snow')).not.toThrow()
+    })
+
+    it('setBiomeMusic e no-op quando o bioma nao muda', () => {
+      sm.startMusic('forest')
+      expect(() => sm.setBiomeMusic('forest')).not.toThrow()
+    })
+
+    it('setMusicPhase aceita fases validas e ignora invalidas', () => {
+      expect(() => {
+        sm.setMusicPhase(2)   // noite
+        sm.setMusicPhase(0)   // dia
+        sm.setMusicPhase(-1)  // invalida: ignorada
+        sm.setMusicPhase(99)  // invalida: ignorada
+      }).not.toThrow()
+      expect((sm as unknown as { musicPhase: number }).musicPhase).toBe(0)
     })
   })
 
