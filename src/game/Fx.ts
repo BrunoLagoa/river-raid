@@ -136,6 +136,50 @@ export class Fx {
     }
   }
 
+  /**
+   * Short burst at the ship's muzzle, tinted with the active shot colour so
+   * the current fire mode is readable at the source, not just mid-flight.
+   */
+  muzzleFlash(x: number, y: number, color: string): void {
+    const count = this.reducedMotion ? 1 : 3
+    for (let i = 0; i < count; i++) {
+      const p = this.getNextParticle()
+      if (!p) break
+      p.x = x + (Math.random() - 0.5) * 4
+      p.y = y
+      p.vx = (Math.random() - 0.5) * 60
+      p.vy = -60 - Math.random() * 50
+      p.life = 0.08 + Math.random() * 0.06
+      p.maxLife = p.life
+      p.size = 2 + Math.random() * 2
+      p.color = color
+      p.active = true
+    }
+  }
+
+  /**
+   * Sparks in the bullet's own colour at the point of impact — links the shot
+   * the player fired to the kill it produced.
+   */
+  bulletSpark(x: number, y: number, color: string): void {
+    const count = this.reducedMotion ? 1 : 4
+    for (let i = 0; i < count; i++) {
+      const p = this.getNextParticle()
+      if (!p) break
+      const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI
+      const speed = 60 + Math.random() * 70
+      p.x = x
+      p.y = y
+      p.vx = Math.cos(angle) * speed
+      p.vy = Math.sin(angle) * speed
+      p.life = 0.12 + Math.random() * 0.12
+      p.maxLife = p.life
+      p.size = 1 + Math.random() * 2
+      p.color = color
+      p.active = true
+    }
+  }
+
   scorePopup(x: number, y: number, text: string): void {
     const popup = this.popups.find((p) => !p.active)
     if (!popup) return

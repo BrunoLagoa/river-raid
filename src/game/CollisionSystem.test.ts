@@ -24,7 +24,7 @@ function makeCtx() {
     enemyManager: { enemies: [], bullets: [] },
     fuelSystem: { checkPickup: vi.fn(() => false), spawnAt: vi.fn() },
     powerUpSystem: { powerUps: [], trySpawnAt: vi.fn() },
-    fx: { explosion: vi.fn(), flash: vi.fn(), addShake: vi.fn(), bigExplosion: vi.fn(), deathSmoke: vi.fn(), scorePopup: vi.fn() },
+    fx: { explosion: vi.fn(), flash: vi.fn(), addShake: vi.fn(), bigExplosion: vi.fn(), deathSmoke: vi.fn(), scorePopup: vi.fn(), bulletSpark: vi.fn(), muzzleFlash: vi.fn() },
     sound: { explosion: vi.fn(), enemyHit: vi.fn(), fuelCollect: vi.fn() },
     world: { isOutOfBounds: vi.fn(() => false) },
     comboMultiplier: 1,
@@ -61,7 +61,7 @@ describe('CollisionSystem', () => {
   it('aplica score ao acertar inimigo com bala do player', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'plane',
       aiTier: 'basic',
@@ -156,7 +156,7 @@ describe('CollisionSystem', () => {
   it('bala vs bridge dispara bigExplosion', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
       aiTier: 'basic',
@@ -179,7 +179,7 @@ describe('CollisionSystem', () => {
   it('bala vs non-bridge chama explosion normal', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'helicopter',
       aiTier: 'basic',
@@ -276,7 +276,7 @@ describe('CollisionSystem', () => {
   it('bridge com random > 0.5 nao spawna fuel e tenta powerup', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
       aiTier: 'basic',
@@ -299,7 +299,7 @@ describe('CollisionSystem', () => {
   it('ignora bala do player inativa em bullets vs enemies', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: false })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: false })
     ctx.enemyManager.enemies.push({
       type: 'plane',
       aiTier: 'basic',
@@ -323,8 +323,8 @@ describe('CollisionSystem', () => {
   it('ignora candidato inativo apos kill no mesmo frame', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'plane',
       aiTier: 'basic',
@@ -348,7 +348,7 @@ describe('CollisionSystem', () => {
   it('inimigo no candidate sem overlap nao pontua', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'plane',
       aiTier: 'basic',
@@ -427,7 +427,7 @@ describe('CollisionSystem', () => {
   it('usa fallback de cor para inimigo desconhecido em explosao normal', () => {
     const ctx = makeCtx()
     ctx.player.y = 300
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'mystery',
       aiTier: 'basic',
@@ -447,7 +447,7 @@ describe('CollisionSystem', () => {
 
   it('executa caminho bridge em checkBulletsVsEnemies', () => {
     const ctx = makeCtx()
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
       aiTier: 'basic',
@@ -507,7 +507,7 @@ describe('CollisionSystem', () => {
 
   it('bridge sem cor definida usa fallback no bigExplosion', () => {
     const ctx = makeCtx()
-    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, active: true })
+    ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
       aiTier: 'basic',

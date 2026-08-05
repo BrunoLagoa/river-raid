@@ -1,4 +1,5 @@
 import { Player } from './Player'
+import { BULLET_STYLES } from './BulletStyles'
 import { World } from './World'
 import { CollisionSystem } from './CollisionSystem'
 import type { CollisionContext } from './CollisionSystem'
@@ -227,6 +228,7 @@ export class Game {
   setReducedMotion(enabled: boolean): void {
     this.reducedMotion = enabled
     this.fx.setReducedMotion(enabled)
+    this.player.setReducedMotion(enabled)
   }
 
   // Light haptic feedback on mobile; suppressed when reduced motion is on.
@@ -247,6 +249,7 @@ export class Game {
 
   setColorblind(enabled: boolean): void {
     this.colorblind = enabled
+    this.player.setColorblind(enabled)
   }
 
   setObjectiveBalanceProfile(profile: ObjectiveBalanceProfile): void {
@@ -479,6 +482,11 @@ export class Game {
 
     if (this.player.justShot) {
       this.sound.shoot()
+      this.fx.muzzleFlash(
+        this.player.x,
+        this.player.y - this.player.height / 2,
+        BULLET_STYLES[this.player.currentBulletKind].body,
+      )
       this.player.justShot = false
       if (this.comboMultiplier > 1) {
         this.scoring.comboLevelTimer -= COMBO_SHOT_PENALTY

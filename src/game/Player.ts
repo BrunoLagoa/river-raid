@@ -1,4 +1,6 @@
 import { ObjectPool } from './ObjectPool'
+import { BulletRenderer } from './BulletRenderer'
+import { resolveBulletKind, type BulletKind } from './BulletStyles'
 import {
   PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
   PLAYER_VERTICAL_SPEED, PLAYER_MIN_Y_RATIO, PLAYER_MAX_Y_MARGIN,
@@ -19,6 +21,8 @@ export interface Bullet {
   width: number
   height: number
   active: boolean
+  /** Visual state, frozen at spawn from the fire power-ups then active. */
+  kind: BulletKind
 }
 
 export class Player {
@@ -32,10 +36,15 @@ export class Player {
   state: GameState = 'alive'
   private bulletPool = new ObjectPool<Bullet>(
     PLAYER_MAX_BULLETS,
-    () => ({ x: 0, y: 0, speed: PLAYER_BULLET_SPEED, width: PLAYER_BULLET_W, height: PLAYER_BULLET_H, active: false }),
+    () => ({ x: 0, y: 0, speed: PLAYER_BULLET_SPEED, width: PLAYER_BULLET_W, height: PLAYER_BULLET_H, active: false, kind: 'normal' as BulletKind }),
     (b) => { b.active = true },
   )
+  private bulletRenderer = new BulletRenderer()
   get bullets(): Bullet[] { return this.bulletPool.activeItems }
+  /** Visual state the next shot will be fired with. */
+  get currentBulletKind(): BulletKind {
+    return resolveBulletKind(this.doubleShotTimer, this.rapidFireTimer)
+  }
   shootCooldown = 0
   shootInterval = PLAYER_SHOOT_INTERVAL
   justShot = false
@@ -142,6 +151,9 @@ export class Player {
       const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
       if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         const effectiveCooldown = this.shootInterval * (this.rapidFireTimer > 0 ? POWERUP_RAPID_FIRE_COOLDOWN_MULTIPLIER : 1.0)
+        // Only the visual kind varies — width/height stay at the pool defaults
+        // so hitboxes (and therefore balance) are identical across states.
+        const kind = this.currentBulletKind
         if (this.doubleShotTimer > 0) {
           const doubleShotSpeed = PLAYER_BULLET_SPEED * PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER
 
@@ -149,16 +161,19 @@ export class Player {
           b1.x = this.x - PLAYER_DOUBLE_SHOT_SPREAD
           b1.y = this.y - this.height / 2
           b1.speed = doubleShotSpeed
+          b1.kind = kind
 
           const b2 = this.bulletPool.acquire()
           b2.x = this.x + PLAYER_DOUBLE_SHOT_SPREAD
           b2.y = this.y - this.height / 2
           b2.speed = doubleShotSpeed
+          b2.kind = kind
         } else {
           const b = this.bulletPool.acquire()
           b.x = this.x
           b.y = this.y - this.height / 2
           b.speed = PLAYER_BULLET_SPEED
+          b.kind = kind
         }
         this.shootCooldown = effectiveCooldown
         this.justShot = true
@@ -179,6 +194,14 @@ export class Player {
     }
   }
 
+  setReducedMotion(enabled: boolean): void {
+    this.bulletRenderer.setReducedMotion(enabled)
+  }
+
+  setColorblind(enabled: boolean): void {
+    this.bulletRenderer.setColorblind(enabled)
+  }
+
   render(ctx: CanvasRenderingContext2D): void {
     if (this.state === 'alive') {
       ctx.save()
@@ -196,14 +219,7 @@ export class Player {
       this.renderExplosion(ctx)
     }
 
-    for (const bullet of this.bullets) {
-      ctx.save()
-      ctx.fillStyle = '#ffee44'
-      ctx.fillRect(bullet.x - bullet.width / 2, bullet.y, bullet.width, bullet.height)
-      ctx.fillStyle = '#ffffff88'
-      ctx.fillRect(bullet.x - 1, bullet.y, 2, bullet.height * 0.6)
-      ctx.restore()
-    }
+    this.bulletRenderer.render(ctx, this.bullets)
   }
 
   private renderShip(ctx: CanvasRenderingContext2D): void {

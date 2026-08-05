@@ -1,4 +1,5 @@
 import type { Player } from './Player'
+import { BULLET_STYLES } from './BulletStyles'
 import { ENEMY_COLORS, type EnemyManager, type EnemyType } from './EnemyManager'
 import type { FuelSystem } from './FuelSystem'
 import type { Fx } from './Fx'
@@ -191,6 +192,7 @@ export class CollisionSystem {
 
         if (CollisionSystem.checkAABB(bulletRect, enemyRect)) {
           bullet.active = false
+          ctx.fx.bulletSpark(bullet.x, bullet.y, BULLET_STYLES[bullet.kind].core)
           if (enemy.type === 'bridge') {
             ctx.fx.bigExplosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
           } else {
