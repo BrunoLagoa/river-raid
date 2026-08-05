@@ -1,4 +1,5 @@
 import { compactArray } from './utils'
+import { BULLET_STYLES } from './BulletStyles'
 import { POWERUP_DROP_CHANCE, POWERUP_SIZE } from './constants'
 import type { RandomSource } from './random'
 
@@ -66,9 +67,12 @@ export class PowerUpSystem {
       ctx.save()
       ctx.translate(p.x, p.y)
 
+      // Fire power-ups carry the exact colour of the bullets they produce, so
+      // the pickup teaches the shot state. Double shot also moves off red,
+      // which read as an enemy bullet.
       if (p.type === 'double_shot') {
-        ctx.fillStyle = '#ff4444'
-        ctx.strokeStyle = '#ffeecc'
+        ctx.fillStyle = BULLET_STYLES.double.body
+        ctx.strokeStyle = BULLET_STYLES.double.core
       } else if (p.type === 'shield') {
         ctx.fillStyle = '#4488ff'
         ctx.strokeStyle = '#ccffff'
@@ -76,8 +80,8 @@ export class PowerUpSystem {
         ctx.fillStyle = '#eebb00'
         ctx.strokeStyle = '#ffffff'
       } else if (p.type === 'rapid_fire') {
-        ctx.fillStyle = '#ff8800'
-        ctx.strokeStyle = '#ffddaa'
+        ctx.fillStyle = BULLET_STYLES.rapid.body
+        ctx.strokeStyle = BULLET_STYLES.rapid.core
       } else if (p.type === 'bomb') {
         ctx.fillStyle = '#cc2200'
         ctx.strokeStyle = '#ff9977'

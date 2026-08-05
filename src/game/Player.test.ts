@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Player } from './Player'
+import { PLAYER_BULLET_W, PLAYER_BULLET_H } from './constants'
 import { createMockContext2D } from './test-helpers/canvas'
 
 describe('Player', () => {
@@ -54,6 +55,59 @@ describe('Player', () => {
 
     expect(p.bullets.length).toBe(1)
     expect(p.bullets[0]?.speed).toBe(500)
+  })
+
+  it('marca a bala com o estado visual do tiro atual', () => {
+    const cases: Array<{ double: number; rapid: number; kind: string }> = [
+      { double: 0, rapid: 0, kind: 'normal' },
+      { double: 0, rapid: 5, kind: 'rapid' },
+      { double: 5, rapid: 0, kind: 'double' },
+      { double: 5, rapid: 5, kind: 'overcharge' },
+    ]
+
+    for (const { double, rapid, kind } of cases) {
+      const p = new Player(800, 600)
+      p.doubleShotTimer = double
+      p.rapidFireTimer = rapid
+      p.keys.add(' ')
+
+      p.update(0.2, 0, 800)
+
+      expect(p.currentBulletKind).toBe(kind)
+      expect(p.bullets.length).toBeGreaterThan(0)
+      for (const b of p.bullets) expect(b.kind).toBe(kind)
+    }
+  })
+
+  it('estado visual da bala nao altera a hitbox', () => {
+    const p = new Player(800, 600)
+    p.doubleShotTimer = 5
+    p.rapidFireTimer = 5
+    p.keys.add(' ')
+
+    p.update(0.2, 0, 800)
+
+    for (const b of p.bullets) {
+      expect(b.width).toBe(PLAYER_BULLET_W)
+      expect(b.height).toBe(PLAYER_BULLET_H)
+    }
+  })
+
+  it('bala mantem o estado com que foi disparada apos o power-up expirar', () => {
+    const p = new Player(800, 600)
+    p.doubleShotTimer = 5
+    p.keys.add(' ')
+    p.update(0.1, 0, 800)
+    expect(p.bullets.every((b) => b.kind === 'double')).toBe(true)
+
+    // Power-up runs out — bullets already in flight keep their identity.
+    p.keys.delete(' ')
+    p.doubleShotTimer = 0
+    p.update(0.1, 0, 800)
+
+    expect(p.currentBulletKind).toBe('normal')
+    expect(p.bullets.length).toBeGreaterThan(0)
+    for (const b of p.bullets) expect(b.kind).toBe('double')
   })
 
   it('breakShield desativa escudo e aplica invencibilidade temporaria', () => {

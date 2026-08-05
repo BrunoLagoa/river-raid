@@ -1,3 +1,5 @@
+import { BULLET_STYLES } from './BulletStyles'
+
 interface MinimapEntity {
   x: number
   y: number
@@ -109,7 +111,10 @@ export class UI {
     ctx.textAlign = 'left'
     ctx.fillText('SCORE', 16, 17)
     ctx.font = 'bold 22px "Courier New", monospace'
-    ctx.fillStyle = '#ffee44'
+    // Ice white rather than the old #ffee44: amber now means "player fire"
+    // (see BULLET_STYLES), so the HUD readouts stay neutral. Hierarchy comes
+    // from size — this is the largest text on the bar by a wide margin.
+    ctx.fillStyle = '#e9f2ff'
     ctx.fillText(`${score.toString().padStart(6, '0')}`, 16, 40)
 
     // Life icons
@@ -189,8 +194,19 @@ export class UI {
     }
 
     let activeY = 80
+
+    // Overcharge — both fire power-ups at once. Flagged first, in the same
+    // lime the bullets take, so the player learns what the colour means.
+    if (doubleShotTimer > 0 && rapidFireTimer > 0) {
+      ctx.fillStyle = BULLET_STYLES.overcharge.body
+      ctx.font = 'bold 12px "Courier New", monospace'
+      ctx.textAlign = 'left'
+      ctx.fillText(`OVERCHARGE ${Math.min(doubleShotTimer, rapidFireTimer).toFixed(1)}s`, 14, activeY)
+      activeY += 16
+    }
+
     if (doubleShotTimer > 0) {
-      ctx.fillStyle = '#ff4444'
+      ctx.fillStyle = BULLET_STYLES.double.body
       ctx.font = 'bold 12px "Courier New", monospace'
       ctx.textAlign = 'left'
       ctx.fillText(`DOUBLE SHOT ${doubleShotTimer.toFixed(1)}s`, 14, activeY)
@@ -204,14 +220,15 @@ export class UI {
       activeY += 16
     }
     if (rapidFireTimer > 0) {
-      ctx.fillStyle = '#ff8800'
+      ctx.fillStyle = BULLET_STYLES.rapid.body
       ctx.font = 'bold 12px "Courier New", monospace'
       ctx.textAlign = 'left'
       ctx.fillText(`RAPID FIRE ${rapidFireTimer.toFixed(1)}s`, 14, activeY)
       activeY += 16
     }
     if (magnetFuelTimer > 0) {
-      ctx.fillStyle = '#00cccc'
+      // Matches the magnet power-up pickup colour (was #00cccc, out of sync).
+      ctx.fillStyle = '#00cc88'
       ctx.font = 'bold 12px "Courier New", monospace'
       ctx.textAlign = 'left'
       ctx.fillText(`MAGNET FUEL ${magnetFuelTimer.toFixed(1)}s`, 14, activeY)
