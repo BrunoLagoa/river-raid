@@ -77,6 +77,8 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
   useEffect(() => {
     if (!gameRef.current) return
     gameRef.current.setReducedMotion(settings.reducedMotion)
+    gameRef.current.setWeatherEnabled(settings.weatherEffects)
+    gameRef.current.setLightingEnabled(settings.dynamicLighting)
     gameRef.current.setMasterVolume(settings.masterVolume)
     gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
     gameRef.current.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)

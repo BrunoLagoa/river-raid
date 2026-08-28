@@ -183,3 +183,22 @@ export const EXTRA_LIFE_SCORE_INTERVAL = 10000
 export const NEAR_MISS_DISTANCE = 40
 export const NEAR_MISS_POINTS = 10
 export const NEAR_MISS_COOLDOWN = 0.3
+
+// Weather system particle limits & timing
+export const WEATHER_MAX_RAIN_DROPS = 80
+export const WEATHER_MAX_SNOW_FLAKES = 60
+export const WEATHER_MAX_SAND_GRAINS = 70
+export const WEATHER_MAX_SMOG_PUFFS = 40
+export const WEATHER_LIGHTNING_FLASH_DURATION = 0.08
+export const WEATHER_LIGHTNING_INTERVAL_MIN = 6.0
+export const WEATHER_LIGHTNING_INTERVAL_MAX = 14.0
+
+// Dynamic lighting parameters
+export const LIGHTING_HEADLIGHT_ANGLE = 0.52
+export const LIGHTING_HEADLIGHT_RANGE = 260
+export const LIGHTING_NIGHT_ALPHA = 0.65
+export const LIGHTING_DAWN_ALPHA = 0.35
+export const LIGHTING_SUNSET_ALPHA = 0.20
+export const LIGHTING_BULLET_RADIUS = 32
+export const LIGHTING_EXPLOSION_RADIUS = 80
+

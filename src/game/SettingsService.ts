@@ -12,6 +12,8 @@ export interface GameSettings {
   masterVolume: number
   muted: boolean
   reducedMotion: boolean
+  weatherEffects: boolean
+  dynamicLighting: boolean
   colorblindMode: boolean
   gamepadEnabled: boolean
   objectiveBalanceProfile: ObjectiveBalanceProfile
@@ -25,6 +27,8 @@ const DEFAULT_SETTINGS: GameSettings = {
   masterVolume: 0.3,
   muted: false,
   reducedMotion: false,
+  weatherEffects: true,
+  dynamicLighting: true,
   colorblindMode: false,
   gamepadEnabled: true,
   objectiveBalanceProfile: 'conservative',
@@ -38,6 +42,8 @@ export function getStoredSettings(): GameSettings {
     masterVolume: typeof raw.masterVolume === 'number' ? Math.max(0, Math.min(1, raw.masterVolume)) : DEFAULT_SETTINGS.masterVolume,
     muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
+    weatherEffects: typeof raw.weatherEffects === 'boolean' ? raw.weatherEffects : DEFAULT_SETTINGS.weatherEffects,
+    dynamicLighting: typeof raw.dynamicLighting === 'boolean' ? raw.dynamicLighting : DEFAULT_SETTINGS.dynamicLighting,
     colorblindMode: typeof raw.colorblindMode === 'boolean' ? raw.colorblindMode : DEFAULT_SETTINGS.colorblindMode,
     gamepadEnabled: typeof raw.gamepadEnabled === 'boolean' ? raw.gamepadEnabled : DEFAULT_SETTINGS.gamepadEnabled,
     objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
@@ -53,6 +59,8 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     masterVolume: Math.max(0, Math.min(1, next.masterVolume)),
     muted: !!next.muted,
     reducedMotion: !!next.reducedMotion,
+    weatherEffects: typeof next.weatherEffects === 'boolean' ? next.weatherEffects : DEFAULT_SETTINGS.weatherEffects,
+    dynamicLighting: typeof next.dynamicLighting === 'boolean' ? next.dynamicLighting : DEFAULT_SETTINGS.dynamicLighting,
     colorblindMode: !!next.colorblindMode,
     gamepadEnabled: !!next.gamepadEnabled,
     objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)

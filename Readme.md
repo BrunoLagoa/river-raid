@@ -64,6 +64,8 @@ O jogo possui **8 conquistas persistentes** salvas via `localStorage`. Ao desblo
 
 ### ✨ Polimento Visual
 O jogo conta com camadas avançadas de feedback visual para uma experiência mais imersiva:
+- **Efeitos Climáticos Procedurais:** Chuva tropical com relâmpagos estocásticos na Selva, Tempestade de Areia no Deserto, Fuligem/Cinzas com fagulhas no Industrial e Nevasca com vento no Ártico.
+- **Iluminação Dinâmica 2D:** Máscara de escuridão progressiva no entardecer, noite e amanhecer; farol cônico do caça cortando a escuridão e iluminação pontual de tiros e explosões em tempo real.
 - **Screen Shake Dinâmico:** Tremores de tela com intensidades variadas para destruição de pontes (forte), morte de inimigos (médio), subida de combo (micro) e morte do jogador (impactante).
 - **Trail de Fumaça Reativo:** O rastro do avião muda de cor em tempo real: Laranja vibrante ao acelerar (↑) e cinza escuro ao frear (↓).
 - **Rio Vivo e Orgânico:** O rio possui 8 camadas de ondas senoidais, gradiente de profundidade e brilho (*shimmer*) dinâmico na superfície da água.
@@ -82,6 +84,7 @@ O jogo conta com camadas avançadas de feedback visual para uma experiência mai
 ### ⚙️ Configurações e Acessibilidade
 O jogo permite personalizar a experiência através de um menu de configurações persistente:
 - **Controle de Volume:** Ajuste fino do volume principal e opção de mute.
+- **Efeitos Climáticos & Iluminação:** Toggles para habilitar/desabilitar partículas de clima e iluminação dinâmica.
 - **Reduced Motion:** Opção para suavizar ou desativar efeitos visuais intensos para maior conforto.
 - **Suporte a Gamepad:** Ativação automática de controles compatíveis via Standard Gamepad API.
 

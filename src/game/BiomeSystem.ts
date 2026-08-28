@@ -19,6 +19,7 @@ import { lerpPaletteRaw } from './Atmosphere'
 // ─── Public types ─────────────────────────────────────────────────────────────
 
 export type BiomeId = 'forest' | 'desert' | 'industrial' | 'snow'
+export type WeatherType = 'rain' | 'sandstorm' | 'smog' | 'snow' | 'clear'
 
 export type EnemyType = 'helicopter' | 'plane' | 'boat' | 'gunboat' | 'tank' | 'bridge'
 export type SceneryType = 'palm' | 'tree' | 'house' | 'bush' | 'rock' | 'fueltank' | 'pine' | 'igloo' | 'snowman'
@@ -31,6 +32,12 @@ export interface EffectiveBiomeConfig {
   /** 0 = fully `from`, 1 = fully `to`. Is 0 during hold. */
   blend: number
   inTransition: boolean
+
+  // Weather
+  weatherType: WeatherType
+  fromWeatherType: WeatherType
+  toWeatherType: WeatherType
+  weatherBlend: number
 
   // For Atmosphere — already interpolated
   basePalette: PaletteRaw
@@ -52,6 +59,7 @@ export interface EffectiveBiomeConfig {
 
 interface BiomeDefinition {
   id: BiomeId
+  weatherType: WeatherType
   basePalette: PaletteRaw
   enemyWeights: Record<EnemyType, number>
   enemySpawnRateMult: number
@@ -76,6 +84,7 @@ const BIOMES: BiomeDefinition[] = [
   // ── Forest ─────────────────────────────────────────────────────────────────
   {
     id: 'forest',
+    weatherType: 'rain',
     basePalette: {
       landBase:       [26,  92,  26],
       landEdgeDark:   [15,  74,  15],
@@ -103,6 +112,7 @@ const BIOMES: BiomeDefinition[] = [
   // ── Desert ─────────────────────────────────────────────────────────────────
   {
     id: 'desert',
+    weatherType: 'sandstorm',
     basePalette: {
       landBase:       [180, 140,  70],
       landEdgeDark:   [130,  95,  40],
@@ -130,6 +140,7 @@ const BIOMES: BiomeDefinition[] = [
   // ── Industrial ─────────────────────────────────────────────────────────────
   {
     id: 'industrial',
+    weatherType: 'smog',
     basePalette: {
       landBase:       [60,   65,  70],
       landEdgeDark:   [35,   38,  42],
@@ -157,6 +168,7 @@ const BIOMES: BiomeDefinition[] = [
   // ── Snow ─────────────────────────────────────────────────────────────────────
   {
     id: 'snow',
+    weatherType: 'snow',
     basePalette: {
       landBase:       [205, 222, 238],
       landEdgeDark:   [120, 140, 165],
@@ -223,6 +235,10 @@ function makeConfig(from: BiomeDefinition, to: BiomeDefinition, blend: number, i
     toBiomeId:          to.id,
     blend,
     inTransition,
+    weatherType:        blend < 0.5 ? from.weatherType : to.weatherType,
+    fromWeatherType:    from.weatherType,
+    toWeatherType:      to.weatherType,
+    weatherBlend:       blend,
     basePalette:        lerpPaletteRaw(from.basePalette,       to.basePalette,       t),
     enemyWeights:       lerpWeights(from.enemyWeights,         to.enemyWeights,       t),
     enemySpawnRateMult: lerpN(from.enemySpawnRateMult,         to.enemySpawnRateMult, t),

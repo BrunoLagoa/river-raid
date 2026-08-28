@@ -389,6 +389,14 @@ export class Atmosphere {
     return this.phaseIndex
   }
 
+  getPhaseProgress(): number {
+    return (this.cycleTime % PHASE_DURATION) / PHASE_DURATION
+  }
+
+  isNight(): boolean {
+    return this.phaseIndex === 2
+  }
+
   // ── Render: Clouds ───────────────────────────────────────────────────────────
 
   renderClouds(ctx: CanvasRenderingContext2D): void {

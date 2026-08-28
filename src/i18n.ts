@@ -41,6 +41,8 @@ export interface Strings {
   settingsLabelVolume: string
   settingsLabelMute: string
   settingsLabelReducedMotion: string
+  settingsLabelWeather: string
+  settingsLabelLighting: string
   settingsLabelColorblind: string
   settingsLabelGamepad: string
   settingsLabelObjectiveProfile: string
@@ -130,6 +132,8 @@ const en: Strings = {
   settingsLabelVolume: 'Master Volume',
   settingsLabelMute: 'Mute by default',
   settingsLabelReducedMotion: 'Reduced motion',
+  settingsLabelWeather: 'Weather effects',
+  settingsLabelLighting: 'Dynamic lighting',
   settingsLabelColorblind: 'Colorblind cues',
   settingsLabelGamepad: 'Enable gamepad',
   settingsLabelObjectiveProfile: 'Objective Profile',
@@ -246,6 +250,8 @@ const ptBR: Strings = {
   settingsLabelVolume: 'Volume Principal',
   settingsLabelMute: 'Mudo por padrão',
   settingsLabelReducedMotion: 'Movimento reduzido',
+  settingsLabelWeather: 'Efeitos climáticos',
+  settingsLabelLighting: 'Iluminação dinâmica',
   settingsLabelColorblind: 'Indicadores p/ daltonismo',
   settingsLabelGamepad: 'Ativar gamepad',
   settingsLabelObjectiveProfile: 'Perfil de Objetivos',
