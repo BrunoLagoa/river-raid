@@ -1,5 +1,5 @@
-import type { BaseEnemy, Enemy, EnemyBullet, EnemyType } from './EnemyManager'
-import { ENEMY_CONFIGS } from './EnemyManager'
+import type { BaseEnemy, Enemy, EnemyBullet, EnemyType } from './EnemyTypes'
+import { ENEMY_CONFIGS } from './EnemyTypes'
 
 const TYPE_INITIAL: Record<EnemyType, string> = {
   helicopter: 'H',

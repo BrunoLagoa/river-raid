@@ -1,8 +1,7 @@
 import { Player } from './Player'
 import { BULLET_STYLES } from './BulletStyles'
 import { World } from './World'
-import { CollisionSystem } from './CollisionSystem'
-import type { CollisionContext } from './CollisionSystem'
+import { CollisionSystem, type CollisionContext } from './CollisionSystem'
 import { UI, type BossHudData, type OverdriveHudData } from './UI'
 import { EnemyManager } from './EnemyManager'
 import { FuelSystem } from './FuelSystem'
@@ -17,15 +16,13 @@ import { LightingSystem } from './LightingSystem'
 import { OverdriveSystem } from './OverdriveSystem'
 import { BossDreadnought } from './BossDreadnought'
 import { BossRenderer } from './BossRenderer'
-import { HazardManager } from './HazardManager'
-import type { BunkerBulletSpawn, SeaMine } from './HazardManager'
+import { HazardManager, type BunkerBulletSpawn, type SeaMine } from './HazardManager'
 import { HazardRenderer } from './HazardRenderer'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
 import { DebugPanel } from './DebugPanel'
-import { ObjectiveSystem } from './ObjectiveSystem'
-import type { ObjectiveBalanceProfile } from './ObjectiveSystem'
+import { ObjectiveSystem, type ObjectiveBalanceProfile } from './ObjectiveSystem'
 import type { RandomSource } from './random'
 import {
   COMBO_SHOT_PENALTY,
@@ -90,22 +87,9 @@ export class Game {
   private spawnHazardBullet = (b: BunkerBulletSpawn): void => {
     this.enemyManager.spawnEnemyBullet(b)
   }
-  /**
-   * Every chained mine detonation passes through here — the one place a cascade
-   * pays out, so bullet, laser and cascade all award score once and destroy the
-   * enemies caught in the blast through the same path a direct hit uses.
-   */
+  /** Bound once — chained mine detonation callback. */
   private detonateChainedMine = (mine: SeaMine): void => {
-    this.fx.bigExplosion(mine.x, mine.y, '#ff4400')
-    this.sound.explosion()
-    const points = mine.points * this.comboMultiplier
-    this.scoring.addScore(points)
-    this.objectives.onScoreGained(points)
-    this.fx.scorePopup(mine.x, mine.y - 10, `+${points}`)
-
-    const ctx = this.getCollisionContext()
-    ctx.comboMultiplier = this.comboMultiplier
-    CollisionSystem.destroyEnemiesInRadius(ctx, mine.x, mine.y, MINE_CHAIN_RADIUS, '#ffaa00')
+    this.handleDetonateChainedMine(mine)
   }
   // Reused HUD payloads: render() runs 60x/s and must not allocate.
   private bossHud: BossHudData = { healthRatio: 1, phase: 1, isAlive: false }
@@ -135,6 +119,8 @@ export class Game {
 
   private scoring = new ScoringSystem()
   private state = new GameState()
+  // Reaproveitado a cada frame pelo loop (não alocar objetos em hot path).
+  private readonly dynamicIntensity = { comboMax: false, lowFuel: false, inBossFight: false }
   private biomeSystem = new BiomeSystem()
   private readonly minimapEnemies: Array<{ x: number; y: number; active: boolean }> = []
   private readonly minimapFuelTanks: Array<{ x: number; y: number; active: boolean }> = []
@@ -318,6 +304,22 @@ export class Game {
     this.sound.setVolume(volume)
   }
 
+  setMusicVolume(volume: number): void {
+    this.sound.setMusicVolume(volume)
+  }
+
+  setSfxVolume(volume: number): void {
+    this.sound.setSfxVolume(volume)
+  }
+
+  setVoiceVolume(volume: number): void {
+    this.sound.setVoiceVolume(volume)
+  }
+
+  setVoiceEnabled(enabled: boolean): void {
+    this.sound.setVoiceEnabled(enabled)
+  }
+
   setGamepadEnabled(enabled: boolean): void {
     this.gamepadEnabled = enabled
   }
@@ -358,8 +360,9 @@ export class Game {
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.weather.reset()
-    this.lighting.resetHeadlight()
+    this.lighting.reset()
     this.hazards.reset(this.canvas.width, this.canvas.height)
+    this.sound.speech.reset()
     this.overdrive.reset()
     this.boss = null
     this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
@@ -387,6 +390,10 @@ export class Game {
     this.ui.setShortcutLabels(strings.hudPauseLabel, strings.hudMuteLabel)
     this.ui.setBossLabels(strings.hudBossName, strings.hudBossPhase)
     this.ui.setOverdriveLabels(strings.hudOverdriveActive, strings.hudOverdriveReady)
+  }
+
+  setLanguage(language: 'en' | 'pt-BR'): void {
+    this.sound.setLanguage(language)
   }
 
   resize(width: number, height: number): void {
@@ -529,10 +536,13 @@ export class Game {
     // Update biome and distribute config to downstream systems
     this.biomeSystem.update(dt)
     const biomeCfg = this.biomeSystem.getConfig()
+    const biomeId = this.biomeSystem.getCurrentBiomeId()
     // Troca a trilha quando o rio entra em um novo bioma (no-op se igual).
-    this.sound.setBiomeMusic(this.biomeSystem.getCurrentBiomeId())
+    this.sound.setBiomeMusic(biomeId)
     // Modula a trilha conforme a fase do dia (modo noturno).
     this.sound.setMusicPhase(this.atmosphere.getPhaseIndex())
+    // Ajusta acústica ambiental do bioma (eco de cânion / amortecimento de neve).
+    this.sound.setBiomeAcoustics(biomeId)
 
     this.world.setBiomeWidths(biomeCfg.riverMinWidth, biomeCfg.riverMaxWidthRatio)
     this.scenery.setSceneryWeights(biomeCfg.sceneryWeights)
@@ -550,7 +560,7 @@ export class Game {
     this.atmosphere.update(dt, this.scrollSpeed, biomeCfg.basePalette)
     this.weather.update(dt, this.scrollSpeed, biomeCfg.weatherType, this.reducedMotion)
     // Farol só de noite — e a troca é animada (warm-up piscante / fade ao apagar).
-    this.lighting.updateHeadlight(dt, this.atmosphere.isNight(), this.reducedMotion)
+    this.lighting.update(dt, this.atmosphere.isNight(), this.reducedMotion)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
@@ -579,6 +589,27 @@ export class Game {
     this.overdrive.update(envDt)
     this.player.overdriveActive = this.overdrive.isActive
 
+    // Update speech synthesizer cooldowns
+    this.sound.speech.update(envDt)
+
+    // Dynamic music layering based on tension & combo
+    const isLowFuel = this.fuelSystem.fuel <= FUEL_LOW_THRESHOLD
+    const isComboMax = this.comboMultiplier >= 4
+    const isBossActive = !!(this.boss && this.boss.active)
+
+    const intensity = this.dynamicIntensity
+    intensity.comboMax = isComboMax
+    intensity.lowFuel = isLowFuel
+    intensity.inBossFight = isBossActive
+    this.sound.setDynamicIntensity(intensity)
+
+    // Tactical vocal alerts
+    if (this.player.state === 'alive') {
+      if (isLowFuel) this.sound.speech.playWarningLowFuel()
+      if (isComboMax) this.sound.speech.playComboMax()
+      if (this.overdrive.isReady) this.sound.speech.playOverdriveReady()
+    }
+
     // Environmental Hazards update (Sea Mines, Whirlpools, Shore Bunkers)
     this.hazards.update(
       envDt,
@@ -597,12 +628,14 @@ export class Game {
         this.boss = new BossDreadnought(this.canvas.width, -BOSS_HEIGHT, this.random)
         this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
         this.fx.flash('#ff0044', 0.2)
+        this.sound.speech.playBossAlert()
       }
     } else {
       if (this.boss.active) {
         const riverBounds = this.world.getBoundsAtY(this.boss.y)
         this.boss.update(envDt, this.player.x, this.player.y, riverBounds, this.spawnBossBullet)
       } else if (this.boss.state === 'defeated') {
+        this.sound.speech.playMissionComplete()
         this.boss = null
       }
     }
@@ -747,6 +780,24 @@ export class Game {
     ctx.hazards = this.hazards
     ctx.dt = envDt
     CollisionSystem.resolveCollisions(ctx)
+  }
+
+  /**
+   * Every chained mine detonation passes through here — the one place a cascade
+   * pays out, so bullet, laser and cascade all award score once and destroy the
+   * enemies caught in the blast through the same path a direct hit uses.
+   */
+  private handleDetonateChainedMine(mine: SeaMine): void {
+    this.fx.bigExplosion(mine.x, mine.y, '#ff4400')
+    this.sound.explosion()
+    const points = mine.points * this.comboMultiplier
+    this.scoring.addScore(points)
+    this.objectives.onScoreGained(points)
+    this.fx.scorePopup(mine.x, mine.y - 10, `+${points}`)
+
+    const ctx = this.getCollisionContext()
+    ctx.comboMultiplier = this.comboMultiplier
+    CollisionSystem.destroyEnemiesInRadius(ctx, mine.x, mine.y, MINE_CHAIN_RADIUS, '#ffaa00')
   }
 
   private updateDebugMetrics(): void {

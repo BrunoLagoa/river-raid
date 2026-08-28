@@ -1,6 +1,6 @@
 import { ObjectPool } from './ObjectPool'
 import { BulletRenderer } from './BulletRenderer'
-import { resolveBulletKind, type BulletKind } from './BulletStyles'
+import { resolveBulletKind, type Bullet, type BulletKind } from './BulletStyles'
 import {
   PLAYER_WIDTH, PLAYER_HEIGHT, PLAYER_SPEED,
   PLAYER_VERTICAL_SPEED, PLAYER_MIN_Y_RATIO, PLAYER_MAX_Y_MARGIN,
@@ -15,16 +15,7 @@ import {
 
 export type GameState = 'alive' | 'exploding' | 'dead'
 
-export interface Bullet {
-  x: number
-  y: number
-  speed: number
-  width: number
-  height: number
-  active: boolean
-  /** Visual state, frozen at spawn from the fire power-ups then active. */
-  kind: BulletKind
-}
+export type { Bullet } from './BulletStyles'
 
 export class Player {
   x: number

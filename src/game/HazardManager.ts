@@ -73,7 +73,6 @@ export class HazardManager {
   whirlpools: Whirlpool[] = []
   bunkers: ShoreBunker[] = []
 
-  private canvasWidth: number
   private canvasHeight: number
   private random: RandomSource
   private spawnTimer = 0
@@ -81,11 +80,10 @@ export class HazardManager {
   private readonly whirlpoolForce = { fx: 0, fy: 0 }
 
   constructor(
-    canvasWidth: number,
+    _canvasWidth: number,
     canvasHeight: number,
     random: RandomSource = Math.random,
   ) {
-    this.canvasWidth = canvasWidth
     this.canvasHeight = canvasHeight
     this.random = random
     this.spawnTimer = this.getRandomSpawnInterval()
@@ -142,8 +140,7 @@ export class HazardManager {
     }
   }
 
-  reset(canvasWidth: number, canvasHeight: number): void {
-    this.canvasWidth = canvasWidth
+  reset(_canvasWidth: number, canvasHeight: number): void {
     this.canvasHeight = canvasHeight
     this.spawnTimer = this.getRandomSpawnInterval()
     for (const m of this.mines) m.active = false

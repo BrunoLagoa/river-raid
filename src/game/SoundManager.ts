@@ -203,8 +203,9 @@ const SNOW_TRACK: MusicTrack = {
   ],
 }
 
-// Mapa bioma → trilha. As chaves casam com BiomeId do BiomeSystem.
-const BIOME_TRACKS: Record<string, MusicTrack> = {
+// Mapa bioma → trilha. Tipado por BiomeId: um bioma novo sem trilha vira erro
+// de compilação em vez de cair silenciosamente na floresta.
+const BIOME_TRACKS: Record<BiomeId, MusicTrack> = {
   forest: FOREST_TRACK,
   desert: DESERT_TRACK,
   industrial: INDUSTRIAL_TRACK,
@@ -270,58 +271,247 @@ const MENU_TRACK: MusicTrack = {
   ],
 }
 
+import { SpeechSynth8Bit } from './SpeechSynth8Bit'
+import type { BiomeId } from './BiomeSystem'
+
 export class SoundManager {
+  readonly speech = new SpeechSynth8Bit()
   private ctx: AudioContext | null = null
   private masterGain: GainNode | null = null
+  private musicGain: GainNode | null = null
+  private sfxGain: GainNode | null = null
+  private voiceGain: GainNode | null = null
+  private musicFilter: BiquadFilterNode | null = null
+  private sfxFilter: BiquadFilterNode | null = null
+
   private muted = false
-  private volume = 0.3
+  private masterVolume = 0.3
+  private musicVolume = 0.7
+  private sfxVolume = 0.8
+  private voiceVolume = 0.9
+  private voiceEnabled = true
+
+  private dynamicIntensity = {
+    comboMax: false,
+    lowFuel: false,
+    inBossFight: false,
+  }
+
   private musicTimer: number | null = null
   private musicStep = 0
   private active: { track: MusicTrack; compiled: CompiledSong; totalSteps: number } | null = null
-  private currentBiome = 'forest'
+  private currentBiome: BiomeId = 'forest'
+  private acousticsBiome = ''
   private musicPhase = 0
   private crossfadeTimer: number | null = null
 
   private static readonly STEPS_PER_BAR = 16
-
+  private static readonly VOLUME_RAMP_SEC = 0.05
 
   init(): void {
-    if (this.ctx) return
-    this.ctx = new AudioContext()
+    if (this.ctx && this.ctx.state !== 'closed') return
+    if (this.ctx && this.ctx.state === 'closed') {
+      this.recreateContext()
+      return
+    }
+    // Ambiente sem Web Audio (jsdom, navegador antigo, política restritiva): o
+    // jogo segue mudo em vez de estourar — todo método daqui já trata ctx nulo.
+    const Ctor = typeof AudioContext !== 'undefined' ? AudioContext : undefined
+    if (!Ctor) return
+    try {
+      this.ctx = new Ctor()
+    } catch {
+      this.ctx = null
+      return
+    }
+
     this.masterGain = this.ctx.createGain()
-    this.masterGain.gain.value = this.muted ? 0 : this.volume
+    this.masterGain.gain.value = this.muted ? 0 : this.masterVolume
     this.masterGain.connect(this.ctx.destination)
+
+    // Music channel & dynamic lowpass filter (for low-fuel tension)
+    this.musicGain = this.ctx.createGain()
+    this.musicGain.gain.value = this.musicVolume
+    this.musicGain.connect(this.masterGain)
+
+    this.musicFilter = this.ctx.createBiquadFilter()
+    this.musicFilter.type = 'lowpass'
+    this.musicFilter.frequency.value = 20000
+    this.musicFilter.connect(this.musicGain)
+
+    // SFX channel & biome acoustics filter
+    this.sfxGain = this.ctx.createGain()
+    this.sfxGain.gain.value = this.sfxVolume
+    this.sfxGain.connect(this.masterGain)
+
+    this.sfxFilter = this.ctx.createBiquadFilter()
+    this.sfxFilter.type = 'lowpass'
+    this.sfxFilter.frequency.value = 20000
+    this.sfxFilter.connect(this.sfxGain)
+
+    // Voice channel & speech synth
+    this.voiceGain = this.ctx.createGain()
+    this.voiceGain.gain.value = this.voiceVolume
+    this.voiceGain.connect(this.masterGain)
+
+    this.speech.init(this.ctx, this.voiceGain)
+    this.speech.setEnabled(this.voiceEnabled)
+    this.speech.setVolume(this.voiceVolume)
+    this.speech.setMuted(this.muted)
   }
 
   resume(): void {
-    if (!this.ctx) return
-    const state = this.ctx.state
-    if (state === 'suspended' || state === 'interrupted') {
-      void this.ctx.resume().catch(() => {
-        if (this.ctx?.state === 'closed') this.init()
-      })
-    } else if (state === 'closed') {
+    if (!this.ctx || this.ctx.state === 'closed') {
       this.init()
     }
+    if (this.ctx && (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted')) {
+      void this.ctx.resume().catch(() => {
+        if (this.ctx?.state === 'closed') this.recreateContext()
+      })
+    }
+  }
+
+  /**
+   * Contexto fechado não volta a tocar por conta própria: `init()` só constrói
+   * quando `this.ctx` é nulo, então limpamos nós e timer pendente antes.
+   */
+  private recreateContext(): void {
+    this.stopMusic()
+    this.ctx = null
+    this.masterGain = null
+    this.musicGain = null
+    this.sfxGain = null
+    this.voiceGain = null
+    this.musicFilter = null
+    this.sfxFilter = null
+    this.init()
   }
 
   toggleMute(): boolean {
     this.muted = !this.muted
-    if (this.masterGain) {
-      this.masterGain.gain.value = this.muted ? 0 : this.volume
-    }
+    this.applyMasterGainInstant()
+    this.speech.setMuted(this.muted)
     return this.muted
+  }
+
+  setMuted(muted: boolean): void {
+    this.muted = muted
+    this.applyMasterGainInstant()
+    this.speech.setMuted(muted)
   }
 
   isMuted(): boolean {
     return this.muted
   }
 
-  setVolume(volume: number): void {
-    this.volume = Math.max(0, Math.min(1, volume))
-    if (this.masterGain && !this.muted) {
-      this.masterGain.gain.value = this.volume
+  /**
+   * Volume com rampa curta a partir do valor atual — escrever `gain.value` direto
+   * estala quando o slider é arrastado rápido (critério de aceite da sprint 4).
+   * Mute segue instantâneo via `applyMasterGainInstant`.
+   */
+  private setChannelGain(node: GainNode | null, value: number): void {
+    if (!node) return
+    if (!this.ctx || typeof node.gain.linearRampToValueAtTime !== 'function') {
+      node.gain.value = value
+      return
     }
+    const now = this.ctx.currentTime
+    if (typeof node.gain.cancelScheduledValues === 'function') {
+      node.gain.cancelScheduledValues(now)
+    }
+    if (typeof node.gain.setValueAtTime === 'function') {
+      node.gain.setValueAtTime(node.gain.value, now)
+    }
+    node.gain.linearRampToValueAtTime(value, now + SoundManager.VOLUME_RAMP_SEC)
+  }
+
+  /** Mute instantâneo; cancela rampas pendentes para não voltar sozinho. */
+  private applyMasterGainInstant(): void {
+    if (!this.masterGain) return
+    if (typeof this.masterGain.gain.cancelScheduledValues === 'function') {
+      this.masterGain.gain.cancelScheduledValues(this.ctx?.currentTime ?? 0)
+    }
+    this.masterGain.gain.value = this.muted ? 0 : this.masterVolume
+  }
+
+  setMasterVolume(volume: number): void {
+    this.masterVolume = Math.max(0, Math.min(1, volume))
+    if (this.muted) return
+    this.setChannelGain(this.masterGain, this.masterVolume)
+  }
+
+  setVolume(volume: number): void {
+    this.setMasterVolume(volume)
+  }
+
+  setMusicVolume(volume: number): void {
+    this.musicVolume = Math.max(0, Math.min(1, volume))
+    this.setChannelGain(this.musicGain, this.musicVolume)
+  }
+
+  setSfxVolume(volume: number): void {
+    this.sfxVolume = Math.max(0, Math.min(1, volume))
+    this.setChannelGain(this.sfxGain, this.sfxVolume)
+  }
+
+  setVoiceVolume(volume: number): void {
+    this.voiceVolume = Math.max(0, Math.min(1, volume))
+    this.setChannelGain(this.voiceGain, this.voiceVolume)
+    this.speech.setVolume(this.voiceVolume)
+  }
+
+  setVoiceEnabled(enabled: boolean): void {
+    this.voiceEnabled = enabled
+    this.speech.setEnabled(enabled)
+  }
+
+  setLanguage(language: 'en' | 'pt-BR'): void {
+    this.speech.setLanguage(language)
+  }
+
+  getMasterVolume(): number { return this.masterVolume }
+  getMusicVolume(): number { return this.musicVolume }
+  getSfxVolume(): number { return this.sfxVolume }
+  getVoiceVolume(): number { return this.voiceVolume }
+  isVoiceEnabled(): boolean { return this.voiceEnabled }
+
+  setDynamicIntensity(intensity: { comboMax: boolean; lowFuel: boolean; inBossFight: boolean }): void {
+    // Chamado a cada frame pelo loop do jogo: ignora chamadas redundantes, senão o
+    // AudioParam receberia automações agendadas à toa 60x/s.
+    const prev = this.dynamicIntensity
+    if (prev.comboMax === intensity.comboMax && prev.lowFuel === intensity.lowFuel && prev.inBossFight === intensity.inBossFight) return
+    this.dynamicIntensity = intensity
+    if (this.ctx && this.musicFilter?.frequency) {
+      const now = this.ctx.currentTime
+      const targetFreq = intensity.lowFuel ? 650 : 20000
+      if (typeof this.musicFilter.frequency.setTargetAtTime === 'function') {
+        this.musicFilter.frequency.setTargetAtTime(targetFreq, now, 0.1)
+      } else if (typeof this.musicFilter.frequency.setValueAtTime === 'function') {
+        this.musicFilter.frequency.setValueAtTime(targetFreq, now)
+      }
+    }
+  }
+
+  setBiomeAcoustics(biomeId: BiomeId): void {
+    // Também chamado a cada frame: nada a fazer se o bioma não mudou.
+    if (biomeId === this.acousticsBiome) return
+    this.acousticsBiome = biomeId
+    if (!this.ctx || !this.sfxFilter?.frequency) return
+    const now = this.ctx.currentTime
+    const targetFreq = biomeId === 'snow' ? 4500 : 20000
+    if (typeof this.sfxFilter.frequency.setTargetAtTime === 'function') {
+      this.sfxFilter.frequency.setTargetAtTime(targetFreq, now, 0.2)
+    } else if (typeof this.sfxFilter.frequency.setValueAtTime === 'function') {
+      this.sfxFilter.frequency.setValueAtTime(targetFreq, now)
+    }
+  }
+
+  private getMusicOutput(): AudioNode | null {
+    return this.musicFilter ?? this.musicGain ?? this.masterGain
+  }
+
+  private getSfxOutput(): AudioNode | null {
+    return this.sfxFilter ?? this.sfxGain ?? this.masterGain
   }
 
   private ensureCtx(): AudioContext | null {
@@ -332,26 +522,26 @@ export class SoundManager {
 
   // Trilha de jogo — uma por bioma. Sem argumento, retoma o bioma atual
   // (usado ao despausar); com argumento, fixa o bioma antes de tocar.
-  startMusic(biome?: string): void {
+  startMusic(biome?: BiomeId): void {
     if (biome) this.currentBiome = biome
-    this.playTrack(BIOME_TRACKS[this.currentBiome] ?? FOREST_TRACK)
+    this.playTrack(BIOME_TRACKS[this.currentBiome])
   }
 
   // Troca a trilha quando o rio entra em um novo bioma. Não faz nada se o bioma
   // não mudou; se a música estiver parada (pausa/menu), apenas memoriza o bioma
   // para o próximo startMusic.
-  setBiomeMusic(biome: string): void {
+  setBiomeMusic(biome: BiomeId): void {
     if (biome === this.currentBiome) return
     this.currentBiome = biome
     if (this.musicTimer === null) return
     this.crossfadeToBiome(biome)
   }
 
-  private crossfadeToBiome(newBiome: string): void {
+  private crossfadeToBiome(newBiome: BiomeId): void {
     const ctx = this.ctx
     if (!ctx || !this.masterGain) {
       this.stopMusic()
-      this.playTrack(BIOME_TRACKS[newBiome] ?? FOREST_TRACK)
+      this.playTrack(BIOME_TRACKS[newBiome])
       return
     }
     const now = ctx.currentTime
@@ -363,9 +553,9 @@ export class SoundManager {
     this.crossfadeTimer = window.setTimeout(() => {
       this.crossfadeTimer = null
       this.stopMusic()
-      this.playTrack(BIOME_TRACKS[newBiome] ?? FOREST_TRACK)
+      this.playTrack(BIOME_TRACKS[newBiome])
       if (this.masterGain) {
-        const target = this.muted ? 0 : this.volume
+        const target = this.muted ? 0 : this.masterVolume
         this.masterGain.gain.cancelScheduledValues(ctx.currentTime)
         this.masterGain.gain.setValueAtTime(0.001, ctx.currentTime)
         this.masterGain.gain.exponentialRampToValueAtTime(target, ctx.currentTime + fadeDur)
@@ -491,11 +681,21 @@ export class SoundManager {
       const dur = leadEv.steps * stepSec
       this.playVoice(leadEv.freq, start, dur, leadType, 0.05 * g, Math.min(0.12, dur * 0.4))
       this.playVoice(leadEv.freq / 2, start, dur, 'triangle', 0.022 * g, Math.min(0.12, dur * 0.4))
+
+      // Adaptive Layering: Combo x4 ativa camada extra de arpejos rápidos
+      if (this.dynamicIntensity.comboMax) {
+        this.playVoice(leadEv.freq * 2, start + stepSec * 0.5, stepSec * 0.45, 'sawtooth', 0.018 * g, 0.03)
+      }
     }
 
-    // Bateria — estilo da trilha, possivelmente enxugado à noite/amanhecer.
+    // Bateria — estilo da trilha, modulado por combate com boss ou noite
     const beat = step % SoundManager.STEPS_PER_BAR
-    if (drums === 'full') {
+    if (this.dynamicIntensity.inBossFight) {
+      // Bateria pesada contínua para tensão máxima
+      if (beat % 2 === 0) this.drumKick(start)
+      if (beat === 4 || beat === 12) this.drumSnare(start)
+      this.drumHat(start)
+    } else if (drums === 'full') {
       if (beat === 0 || beat === 8) this.drumKick(start)
       if (beat === 4 || beat === 12) this.drumSnare(start)
       if (beat % 2 === 0) this.drumHat(start)
@@ -524,8 +724,10 @@ export class SoundManager {
     peak: number,
     release: number,
   ): void {
-    if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
+    const output = this.getMusicOutput()
+    if (!ctx || !output) return
+
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = type
@@ -536,14 +738,16 @@ export class SoundManager {
     gain.gain.setValueAtTime(peak, start + Math.max(attack, dur - release))
     gain.gain.exponentialRampToValueAtTime(0.0001, start + dur)
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(start)
     osc.stop(start + dur + 0.02)
   }
 
   private drumKick(start: number): void {
-    if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
+    const output = this.getMusicOutput()
+    if (!ctx || !output) return
+
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
     osc.type = 'sine'
@@ -552,14 +756,16 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.22, start)
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(start)
     osc.stop(start + 0.18)
   }
 
   private drumSnare(start: number): void {
-    if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
+    const output = this.getMusicOutput()
+    if (!ctx || !output) return
+
     const dur = 0.14
     const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
     const data = buffer.getChannelData(0)
@@ -574,14 +780,16 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
     noise.connect(filter)
     filter.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     noise.start(start)
     noise.stop(start + dur)
   }
 
   private drumHat(start: number): void {
-    if (!this.ctx || !this.masterGain) return
     const ctx = this.ctx
+    const output = this.getMusicOutput()
+    if (!ctx || !output) return
+
     const dur = 0.03
     const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
     const data = buffer.getChannelData(0)
@@ -596,14 +804,15 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, start + dur)
     noise.connect(filter)
     filter.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     noise.start(start)
     noise.stop(start + dur)
   }
 
   shoot(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -613,14 +822,15 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.15, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.08)
   }
 
   explosion(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     const bufferSize = ctx.sampleRate * 0.4
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
@@ -642,7 +852,7 @@ export class SoundManager {
 
     noise.connect(filter)
     filter.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     noise.start(ctx.currentTime)
     noise.stop(ctx.currentTime + 0.4)
 
@@ -654,14 +864,15 @@ export class SoundManager {
     oscGain.gain.setValueAtTime(0.3, ctx.currentTime)
     oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
     osc.connect(oscGain)
-    oscGain.connect(this.masterGain)
+    oscGain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.3)
   }
 
   fuelCollect(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -672,14 +883,15 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.2, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2)
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.2)
   }
 
   lowFuelBeep(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -689,14 +901,15 @@ export class SoundManager {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1)
 
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.1)
   }
 
   enemyHit(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     const osc = ctx.createOscillator()
     const gain = ctx.createGain()
@@ -706,16 +919,15 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.15, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
     osc.connect(gain)
-    gain.connect(this.masterGain)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.15)
   }
 
   powerUpBomb(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
-
-    const master = this.masterGain
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     // Noise burst curto
     const bufferSize = ctx.sampleRate * 0.08
@@ -728,7 +940,7 @@ export class SoundManager {
     noiseGain.gain.setValueAtTime(0.3, ctx.currentTime)
     noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08)
     noise.connect(noiseGain)
-    noiseGain.connect(master)
+    noiseGain.connect(output)
     noise.start(ctx.currentTime)
     noise.stop(ctx.currentTime + 0.08)
 
@@ -741,16 +953,15 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.2, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15)
     osc.connect(gain)
-    gain.connect(master)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.15)
   }
 
   bombShockwave(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
-
-    const master = this.masterGain
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     // Low-freq rumble descendente
     const osc = ctx.createOscillator()
@@ -761,7 +972,7 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.35, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5)
     osc.connect(gain)
-    gain.connect(master)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.5)
 
@@ -780,16 +991,15 @@ export class SoundManager {
     noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
     noise.connect(filter)
     filter.connect(noiseGain)
-    noiseGain.connect(master)
+    noiseGain.connect(output)
     noise.start(ctx.currentTime)
     noise.stop(ctx.currentTime + 0.3)
   }
 
   powerUpRapidFire(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
-
-    const master = this.masterGain
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     // Chirp ascendente agudo
     const osc = ctx.createOscillator()
@@ -800,16 +1010,15 @@ export class SoundManager {
     gain.gain.setValueAtTime(0.15, ctx.currentTime)
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12)
     osc.connect(gain)
-    gain.connect(master)
+    gain.connect(output)
     osc.start(ctx.currentTime)
     osc.stop(ctx.currentTime + 0.12)
   }
 
   powerUpMagnet(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
-
-    const master = this.masterGain
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     // Pulso suave ascendente
     const notes = [330, 495, 660]
@@ -822,7 +1031,7 @@ export class SoundManager {
       gain.gain.setValueAtTime(0.12, start)
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.1)
       osc.connect(gain)
-      gain.connect(master)
+      gain.connect(output)
       osc.start(start)
       osc.stop(start + 0.1)
     })
@@ -830,12 +1039,12 @@ export class SoundManager {
 
   gameOver(): void {
     const ctx = this.ensureCtx()
-    if (!ctx || !this.masterGain) return
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
 
     this.stopMusic()
     this.stopEngine()
 
-    const master = this.masterGain
     const notes = [440, 370, 311, 261]
     notes.forEach((freq, i) => {
       const osc = ctx.createOscillator()
@@ -846,7 +1055,7 @@ export class SoundManager {
       gain.gain.setValueAtTime(0.15, start)
       gain.gain.exponentialRampToValueAtTime(0.001, start + 0.18)
       osc.connect(gain)
-      gain.connect(master)
+      gain.connect(output)
       osc.start(start)
       osc.stop(start + 0.18)
     })
@@ -863,6 +1072,11 @@ export class SoundManager {
       void this.ctx.close()
       this.ctx = null
       this.masterGain = null
+      this.musicGain = null
+      this.sfxGain = null
+      this.voiceGain = null
+      this.musicFilter = null
+      this.sfxFilter = null
     }
   }
 }

@@ -1,3 +1,6 @@
+import type { AchievementId } from './game/AchievementService'
+import type { PowerUpType } from './game/PowerUpSystem'
+
 export type Language = 'en' | 'pt-BR'
 
 export interface Strings {
@@ -39,6 +42,10 @@ export interface Strings {
   settingsTitle: string
   settingsSubtitle: string
   settingsLabelVolume: string
+  settingsLabelMusicVolume: string
+  settingsLabelSfxVolume: string
+  settingsLabelVoiceVolume: string
+  settingsLabelVoiceEnabled: string
   settingsLabelMute: string
   settingsLabelReducedMotion: string
   settingsLabelWeather: string
@@ -60,7 +67,7 @@ export interface Strings {
   settingsAchievementLocked: string
   settingsTooltipHowTo: string
   settingsTooltipLore: string
-  achievementLore: Record<string, string>
+  achievementLore: Record<AchievementId, string>
   settingsBtnBack: string
   settingsBtnPlay: string
 
@@ -91,11 +98,11 @@ export interface Strings {
 
   // Power-ups (tutorial + pickup toast)
   tutorialCardPowerups: string
-  powerupNames: Record<string, string>
-  powerupDescs: Record<string, string>
+  powerupNames: Record<PowerUpType, string>
+  powerupDescs: Record<PowerUpType, string>
 
   // Localized achievement catalog (title + how-to), keyed by AchievementId
-  achievementCatalog: Record<string, { title: string; description: string }>
+  achievementCatalog: Record<AchievementId, { title: string; description: string }>
 }
 
 const en: Strings = {
@@ -134,6 +141,10 @@ const en: Strings = {
   settingsTitle: 'SETTINGS',
   settingsSubtitle: '— CONFIGURATION —',
   settingsLabelVolume: 'Master Volume',
+  settingsLabelMusicVolume: 'Music Volume',
+  settingsLabelSfxVolume: 'SFX Volume',
+  settingsLabelVoiceVolume: 'Voice Volume',
+  settingsLabelVoiceEnabled: 'Retro 8-Bit Voice',
   settingsLabelMute: 'Mute by default',
   settingsLabelReducedMotion: 'Reduced motion',
   settingsLabelWeather: 'Weather effects',
@@ -256,6 +267,10 @@ const ptBR: Strings = {
   settingsTitle: 'OPÇÕES',
   settingsSubtitle: '— CONFIGURAÇÕES —',
   settingsLabelVolume: 'Volume Principal',
+  settingsLabelMusicVolume: 'Volume da Música',
+  settingsLabelSfxVolume: 'Volume dos Efeitos (SFX)',
+  settingsLabelVoiceVolume: 'Volume da Voz',
+  settingsLabelVoiceEnabled: 'Voz Retrô 8-Bit',
   settingsLabelMute: 'Mudo por padrão',
   settingsLabelReducedMotion: 'Movimento reduzido',
   settingsLabelWeather: 'Efeitos climáticos',

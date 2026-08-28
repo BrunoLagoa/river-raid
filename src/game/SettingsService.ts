@@ -10,6 +10,10 @@ export function isLanguage(v: unknown): v is Language {
 
 export interface GameSettings {
   masterVolume: number
+  musicVolume: number
+  sfxVolume: number
+  voiceVolume: number
+  voiceEnabled: boolean
   /**
    * Estado de sessão, não preferência: o jogo sempre abre com som e o jogador
    * silencia na hora (tecla `M`, botão do menu ou dos controles touch). Por
@@ -32,6 +36,10 @@ const SETTINGS_KEY = 'river-raid-settings'
 
 const DEFAULT_SETTINGS: GameSettings = {
   masterVolume: 0.3,
+  musicVolume: 0.7,
+  sfxVolume: 0.8,
+  voiceVolume: 0.9,
+  voiceEnabled: true,
   muted: false,
   reducedMotion: false,
   weatherEffects: true,
@@ -47,6 +55,10 @@ export function getStoredSettings(): GameSettings {
   const raw = readSecureJSON<Partial<GameSettings>>(SETTINGS_KEY, DEFAULT_SETTINGS)
   return {
     masterVolume: typeof raw.masterVolume === 'number' ? Math.max(0, Math.min(1, raw.masterVolume)) : DEFAULT_SETTINGS.masterVolume,
+    musicVolume: typeof raw.musicVolume === 'number' ? Math.max(0, Math.min(1, raw.musicVolume)) : DEFAULT_SETTINGS.musicVolume,
+    sfxVolume: typeof raw.sfxVolume === 'number' ? Math.max(0, Math.min(1, raw.sfxVolume)) : DEFAULT_SETTINGS.sfxVolume,
+    voiceVolume: typeof raw.voiceVolume === 'number' ? Math.max(0, Math.min(1, raw.voiceVolume)) : DEFAULT_SETTINGS.voiceVolume,
+    voiceEnabled: typeof raw.voiceEnabled === 'boolean' ? raw.voiceEnabled : DEFAULT_SETTINGS.voiceEnabled,
     // Sempre começa com som: ignora qualquer mute salvo por versões anteriores.
     muted: DEFAULT_SETTINGS.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
@@ -65,6 +77,10 @@ export function getStoredSettings(): GameSettings {
 export function saveStoredSettings(next: GameSettings): GameSettings {
   const normalized: GameSettings = {
     masterVolume: Math.max(0, Math.min(1, next.masterVolume)),
+    musicVolume: Math.max(0, Math.min(1, next.musicVolume)),
+    sfxVolume: Math.max(0, Math.min(1, next.sfxVolume)),
+    voiceVolume: Math.max(0, Math.min(1, next.voiceVolume)),
+    voiceEnabled: !!next.voiceEnabled,
     muted: !!next.muted,
     reducedMotion: !!next.reducedMotion,
     weatherEffects: typeof next.weatherEffects === 'boolean' ? next.weatherEffects : DEFAULT_SETTINGS.weatherEffects,

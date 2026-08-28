@@ -1,9 +1,10 @@
 import type { Player } from './Player'
 import { BULLET_STYLES } from './BulletStyles'
-import { ENEMY_COLORS, type Enemy, type EnemyBullet, type EnemyManager, type EnemyType } from './EnemyManager'
+import type { EnemyManager } from './EnemyManager'
+import { ENEMY_COLORS, type Enemy, type EnemyBullet, type EnemyType } from './EnemyTypes'
 import type { FuelSystem } from './FuelSystem'
 import type { Fx } from './Fx'
-import type { PowerUpSystem } from './PowerUpSystem'
+import type { PowerUpSystem, PowerUpType } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
 import {
@@ -13,6 +14,7 @@ import {
   OVERDRIVE_LASER_DPS, OVERDRIVE_LASER_WIDTH, MINE_CHAIN_RADIUS,
 } from './constants'
 import { SpatialGrid } from './SpatialGrid'
+import { checkAABB, type Rect } from './geometry'
 import type { RandomSource } from './random'
 import type { BossDreadnought } from './BossDreadnought'
 import type { HazardManager } from './HazardManager'
@@ -37,12 +39,9 @@ const bulletSnapshot: EnemyBullet[] = []
 
 interface GridItem { x: number; y: number; width: number; height: number; active: boolean }
 
-export interface Rect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
+// Reexportado por compatibilidade: a definição vive em geometry.ts para que
+// módulos folha não precisem importar este arquivo.
+export type { Rect }
 
 export interface CollisionContext {
   player: Player
@@ -60,7 +59,7 @@ export interface CollisionContext {
   registerHit: () => void
   onEnemyDestroyed?: (enemyType: EnemyType) => void
   onFuelCollected?: (count: number) => void
-  onPowerUpCollected?: (type: string) => void
+  onPowerUpCollected?: (type: PowerUpType) => void
   boss?: BossDreadnought | null
   hazards?: HazardManager | null
   onOverdriveKill?: () => void
@@ -71,13 +70,9 @@ export interface CollisionContext {
 }
 
 export class CollisionSystem {
+  /** Delega para geometry.checkAABB; mantido como API estática já usada. */
   static checkAABB(a: Rect, b: Rect): boolean {
-    return (
-      a.x - a.width / 2 < b.x + b.width / 2 &&
-      a.x + a.width / 2 > b.x - b.width / 2 &&
-      a.y - a.height / 2 < b.y + b.height / 2 &&
-      a.y + a.height / 2 > b.y - b.height / 2
-    )
+    return checkAABB(a, b)
   }
 
   static resolveCollisions(ctx: CollisionContext): void {

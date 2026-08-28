@@ -25,7 +25,7 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
         <div className="divider menu-divider" />
 
         <div className="settings-body">
-          {/* Volume */}
+          {/* Audio Channels */}
           <div className="settings-row settings-row--slider">
             <div className="settings-row-label">
               {t.settingsLabelVolume}
@@ -42,10 +42,69 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             />
           </div>
 
+          <div className="settings-row settings-row--slider">
+            <div className="settings-row-label">
+              {t.settingsLabelMusicVolume}
+              <span className="settings-value">{Math.round(settings.musicVolume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(settings.musicVolume * 100)}
+              onChange={(e) => onUpdate({ musicVolume: Number(e.target.value) / 100 })}
+              className="settings-slider"
+              style={{ '--val': `${Math.round(settings.musicVolume * 100)}` } as React.CSSProperties}
+            />
+          </div>
+
+          <div className="settings-row settings-row--slider">
+            <div className="settings-row-label">
+              {t.settingsLabelSfxVolume}
+              <span className="settings-value">{Math.round(settings.sfxVolume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(settings.sfxVolume * 100)}
+              onChange={(e) => onUpdate({ sfxVolume: Number(e.target.value) / 100 })}
+              className="settings-slider"
+              style={{ '--val': `${Math.round(settings.sfxVolume * 100)}` } as React.CSSProperties}
+            />
+          </div>
+
+          <div className="settings-row settings-row--slider">
+            <div className="settings-row-label">
+              {t.settingsLabelVoiceVolume}
+              <span className="settings-value">{Math.round(settings.voiceVolume * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(settings.voiceVolume * 100)}
+              onChange={(e) => onUpdate({ voiceVolume: Number(e.target.value) / 100 })}
+              className="settings-slider"
+              style={{ '--val': `${Math.round(settings.voiceVolume * 100)}` } as React.CSSProperties}
+            />
+          </div>
+
           <div className="settings-divider" />
 
           {/* Toggles */}
           <div className="settings-toggles">
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.voiceEnabled}
+                onChange={(e) => onUpdate({ voiceEnabled: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelVoiceEnabled}</span>
+            </label>
+
             <label className="settings-toggle">
               <input
                 type="checkbox"

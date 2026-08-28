@@ -301,13 +301,16 @@ export const BUNKER_MIN_DOWN_RATIO = 0.35
  * atravessa a selva seco na maior parte das vezes. Os demais climas ocorrem
  * sempre (1.0) — baixe o valor aqui para rarear qualquer um deles.
  */
-export const WEATHER_OCCURRENCE_CHANCE: Record<string, number> = {
+// `as const` em vez de Record<string, number>: as chaves literais permitem que o
+// WeatherSystem prove que a tabela cobre todo WeatherType, sem que este módulo
+// (folha pura, sem imports) precise depender do BiomeSystem.
+export const WEATHER_OCCURRENCE_CHANCE = {
   rain: 0.35,
   sandstorm: 1,
   smog: 1,
   snow: 1,
   clear: 1,
-}
+} as const
 
 export const HAZARD_SPAWN_INTERVAL_MIN = 3.5
 export const HAZARD_SPAWN_INTERVAL_MAX = 7.0

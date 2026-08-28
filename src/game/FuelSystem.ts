@@ -1,5 +1,4 @@
-import { CollisionSystem } from './CollisionSystem'
-import type { Rect } from './CollisionSystem'
+import { checkAABB, type Rect } from './geometry'
 import { compactArray } from './utils'
 import {
   FUEL_INITIAL, FUEL_DRAIN_RATE, FUEL_DRAIN_SPEED_FACTOR,
@@ -91,7 +90,7 @@ export class FuelSystem {
     for (const tank of this.tanks) {
       if (!tank.active) continue
       const tankRect: Rect = { x: tank.x, y: tank.y, width: tank.width, height: tank.height }
-      if (CollisionSystem.checkAABB(playerRect, tankRect)) {
+      if (checkAABB(playerRect, tankRect)) {
         tank.active = false
         this.fuel = Math.min(FUEL_MAX, this.fuel + FUEL_PICKUP_AMOUNT)
         collected = true

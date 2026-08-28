@@ -63,6 +63,10 @@ describe('SettingsService', () => {
     it('normaliza perfil invalido para conservador no salvamento', () => {
       saveStoredSettings({
         masterVolume: 0.5,
+        musicVolume: 0.7,
+        sfxVolume: 0.8,
+        voiceVolume: 0.9,
+        voiceEnabled: true,
         muted: false,
         reducedMotion: false,
         weatherEffects: true,
@@ -101,6 +105,10 @@ describe('SettingsService', () => {
     it('normaliza idioma invalido para en no salvamento', () => {
       saveStoredSettings({
         masterVolume: 0.5,
+        musicVolume: 0.7,
+        sfxVolume: 0.8,
+        voiceVolume: 0.9,
+        voiceEnabled: true,
         muted: false,
         reducedMotion: false,
         weatherEffects: true,
@@ -121,6 +129,10 @@ describe('SettingsService', () => {
     it('salva idioma pt-BR corretamente', () => {
       saveStoredSettings({
         masterVolume: 0.5,
+        musicVolume: 0.7,
+        sfxVolume: 0.8,
+        voiceVolume: 0.9,
+        voiceEnabled: true,
         muted: false,
         reducedMotion: false,
         weatherEffects: false,

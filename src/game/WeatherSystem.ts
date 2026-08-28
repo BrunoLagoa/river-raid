@@ -37,6 +37,13 @@ export interface WeatherParticle {
   active: boolean
 }
 
+/**
+ * Prova, em tempo de compilação, que a tabela de ocorrência cobre todo
+ * `WeatherType`: um clima novo no BiomeSystem quebra o build aqui em vez de cair
+ * silenciosamente no fallback.
+ */
+const OCCURRENCE_CHANCE: Record<WeatherType, number> = WEATHER_OCCURRENCE_CHANCE
+
 export class WeatherSystem {
   private particles: WeatherParticle[] = []
   private canvasWidth: number
@@ -180,7 +187,7 @@ export class WeatherSystem {
     // isso a chuva reapareceria a cada frame (ou piscaria, se sorteada sempre).
     if (requested !== this.requestedWeather) {
       this.requestedWeather = requested
-      const chance = WEATHER_OCCURRENCE_CHANCE[requested] ?? 1
+      const chance = OCCURRENCE_CHANCE[requested]
       this.weatherOccurs = chance >= 1 || this.random() < chance
     }
     const weatherType: WeatherType = this.weatherOccurs ? requested : 'clear'

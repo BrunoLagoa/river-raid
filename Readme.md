@@ -90,13 +90,26 @@ O jogo conta com camadas avançadas de feedback visual para uma experiência mai
 - **HUD de Vidas:** Ícones de mini-avião abaixo do score mostram as vidas restantes em tempo real.
 - **Mini-mapa Radar:** Radar no canto superior direito mostra posição do jogador, inimigos (vermelho), combustível (verde) e power-ups (ciano).
 
-### 🎵 Áudio
-- **Música Chiptune Procedural:** Melodia gerada em tempo real via Web Audio API com osciladores `square` (lead) e `triangle` (bass), alternando entre duas variações a cada 32 compassos.
-- **Efeitos Sonoros:** Tiro, explosão, coleta de combustível, alerta de combustível baixo, hit em inimigo e game over — todos sintetizados proceduralmente.
+### 🎵 Áudio Adaptativo & Síntese de Voz Retrô
+- **Trilhas Adaptativas por Bioma:** Composições chiptune dinâmicas com instrumentos e ritmos únicos para Selva, Deserto, Complexo Industrial, Neve Ártica e Menus.
+- **Camadas Musicais Reativas (Adaptive Audio Layering):**
+  - **Combo x4:** Adiciona uma camada rápida de arpejos em semicolcheias na melodia.
+  - **Tensão de Combustível Baixo (<= 20%):** Aplica um filtro passa-baixa dramático (650 Hz) na trilha, criando um efeito abafado de palpitação iminente.
+  - **Boss Battle:** Ativa percussão pesada ininterrupta em quatro tempos (*four-on-the-floor*).
+  - **Acústica de Bioma:** Atenuação e amortecimento de altas frequências durante nevascas (4500 Hz).
+- **Sintetizador de Voz 8-Bit Procedural (Retro Speech Synthesizer):**
+  - Avisos táticos clássicos dos fliperamas dos anos 80 sintetizados puramente via Web Audio API com filtros formantes e pulsos glóticos:
+    - *"Warning: Low Fuel"*
+    - *"Combo Max"*
+    - *"Boss Alert"*
+    - *"Overdrive Ready"*
+    - *"Zone Cleared"*
+- **Efeitos Sonoros:** Tiros, explosões ricas com camadas de ruído e sub-grave, coleta de combustível, laser contínuo, ondas de choque e game over.
 
 ### ⚙️ Configurações e Acessibilidade
 O jogo permite personalizar a experiência através de um menu de configurações persistente:
-- **Controle de Volume:** Ajuste fino do volume principal e opção de mute.
+- **Mixer de Áudio de 4 Canais:** Sliders independentes para **Volume Master**, **Música**, **Efeitos Sonoros (SFX)** e **Voz**.
+- **Toggle de Voz Retrô:** Opção para ligar ou desligar anúncios de voz a qualquer momento.
 - **Efeitos Climáticos & Iluminação:** Toggles para habilitar/desabilitar partículas de clima e iluminação dinâmica.
 - **Reduced Motion:** Opção para suavizar ou desativar efeitos visuais intensos para maior conforto.
 - **Suporte a Gamepad:** Ativação automática de controles compatíveis via Standard Gamepad API.
