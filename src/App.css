@@ -1393,8 +1393,14 @@ h1.gameover-title {
     animation: none !important;
   }
 }
-/* Rodapé de Opções: as duas ações lado a lado, sobrescrevendo a coluna do menu. */
+/* Rodapé de Opções: as duas ações lado a lado, sobrescrevendo a coluna do menu.
+   Borda e fundo próprios marcam onde o miolo rolável termina — sem eles o
+   conteúdo parecia passar por baixo dos botões. */
 .settings-actions {
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+  margin-top: 0;
+  padding-top: 16px;
+  border-top: 1px solid #1a2d44;
+  background: var(--color-bg-panel);
 }

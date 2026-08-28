@@ -1743,6 +1743,46 @@ describe('Game achievement system', () => {
     game.setGhostReplayEnabled(false)
     expect(game.isGhostReplayEnabled()).toBe(false)
   })
+
+  it('HiDPI: buffer escala por DPR mas o desenho segue em pixels logicos', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const ctx = canvas.getContext('2d')!
+    const clearSpy = vi.spyOn(ctx, 'clearRect')
+    const transformSpy = vi.spyOn(ctx, 'setTransform')
+    const raf = mockAnimationFrame()
+
+    game.resize(400, 300, 2)
+
+    // Buffer de dispositivo escala...
+    expect(canvas.width).toBe(800)
+    expect(canvas.height).toBe(600)
+
+    game.start()
+    raf.flush(50)
+    game.stop()
+    // ...mas o desenho roda no espaço logico via setTransform + clearRect.
+    // Com `canvas.width` direto, clearRect receberia (0,0,800,600) e o jogo
+    // apareceria cortado no quadrante superior esquerdo em telas HiDPI.
+    expect(transformSpy).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0)
+    expect(clearSpy).toHaveBeenCalledWith(0, 0, 400, 300)
+    game.destroy()
+  })
+
+  it('restart reaplica vidas do modo (hardcore nao volta a 3)', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    game.setGameMode('hardcore')
+    game.start()
+    raf.flush(50)
+
+    game.restart()
+
+    expect(game.lives).toBe(1)
+    game.stop()
+    game.destroy()
+  })
 })
 
 

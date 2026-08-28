@@ -131,6 +131,13 @@ export class Game {
   private lightingEnabled = true
   private colorblind = false
   private dpr = 1
+  /**
+   * Dimensões lógicas em pixels CSS. `canvas.width` vive em pixels de
+   * dispositivo (escala DPR); lê-lo diretamente desloca entidades pela
+   * proporção em qualquer tela de alta densidade (retina, celular).
+   */
+  private get logicalWidth(): number { return this.canvas.width / this.dpr }
+  private get logicalHeight(): number { return this.canvas.height / this.dpr }
   private random: RandomSource
 
   private achievements = new AchievementTracker((id) => this.tryUnlockAchievement(id))
@@ -200,16 +207,18 @@ export class Game {
   }
 
   private globalKeyHandler = (e: KeyboardEvent): void => {
+    // Só o serviço de remapeamento decide o que cada tecla faz: fallbacks
+    // hardcoded (`'p'`, `'Escape'`, `'x'`) tornavam o rebind ineficaz. O
+    // serviço já mapeia `KeyX` ↔ `'x'` e `KeyP` ↔ `'p'`, então o rebind segue
+    // honrado e eventos sem `code` (testes, síntese) continuam funcionando.
     const action = this.keybindings.getActionForKey(e.code) ?? this.keybindings.getActionForKey(e.key)
-    if (action === 'pause' || e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+    if (action === 'pause') {
       this.togglePause()
     }
     if (e.key === 'm' || e.key === 'M') {
       this.sound.toggleMute()
     }
-    // Shift is a modifier — binding it here fired Overdrive on Shift+P, capitals
-    // and key auto-repeat, so the beam is on X only or custom overdrive key.
-    if (!e.repeat && (action === 'overdrive' || e.key === 'x' || e.key === 'X')) {
+    if (!e.repeat && action === 'overdrive') {
       this.activateOverdrive()
     }
     this.debugPanel.onKeyDown(e.key)
@@ -337,13 +346,7 @@ export class Game {
     this.haptics.setReducedMotion(enabled)
   }
 
-  // Light haptic feedback on mobile; suppressed when reduced motion is on.
-  private vibrate(ms: number): void {
-    if (this.reducedMotion) return
-    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-      navigator.vibrate(ms)
-    }
-  }
+
 
   setMasterVolume(volume: number): void {
     this.sound.setVolume(volume)
@@ -404,18 +407,21 @@ export class Game {
   restart(): void {
     this.stop()
     this.state.reset()
+    // `state.reset()` zera para `DEFAULT_LIVES`; reaplica o modo (hardcore=1,
+    // zen=infinidade) ou o restart devolveria 3 vidas em qualquer modo.
+    this.lives = this.gameModeConfig.initialLives
     this.scoring.reset()
-    this.player.reset(this.canvas.width, this.canvas.height)
-    this.world.reset(this.canvas.width, this.canvas.height)
-    this.enemyManager.reset(this.canvas.width, this.canvas.height)
-    this.fuelSystem.reset(this.canvas.width, this.canvas.height)
-    this.powerUpSystem.reset(this.canvas.width, this.canvas.height)
+    this.player.reset(this.logicalWidth, this.logicalHeight)
+    this.world.reset(this.logicalWidth, this.logicalHeight)
+    this.enemyManager.reset(this.logicalWidth, this.logicalHeight)
+    this.fuelSystem.reset(this.logicalWidth, this.logicalHeight)
+    this.powerUpSystem.reset(this.logicalWidth, this.logicalHeight)
     this.fx.reset()
-    this.scenery.reset(this.canvas.width, this.canvas.height)
-    this.atmosphere.reset(this.canvas.width, this.canvas.height)
+    this.scenery.reset(this.logicalWidth, this.logicalHeight)
+    this.atmosphere.reset(this.logicalWidth, this.logicalHeight)
     this.weather.reset()
     this.lighting.reset()
-    this.hazards.reset(this.canvas.width, this.canvas.height)
+    this.hazards.reset(this.logicalWidth, this.logicalHeight)
     this.sound.speech.reset()
     this.overdrive.reset()
     this.boss = null
@@ -592,7 +598,7 @@ export class Game {
 
   private updateNonInteractiveStates(dt: number): boolean {
     if (this.player.state === 'exploding') {
-      this.player.update(dt, 0, this.canvas.width)
+      this.player.update(dt, 0, this.logicalWidth)
       this.fx.update(dt)
       this.atmosphere.update(dt, this.scrollSpeed, this.biomeSystem.getConfig().basePalette)
       return true
@@ -716,7 +722,7 @@ export class Game {
     if (!this.boss) {
       this.bossSpawnTimer -= envDt
       if (this.bossSpawnTimer <= 0) {
-        this.boss = new BossDreadnought(this.canvas.width, -BOSS_HEIGHT, this.random)
+        this.boss = new BossDreadnought(this.logicalWidth, -BOSS_HEIGHT, this.random)
         this.bossSpawnTimer = this.gameModeConfig.bossSpawnInterval
         this.fx.flash('#ff0044', 0.2)
         this.sound.speech.playBossAlert()
@@ -741,7 +747,7 @@ export class Game {
     const incomingBullets = this.player.state === 'alive' ? this.player.bullets : undefined
     this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed, aimTarget, incomingBullets)
     this.fuelSystem.update(envDt, this.world, this.world.segments, this.scrollSpeed)
-    this.scenery.update(envDt, this.scrollSpeed, this.world, this.canvas.width)
+    this.scenery.update(envDt, this.scrollSpeed, this.world, this.logicalWidth)
     this.powerUpSystem.update(envDt, this.scrollSpeed, this.world)
     if (this.player.magnetFuelTimer > 0) {
       for (const tank of this.fuelSystem.tanks) {
@@ -822,7 +828,7 @@ export class Game {
     const sw = this.fx.getShockwave()
     if (sw.timer <= 0) return
     const progress = 1 - sw.timer / sw.duration
-    const maxRadius = Math.max(this.canvas.width, this.canvas.height) * SHOCKWAVE_MAX_RADIUS_RATIO
+    const maxRadius = Math.max(this.logicalWidth, this.logicalHeight) * SHOCKWAVE_MAX_RADIUS_RATIO
     const radius = progress * maxRadius
     const alpha = (1 - progress) * SHOCKWAVE_BASE_ALPHA
     ctx.save()
@@ -1099,8 +1105,9 @@ export class Game {
   handlePlayerDeath(): void {
     if (this.gameOverTriggered) return
     this.achievements.onPlayerDeath()
+    // Só a engine de haptics dispara a vibração: uma chamada extra de
+    // `navigator.vibrate` cancela o padrão pendente e cortava [180,50,250] a 60ms.
     this.haptics.triggerPlayerDamage()
-    this.vibrate(60)
 
     if (this.gameModeConfig.infiniteLives) {
       this.registerMiss()
@@ -1108,7 +1115,7 @@ export class Game {
         this.respawnTimeoutId = null
         if (!this.running || this.gameOverTriggered) return
         this.fuelSystem.fuel = 100
-        this.player.respawn(this.canvas.width, this.canvas.height)
+        this.player.respawn(this.logicalWidth, this.logicalHeight)
       }, RESPAWN_DELAY)
       return
     }
@@ -1125,7 +1132,7 @@ export class Game {
         if (this.fuelSystem.fuel < FUEL_RESPAWN_MIN) {
           this.fuelSystem.fuel = FUEL_RESPAWN_MIN
         }
-        this.player.respawn(this.canvas.width, this.canvas.height)
+        this.player.respawn(this.logicalWidth, this.logicalHeight)
       }, RESPAWN_DELAY)
     } else {
       // No more lives — real game over
