@@ -134,11 +134,19 @@ h1.gameover-title {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
+/* Coluna, não linha: os grupos de botões são linhas próprias. Como flex-row os
+   grupos viravam itens lado a lado e o INICIAR encolhia até quebrar o rótulo. */
 .menu-actions {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
+  display: grid;
+  gap: 10px;
+  width: 100%;
   margin-top: 20px;
+}
+
+.menu-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
 }
 
 @keyframes pulse {
@@ -537,10 +545,22 @@ h1.gameover-title {
   text-transform: uppercase;
   border: none;
   cursor: pointer;
-  padding: 11px 28px;
+  padding: 10px 16px;
   transition: all 0.15s ease;
   position: relative;
   overflow: hidden;
+  /* Largura cheia + altura mínima comum: rótulos de tamanhos diferentes
+     ("INICIAR" vs "DIÁRIO DE BORDO") mantêm a mesma caixa, e o ícone fica na
+     mesma linha do texto em vez de empurrá-lo para baixo. */
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  line-height: 1.25;
+  text-wrap: balance;
 }
 
 .menu-btn::after {
@@ -807,9 +827,16 @@ h1.gameover-title {
    ============================================================ */
 
 .settings-panel {
-  max-width: 600px;
+  max-width: 640px;
   width: 100%;
   text-align: left;
+  /* Painel com altura limitada: título e ações ficam sempre visíveis e só o
+     miolo rola. Antes a tela inteira esticava e os botões Voltar/Jogar ficavam
+     fora de alcance depois da lista de conquistas. */
+  max-height: min(90vh, 900px);
+  display: flex;
+  flex-direction: column;
+  padding: 28px 32px 20px;
 }
 
 .settings-title {
@@ -821,7 +848,72 @@ h1.gameover-title {
 .settings-body {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  /* gap: 0 colava o slider de uma linha no rótulo da linha seguinte, dando a
+     impressão de que o controle pertencia ao rótulo de baixo. */
+  gap: 22px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-right: -6px;
+}
+
+.settings-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-body::-webkit-scrollbar-thumb {
+  background: #24405e;
+}
+
+.settings-body::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+/* Blocos temáticos: Áudio, Jogo, Controles, Conquistas. */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid #1a2d44;
+  background: rgba(10, 20, 34, 0.5);
+}
+
+.settings-section-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  padding-bottom: 10px;
+  border-bottom: 1px solid #16283c;
+}
+
+/* Linha com rótulo à esquerda e controle à direita. */
+.settings-row--inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.settings-row-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #8fa8bd;
+  text-transform: uppercase;
+}
+
+.menu-btn--compact {
+  width: auto;
+  min-height: 38px;
+  padding: 6px 16px;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 .settings-divider {
@@ -893,9 +985,9 @@ h1.gameover-title {
 
 /* Toggles */
 .settings-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 20px;
 }
 
 .settings-toggle {
@@ -955,7 +1047,7 @@ h1.gameover-title {
 /* Selects */
 .settings-selects {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
 }
 
@@ -1011,7 +1103,18 @@ h1.gameover-title {
   flex-direction: column;
   gap: 4px;
   padding-right: 4px;
-  overflow: visible;
+  /* Rola dentro da própria seção: a lista cresce a cada conquista nova e
+     empurrava tudo o mais para fora da tela. */
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.settings-achievements::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-achievements::-webkit-scrollbar-thumb {
+  background: #24405e;
 }
 
 .settings-achievement-row {
@@ -1289,4 +1392,9 @@ h1.gameover-title {
   [class*='flicker'] {
     animation: none !important;
   }
+}
+/* Rodapé de Opções: as duas ações lado a lado, sobrescrevendo a coluna do menu. */
+.settings-actions {
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }

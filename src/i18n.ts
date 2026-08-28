@@ -12,6 +12,8 @@ export interface Strings {
   menuBtnStart: string
   menuBtnTutorial: string
   menuBtnSettings: string
+  menuBtnHangar: string
+  menuBtnStats: string
   menuBtnDaily: string
   menuDailyBest: string
   menuPressEnter: string
@@ -52,6 +54,29 @@ export interface Strings {
   settingsLabelLighting: string
   settingsLabelColorblind: string
   settingsLabelGamepad: string
+  settingsLabelHaptics: string
+  settingsLabelGhostReplay: string
+  settingsLabelControls: string
+  settingsBtnConfigureKeys: string
+  settingsSectionAudio: string
+  settingsSectionGameplay: string
+  settingsLabelKeyboard: string
+  settingsLabelMobileControl: string
+  mobileControlJoystick: string
+  mobileControlDpad: string
+  mobileControlSwipe: string
+  keybindModalTitle: string
+  keybindModalSubtitle: string
+  keybindActionLeft: string
+  keybindActionRight: string
+  keybindActionAccelerate: string
+  keybindActionBrake: string
+  keybindActionShoot: string
+  keybindActionOverdrive: string
+  keybindActionPause: string
+  keybindListeningPrompt: string
+  keybindBtnReset: string
+  keybindBtnDone: string
   settingsLabelObjectiveProfile: string
   settingsProfileConservative: string
   settingsProfileAggressive: string
@@ -70,6 +95,75 @@ export interface Strings {
   achievementLore: Record<AchievementId, string>
   settingsBtnBack: string
   settingsBtnPlay: string
+
+  // Game Modes
+  modeSelectTitle: string
+  modeSelectSubtitle: string
+  modeBtnPlay: string
+  modeBtnBack: string
+  modeClassicName: string
+  modeClassicDesc: string
+  modeDailyName: string
+  modeDailyDesc: string
+  modeBossRushName: string
+  modeBossRushDesc: string
+  modeHardcoreName: string
+  modeHardcoreDesc: string
+  modeZenName: string
+  modeZenDesc: string
+  modeTag1Life: string
+  modeTagFastFuel: string
+  modeTagNoMinimap: string
+  modeTagInfiniteLives: string
+  modeTagNoFuelDrain: string
+  modeTagRapidBosses: string
+  modeTagDeterministic: string
+  menuBtnModes: string
+
+  // Hangar & Skins
+  hangarTitle: string
+  hangarSubtitle: string
+  hangarBtnEquip: string
+  hangarBtnEquipped: string
+  hangarBtnLocked: string
+  hangarRequiredScore: string
+  hangarRequiredAchievement: string
+  hangarBtnBack: string
+  skinClassicName: string
+  skinClassicDesc: string
+  skinStealthName: string
+  skinStealthDesc: string
+  skinBiplaneName: string
+  skinBiplaneDesc: string
+  skinCyberNeonName: string
+  skinCyberNeonDesc: string
+  skinRequirementDefault: string
+  skinRequirementSharpshooter: string
+  skinRequirementFirstBridge: string
+  skinRequirementScore25k: string
+
+  // Career Stats
+  statsTitle: string
+  statsSubtitle: string
+  statsTotalFlightTime: string
+  statsTotalScore: string
+  statsTotalRuns: string
+  statsTotalFuel: string
+  statsAccuracy: string
+  statsShotsFired: string
+  statsShotsHit: string
+  statsHighestCombo: string
+  statsTotalKills: string
+  statsHelicoptersKilled: string
+  statsPlanesKilled: string
+  statsBoatsKilled: string
+  statsGunboatsKilled: string
+  statsTanksKilled: string
+  statsBridgesKilled: string
+  statsBossesKilled: string
+  statsBtnClose: string
+  statsBtnReset: string
+  statsResetConfirm: string
 
   // Game Over
   gameoverTitle: string
@@ -113,6 +207,8 @@ const en: Strings = {
   menuBtnStart: 'START',
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'SETTINGS',
+  menuBtnHangar: 'HANGAR',
+  menuBtnStats: 'PILOT LOG',
   menuBtnDaily: 'DAILY CHALLENGE',
   menuDailyBest: "Today's best",
   menuPressEnter: '▸ TAP OR PRESS ENTER TO START ◂',
@@ -151,6 +247,29 @@ const en: Strings = {
   settingsLabelLighting: 'Dynamic lighting',
   settingsLabelColorblind: 'Colorblind cues',
   settingsLabelGamepad: 'Enable gamepad',
+  settingsLabelHaptics: 'Tactile Haptic Feedback',
+  settingsLabelGhostReplay: 'Ghost Aircraft Replay',
+  settingsLabelControls: 'Controls',
+  settingsBtnConfigureKeys: 'Configure Keyboard...',
+  settingsSectionAudio: 'Audio',
+  settingsSectionGameplay: 'Gameplay & Accessibility',
+  settingsLabelKeyboard: 'Keyboard',
+  settingsLabelMobileControl: 'Mobile Control Mode',
+  mobileControlJoystick: 'Floating Joystick',
+  mobileControlDpad: 'Fixed D-Pad',
+  mobileControlSwipe: 'Swipe Gestures',
+  keybindModalTitle: 'CUSTOM CONTROLS',
+  keybindModalSubtitle: '— KEYBOARD REMAPPING —',
+  keybindActionLeft: 'Bank Left',
+  keybindActionRight: 'Bank Right',
+  keybindActionAccelerate: 'Accelerate',
+  keybindActionBrake: 'Brake / Slow Down',
+  keybindActionShoot: 'Fire Machine Gun',
+  keybindActionOverdrive: 'Activate Overdrive',
+  keybindActionPause: 'Pause Game',
+  keybindListeningPrompt: 'PRESS ANY KEY TO BIND...',
+  keybindBtnReset: 'RESTORE DEFAULTS',
+  keybindBtnDone: 'DONE',
   settingsLabelObjectiveProfile: 'Objective Profile',
   settingsProfileConservative: 'Conservative',
   settingsProfileAggressive: 'Aggressive',
@@ -178,6 +297,75 @@ const en: Strings = {
   },
   settingsBtnBack: 'BACK',
   settingsBtnPlay: 'PLAY',
+
+  // Game Modes
+  modeSelectTitle: 'MISSION SELECT',
+  modeSelectSubtitle: '— SELECT OPERATION MODE —',
+  modeBtnPlay: 'LAUNCH MISSION',
+  modeBtnBack: 'BACK',
+  modeClassicName: 'Classic Patrol',
+  modeClassicDesc: 'Standard flight rules. 3 lives, dynamic fuel depletion and full radar assistance.',
+  modeDailyName: 'Daily Challenge',
+  modeDailyDesc: 'Daily seeded river layout. Compete for the global top score of the day.',
+  modeBossRushName: 'Boss Rush',
+  modeBossRushDesc: 'Intense naval and aerial dreadnought encounters every 35 seconds. High danger, high fuel drops.',
+  modeHardcoreName: 'Iron Man / Hardcore',
+  modeHardcoreDesc: '1 single life. Faster fuel drain and no radar assistance. Only for veteran aces.',
+  modeZenName: 'Zen Flight',
+  modeZenDesc: 'Endless flight practice. Infinite fuel and no game over. Perfect for dodging practice and relaxation.',
+  modeTag1Life: '1 Life Only',
+  modeTagFastFuel: '+35% Fuel Drain',
+  modeTagNoMinimap: 'No Radar',
+  modeTagInfiniteLives: 'Infinite Lives',
+  modeTagNoFuelDrain: 'No Fuel Drain',
+  modeTagRapidBosses: 'Bosses Every 35s',
+  modeTagDeterministic: 'Daily Seed',
+  menuBtnModes: 'MODES',
+
+  // Hangar & Skins
+  hangarTitle: 'AIRCRAFT HANGAR',
+  hangarSubtitle: '— CUSTOMIZE YOUR FIGHTER —',
+  hangarBtnEquip: 'EQUIP',
+  hangarBtnEquipped: 'EQUIPPED',
+  hangarBtnLocked: 'LOCKED',
+  hangarRequiredScore: 'Requires Score:',
+  hangarRequiredAchievement: 'Requires Achievement:',
+  hangarBtnBack: 'BACK',
+  skinClassicName: 'Classic 2600',
+  skinClassicDesc: 'The legendary yellow interceptor that started it all.',
+  skinStealthName: 'Stealth Nighthawk',
+  skinStealthDesc: 'Radar-absorbent faceted black jet with violet ion thrusters.',
+  skinBiplaneName: 'Vintage Biplane',
+  skinBiplaneDesc: 'Classic double-wing fighter with spinning wooden propeller.',
+  skinCyberNeonName: 'Cyber-Viper',
+  skinCyberNeonDesc: 'Futuristic forward-swept neon fighter with plasma pulse drives.',
+  skinRequirementDefault: 'Available by default',
+  skinRequirementSharpshooter: 'Unlock the "Sharpshooter" achievement (50 kills in one run)',
+  skinRequirementFirstBridge: 'Unlock the "Bridge Breaker" achievement (Destroy 1 bridge)',
+  skinRequirementScore25k: 'Reach a High Score of 25,000 points',
+
+  // Career Stats
+  statsTitle: 'PILOT LOGBOOK',
+  statsSubtitle: '— LIFETIME CAREER STATS —',
+  statsTotalFlightTime: 'Total Flight Time',
+  statsTotalScore: 'Career Score Accumulated',
+  statsTotalRuns: 'Total Missions Flown',
+  statsTotalFuel: 'Fuel Depots Captured',
+  statsAccuracy: 'Overall Accuracy',
+  statsShotsFired: 'Total Shots Fired',
+  statsShotsHit: 'Confirmed Hits',
+  statsHighestCombo: 'Highest Combo Achieved',
+  statsTotalKills: 'Total Targets Destroyed',
+  statsHelicoptersKilled: 'Helicopters',
+  statsPlanesKilled: 'Jets',
+  statsBoatsKilled: 'Boats',
+  statsGunboatsKilled: 'Gunboats',
+  statsTanksKilled: 'Tanks',
+  statsBridgesKilled: 'Bridges Demolished',
+  statsBossesKilled: 'Dreadnought Bosses Defeated',
+  statsBtnClose: 'CLOSE',
+  statsBtnReset: 'RESET LOGBOOK',
+  statsResetConfirm: 'Are you sure you want to reset all lifetime career stats?',
 
   gameoverTitle: 'GAME OVER',
   gameoverLabelScore: 'FINAL SCORE',
@@ -239,6 +427,8 @@ const ptBR: Strings = {
   menuBtnStart: 'INICIAR',
   menuBtnTutorial: 'TUTORIAL',
   menuBtnSettings: 'OPÇÕES',
+  menuBtnHangar: 'HANGAR',
+  menuBtnStats: 'DIÁRIO DE BORDO',
   menuBtnDaily: 'DESAFIO DIÁRIO',
   menuDailyBest: 'Melhor de hoje',
   menuPressEnter: '▸ TOQUE OU PRESSIONE ENTER PARA INICIAR ◂',
@@ -277,6 +467,29 @@ const ptBR: Strings = {
   settingsLabelLighting: 'Iluminação dinâmica',
   settingsLabelColorblind: 'Indicadores p/ daltonismo',
   settingsLabelGamepad: 'Ativar gamepad',
+  settingsLabelHaptics: 'Feedback Tátil / Vibração',
+  settingsLabelGhostReplay: 'Avião Fantasma (Replay)',
+  settingsLabelControls: 'Controles',
+  settingsBtnConfigureKeys: 'Configurar Teclado...',
+  settingsSectionAudio: 'Áudio',
+  settingsSectionGameplay: 'Jogo e Acessibilidade',
+  settingsLabelKeyboard: 'Teclado',
+  settingsLabelMobileControl: 'Modo de Controle Mobile',
+  mobileControlJoystick: 'Joystick Flutuante',
+  mobileControlDpad: 'D-Pad Fixo',
+  mobileControlSwipe: 'Gestos Swipe',
+  keybindModalTitle: 'CONTROLES PERSONALIZADOS',
+  keybindModalSubtitle: '— MAPEAMENTO DE TECLADO —',
+  keybindActionLeft: 'Inclinar p/ Esquerda',
+  keybindActionRight: 'Inclinar p/ Direita',
+  keybindActionAccelerate: 'Acelerar',
+  keybindActionBrake: 'Frear / Desacelerar',
+  keybindActionShoot: 'Disparar Metralhadora',
+  keybindActionOverdrive: 'Ativar Sobrecarga (Overdrive)',
+  keybindActionPause: 'Pausar Jogo',
+  keybindListeningPrompt: 'PRESSIONE QUALQUER TECLA...',
+  keybindBtnReset: 'RESTAURAR PADRÕES',
+  keybindBtnDone: 'CONCLUÍDO',
   settingsLabelObjectiveProfile: 'Perfil de Objetivos',
   settingsProfileConservative: 'Conservador',
   settingsProfileAggressive: 'Agressivo',
@@ -304,6 +517,75 @@ const ptBR: Strings = {
   },
   settingsBtnBack: 'VOLTAR',
   settingsBtnPlay: 'JOGAR',
+
+  // Game Modes
+  modeSelectTitle: 'SELEÇÃO DE OPERAÇÃO',
+  modeSelectSubtitle: '— ESCOLHA O MODO DE JOGO —',
+  modeBtnPlay: 'INICIAR MISSÃO',
+  modeBtnBack: 'VOLTAR',
+  modeClassicName: 'Patrulha Clássica',
+  modeClassicDesc: 'Regras originais de voo. 3 vidas, consumo dinâmico de combustível e radar completo.',
+  modeDailyName: 'Desafio Diário',
+  modeDailyDesc: 'Layout do rio gerado deterministicamente para o dia de hoje. Disputa pelo topo do placar diário.',
+  modeBossRushName: 'Ataque de Chefes (Boss Rush)',
+  modeBossRushDesc: 'Sequência veloz de confrontos com encouraçados a cada 35 segundos. Alto risco com drops generosos de combustível.',
+  modeHardcoreName: 'Iron Man / Hardcore',
+  modeHardcoreDesc: 'Apenas 1 vida. Drenagem de combustível +35% mais rápida e sem radar de auxílio. Somente para ases veteranos.',
+  modeZenName: 'Voo Zen (Treino)',
+  modeZenDesc: 'Prática de voo relaxante. Combustível infinito e sem Game Over. Ideal para treinar reflexos de desvio.',
+  modeTag1Life: '1 Vida Única',
+  modeTagFastFuel: '+35% Drenagem de Fuel',
+  modeTagNoMinimap: 'Sem Radar',
+  modeTagInfiniteLives: 'Vidas Infinitas',
+  modeTagNoFuelDrain: 'Sem Drenagem de Fuel',
+  modeTagRapidBosses: 'Chefes a cada 35s',
+  modeTagDeterministic: 'Semente do Dia',
+  menuBtnModes: 'MODOS',
+
+  // Hangar & Skins
+  hangarTitle: 'HANGAR DE AERONAVES',
+  hangarSubtitle: '— PERSONALIZE SEU CAÇA —',
+  hangarBtnEquip: 'EQUIPAR',
+  hangarBtnEquipped: 'EQUIPADO',
+  hangarBtnLocked: 'BLOQUEADO',
+  hangarRequiredScore: 'Requer Pontuação:',
+  hangarRequiredAchievement: 'Requer Conquista:',
+  hangarBtnBack: 'VOLTAR',
+  skinClassicName: 'Clássico 2600',
+  skinClassicDesc: 'O lendário caça interceptor amarelo das origens do combate aéreo.',
+  skinStealthName: 'Nighthawk F-117',
+  skinStealthDesc: 'Fuselagem preta antirradar facetada com propulsores iônicos violeta.',
+  skinBiplaneName: 'Biplano Vintage',
+  skinBiplaneDesc: 'Caça histórico com asas duplas e hélice de madeira rotativa.',
+  skinCyberNeonName: 'Cyber-Viper Neon',
+  skinCyberNeonDesc: 'Aeronave futurista com asas invertidas e propulsão de plasma.',
+  skinRequirementDefault: 'Disponível por padrão',
+  skinRequirementSharpshooter: 'Desbloqueie a conquista "Atirador de Elite" (50 abates)',
+  skinRequirementFirstBridge: 'Desbloqueie a conquista "Quebra-Pontes" (Destrua 1 ponte)',
+  skinRequirementScore25k: 'Alcance um Recorde de 25.000 pontos',
+
+  // Career Stats
+  statsTitle: 'DIÁRIO DE BORDO DO PILOTO',
+  statsSubtitle: '— ESTATÍSTICAS DE CARREIRA ACUMULADAS —',
+  statsTotalFlightTime: 'Tempo Total de Voo',
+  statsTotalScore: 'Pontuação Total Acumulada',
+  statsTotalRuns: 'Missões Realizadas',
+  statsTotalFuel: 'Depósitos Reabastecidos',
+  statsAccuracy: 'Precisão Geral de Tiro',
+  statsShotsFired: 'Total de Disparos',
+  statsShotsHit: 'Tiros Certeiros',
+  statsHighestCombo: 'Maior Combo Histórico',
+  statsTotalKills: 'Total de Alvos Destruídos',
+  statsHelicoptersKilled: 'Helicópteros',
+  statsPlanesKilled: 'Caças Inimigos',
+  statsBoatsKilled: 'Barcos',
+  statsGunboatsKilled: 'Lanchas Armadas',
+  statsTanksKilled: 'Tanques',
+  statsBridgesKilled: 'Pontes Demolidas',
+  statsBossesKilled: 'Encouraçados Dreadnought',
+  statsBtnClose: 'FECHAR',
+  statsBtnReset: 'ZERAR DIÁRIO',
+  statsResetConfirm: 'Tem certeza que deseja zerar todas as estatísticas acumuladas de carreira?',
 
   gameoverTitle: 'FIM DE JOGO',
   gameoverLabelScore: 'PONTUAÇÃO FINAL',

@@ -27,9 +27,11 @@
   cursor: pointer;
 }
 
+/* Abaixo da faixa do HUD (60px) e do radar (y 70–160): em `top: 140px` os
+   botões caíam exatamente sobre o radar e sobre a barra de combustível. */
 .sys-buttons {
   position: absolute;
-  top: 140px;
+  top: 176px;
   display: flex;
   gap: 12px;
 }
@@ -40,6 +42,19 @@
 
 .sys-buttons.top-right {
   right: 20px;
+}
+
+/* Telas baixas: descem para o canto inferior esquerdo, longe do HUD e do D-pad. */
+@media (max-height: 620px) {
+  .sys-buttons {
+    top: auto;
+    bottom: 24px;
+  }
+
+  .sys-buttons.top-right {
+    right: auto;
+    left: 14px;
+  }
 }
 
 .btn-sys {

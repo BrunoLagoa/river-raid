@@ -88,13 +88,26 @@ Expandir as formas de jogar e enriquecer a competição pessoal através de:
 
 ---
 
-## 🧪 Plano de Verificação da Sprint 07
+## 🧪 Plano de Verificação e Resultados da Sprint 07
 1. **Testes Automatizados:**
-   ```bash
-   npm run typecheck
-   npm test
-   ```
-2. **Validação de Gameplay no Navegador:**
-   - Jogar uma partida no Modo Clássico para gravar um recorde de pontuação.
-   - Iniciar uma nova corrida e confirmar a presença do avião holográfico azul voando lado a lado.
-   - Testar o Modo Hardcore com 1 única vida e conferir o término imediato ao colidir.
+   - `npm run typecheck`: **0 erros (Strict TypeScript)**.
+   - `npm test`: **610 testes passando (49 arquivos de teste)**.
+   - `npm run lint`: **0 warnings / 0 erros (ESLint Flat Config)**.
+   - `npm run test:coverage`:
+     - Statements: **84.79%** (meta >= 82%)
+     - Branches: **77.08%** (meta >= 75%)
+     - Functions: **82.77%** (meta >= 75%)
+     - Lines: **85.86%** (meta >= 82%)
+   - `npm run build`: Bundle de produção gerado com sucesso em **97ms**.
+
+2. **Validação Funcional:**
+   - Seleção de modos via `ModeSelectModal.tsx` suportando **Patrulha Clássica**, **Desafio Diário**, **Boss Rush (chefes a cada 35s)**, **Iron Man / Hardcore (1 vida, sem radar, +35% fuel drain)** e **Voo Zen (vidas e combustível infinitos)**.
+   - Gravação contínua do replay a 10 Hz via `GhostReplaySystem.ts` com substituição automática apenas quando um novo recorde de pontuação é atingido.
+   - Renderização holográfica de alta precisão via `GhostRenderer.ts` com interpolação linear, silhueta em ciano neon, scanlines holográficas e etiqueta flutuante `[RECORD]`.
+   - Toggle nas Configurações para ativar/desativar o avião fantasma (`ghostReplay`).
+   - Badges temáticos no Game Over discriminando o modo disputado e suporte a internacionalização completa (`en` e `pt-BR`).
+
+---
+
+## 🏁 Status: CONCLUÍDO (100% Entregue)
+

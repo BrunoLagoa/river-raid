@@ -47,6 +47,14 @@ import {
 } from './AchievementService'
 import { AchievementTracker } from './AchievementTracker'
 import type { Strings } from '../i18n'
+import { KeybindingService, type Keybindings } from './KeybindingService'
+import { HapticsEngine } from './HapticsEngine'
+import { CareerStatsService, type EnemyKillCounts } from './CareerStatsService'
+import { SkinService, type SkinId } from './SkinService'
+import { type GameModeId, type GameModeConfig, getGameModeConfig } from './GameMode'
+import { GhostReplaySystem } from './GhostReplaySystem'
+import { GhostRenderer } from './GhostRenderer'
+
 export type GameCallback = (score: number, highScore: number) => void
 export type AchievementCallback = (id: AchievementId, title: string, description: string) => void
 
@@ -74,11 +82,27 @@ export class Game {
   weather: WeatherSystem
   lighting: LightingSystem
   hazards: HazardManager
+  keybindings = new KeybindingService()
+  haptics = new HapticsEngine()
+  careerStats = new CareerStatsService()
+  skinService = new SkinService()
   private hazardRenderer = new HazardRenderer()
   overdrive = new OverdriveSystem()
   boss: BossDreadnought | null = null
   private bossRenderer = new BossRenderer()
   private bossSpawnTimer = BOSS_SPAWN_INTERVAL
+
+  private gameModeId: GameModeId = 'classic'
+  private gameModeConfig: GameModeConfig = getGameModeConfig('classic')
+  private ghostReplay = new GhostReplaySystem('classic')
+  private ghostRenderer = new GhostRenderer()
+  private ghostReplayEnabled = true
+
+  private sessionShotsFired = 0
+  private sessionShotsHit = 0
+  private sessionFuelCount = 0
+  private sessionEnemiesKilled: Partial<EnemyKillCounts> = {}
+  private sessionHighestCombo = 1
   /** Bound once — the boss update runs every frame and must not allocate. */
   private spawnBossBullet = (b: { x: number; y: number; vx: number; speed: number; fromPlane: boolean }): void => {
     this.enemyManager.spawnEnemyBullet(b)
@@ -106,6 +130,7 @@ export class Game {
   private weatherEnabled = true
   private lightingEnabled = true
   private colorblind = false
+  private dpr = 1
   private random: RandomSource
 
   private achievements = new AchievementTracker((id) => this.tryUnlockAchievement(id))
@@ -153,6 +178,8 @@ export class Game {
     this.ctx = ctx
 
     this.player = new Player(canvas.width, canvas.height)
+    this.player.setKeybindingService(this.keybindings)
+    this.player.setSkin(this.skinService.getEquippedSkinId())
     this.world = new World(canvas.width, canvas.height, this.random)
     this.ui = new UI()
     this.enemyManager = new EnemyManager(canvas.width, canvas.height, this.random)
@@ -173,15 +200,16 @@ export class Game {
   }
 
   private globalKeyHandler = (e: KeyboardEvent): void => {
-    if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+    const action = this.keybindings.getActionForKey(e.code) ?? this.keybindings.getActionForKey(e.key)
+    if (action === 'pause' || e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
       this.togglePause()
     }
     if (e.key === 'm' || e.key === 'M') {
       this.sound.toggleMute()
     }
     // Shift is a modifier — binding it here fired Overdrive on Shift+P, capitals
-    // and key auto-repeat, so the beam is on X only.
-    if (!e.repeat && (e.key === 'x' || e.key === 'X')) {
+    // and key auto-repeat, so the beam is on X only or custom overdrive key.
+    if (!e.repeat && (action === 'overdrive' || e.key === 'x' || e.key === 'X')) {
       this.activateOverdrive()
     }
     this.debugPanel.onKeyDown(e.key)
@@ -277,7 +305,7 @@ export class Game {
       this.fx.triggerShockwave(this.player.x, this.player.y, 1.2)
       this.fx.flash('#00ffff', 0.25)
       this.sound.bombShockwave()
-      this.vibrate(80)
+      this.haptics.triggerOverdriveActive()
     }
     return activated
   }
@@ -286,10 +314,27 @@ export class Game {
     this.player.setTouchTarget(screenX, screenY)
   }
 
+  setAnalogVector(x: number, y: number): void {
+    this.player.setAnalogVector(x, y)
+  }
+
+  setTouchShoot(shooting: boolean): void {
+    this.player.setTouchShoot(shooting)
+  }
+
+  setKeybindings(bindings?: Partial<Keybindings>): void {
+    this.keybindings.setBindings(bindings)
+  }
+
+  setHapticsEnabled(enabled: boolean): void {
+    this.haptics.setEnabled(enabled)
+  }
+
   setReducedMotion(enabled: boolean): void {
     this.reducedMotion = enabled
     this.fx.setReducedMotion(enabled)
     this.player.setReducedMotion(enabled)
+    this.haptics.setReducedMotion(enabled)
   }
 
   // Light haptic feedback on mobile; suppressed when reduced motion is on.
@@ -332,9 +377,18 @@ export class Game {
     this.lightingEnabled = enabled
   }
 
+  /** Em touch os atalhos de teclado somem do HUD (não há teclado para usá-los). */
+  setTouchMode(enabled: boolean): void {
+    this.ui.setKeyboardHintsVisible(!enabled)
+  }
+
   setColorblind(enabled: boolean): void {
     this.colorblind = enabled
     this.player.setColorblind(enabled)
+  }
+
+  setSkin(skinId: SkinId): void {
+    this.player.setSkin(skinId)
   }
 
   setObjectiveBalanceProfile(profile: ObjectiveBalanceProfile): void {
@@ -365,21 +419,53 @@ export class Game {
     this.sound.speech.reset()
     this.overdrive.reset()
     this.boss = null
-    this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
+    this.bossSpawnTimer = this.gameModeConfig.firstBossSpawnTime
     this.player.overdriveActive = false
+    this.player.setSkin(this.skinService.getEquippedSkinId())
     this.biomeSystem.reset()
     this.debugPanel.reset()
     this.objectives.reset()
     this.achievements.reset()
+    this.ghostReplay.setMode(this.gameModeId)
+    this.sessionShotsFired = 0
+    this.sessionShotsHit = 0
+    this.sessionFuelCount = 0
+    this.sessionEnemiesKilled = {}
+    this.sessionHighestCombo = 1
     this.extraLifeThreshold = EXTRA_LIFE_SCORE_INTERVAL
     this.nearMissCooldown = 0
     this.clearPendingTimers()
     this.start()
   }
 
+  setGameMode(mode: GameModeId): void {
+    this.gameModeId = mode
+    this.gameModeConfig = getGameModeConfig(mode)
+    this.lives = this.gameModeConfig.initialLives
+    this.bossSpawnTimer = this.gameModeConfig.firstBossSpawnTime
+    this.fuelSystem.drainMultiplier = this.gameModeConfig.infiniteFuel
+      ? 0
+      : this.difficulty.fuelDrainMult * this.gameModeConfig.fuelDrainMultiplier
+    this.ghostReplay.setMode(mode)
+  }
+
+  getGameMode(): GameModeId {
+    return this.gameModeId
+  }
+
+  setGhostReplayEnabled(enabled: boolean): void {
+    this.ghostReplayEnabled = enabled
+  }
+
+  isGhostReplayEnabled(): boolean {
+    return this.ghostReplayEnabled
+  }
+
   setDifficulty(difficulty: Difficulty): void {
     this.difficulty = DIFFICULTY_PRESETS[difficulty]
-    this.fuelSystem.drainMultiplier = this.difficulty.fuelDrainMult
+    this.fuelSystem.drainMultiplier = this.gameModeConfig.infiniteFuel
+      ? 0
+      : this.difficulty.fuelDrainMult * this.gameModeConfig.fuelDrainMultiplier
   }
 
   /** Provide localized strings for in-game text (pause overlay, toasts). */
@@ -396,9 +482,10 @@ export class Game {
     this.sound.setLanguage(language)
   }
 
-  resize(width: number, height: number): void {
-    this.canvas.width = width
-    this.canvas.height = height
+  resize(width: number, height: number, dpr = 1): void {
+    this.dpr = Math.max(1, Math.min(dpr, 2))
+    this.canvas.width = Math.floor(width * this.dpr)
+    this.canvas.height = Math.floor(height * this.dpr)
     this.world.resize(width, height)
     this.enemyManager.setCanvasHeight(height)
     this.fuelSystem.setCanvasHeight(height)
@@ -413,8 +500,12 @@ export class Game {
   }
 
   registerHit(): void {
+    this.sessionShotsHit++
     const previous = this.comboMultiplier
     this.scoring.registerHit()
+    if (this.comboMultiplier > this.sessionHighestCombo) {
+      this.sessionHighestCombo = this.comboMultiplier
+    }
     this.checkExtraLife()
     if (this.comboMultiplier > previous) {
       this.fx.addShake(3, 0.1)
@@ -626,9 +717,10 @@ export class Game {
       this.bossSpawnTimer -= envDt
       if (this.bossSpawnTimer <= 0) {
         this.boss = new BossDreadnought(this.canvas.width, -BOSS_HEIGHT, this.random)
-        this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
+        this.bossSpawnTimer = this.gameModeConfig.bossSpawnInterval
         this.fx.flash('#ff0044', 0.2)
         this.sound.speech.playBossAlert()
+        this.haptics.triggerBossAlert()
       }
     } else {
       if (this.boss.active) {
@@ -637,6 +729,7 @@ export class Game {
       } else if (this.boss.state === 'defeated') {
         this.sound.speech.playMissionComplete()
         this.boss = null
+        this.bossSpawnTimer = this.gameModeConfig.bossSpawnInterval
       }
     }
 
@@ -663,6 +756,16 @@ export class Game {
   }
 
   private handleAliveState(dt: number, envDt: number, speedMod: number): boolean {
+    if (this.gameModeConfig.recordGhost) {
+      this.ghostReplay.recordSample(
+        this.gameTime,
+        this.player.x,
+        this.player.y,
+        this.player.bankDir,
+        this.player.isShooting
+      )
+    }
+
     this.renderSmokeTrail(speedMod)
     this.resolveGameplayCollisions(envDt)
     this.checkNearMisses()
@@ -670,7 +773,9 @@ export class Game {
     this.achievements.updateFuel(dt, this.fuelSystem.fuel)
 
     if (this.player.justShot) {
+      this.sessionShotsFired++
       this.sound.shoot()
+      this.haptics.triggerShoot()
       this.fx.muzzleFlash(
         this.player.x,
         this.player.y - this.player.height / 2,
@@ -706,9 +811,10 @@ export class Game {
   private renderSmokeTrail(speedMod: number): void {
     if (this.random() >= SMOKE_TRAIL_SPAWN_CHANCE) return
 
-    let trailColor = '#888888'
-    if (speedMod > SMOKE_TRAIL_FAST_SPEED_MOD) trailColor = '#aa7744'
-    else if (speedMod < SMOKE_TRAIL_SLOW_SPEED_MOD) trailColor = '#555555'
+    const skinDef = this.skinService.getSkinDef(this.player.skinId)
+    let trailColor = skinDef.smokeColorNormal
+    if (speedMod > SMOKE_TRAIL_FAST_SPEED_MOD) trailColor = skinDef.smokeColorAccelerate
+    else if (speedMod < SMOKE_TRAIL_SLOW_SPEED_MOD) trailColor = skinDef.smokeColorBrake
     this.fx.smokeTrail(this.player.x, this.player.y + this.player.height / 2, trailColor)
   }
 
@@ -757,8 +863,18 @@ export class Game {
           this.objectives.onEnemyDestroyed(enemyType)
           this.achievements.onEnemyDestroyed(enemyType)
           this.overdrive.onEnemyKilled()
+          const eType = enemyType as keyof EnemyKillCounts
+          this.sessionEnemiesKilled[eType] = (this.sessionEnemiesKilled[eType] ?? 0) + 1
+          if (enemyType === 'bridge') {
+            this.haptics.triggerBridgeDestroy()
+          } else {
+            this.haptics.triggerEnemyKill()
+          }
         },
-        onFuelCollected: (count) => this.objectives.onFuelCollected(count),
+        onFuelCollected: (count) => {
+          this.sessionFuelCount += count
+          this.objectives.onFuelCollected(count)
+        },
         onPowerUpCollected: (type) => {
           this.achievements.onPowerUpCollected()
           const name = this.locale?.powerupNames[type]
@@ -835,8 +951,14 @@ export class Game {
   }
 
   private render(): void {
+    const width = this.canvas.width / this.dpr
+    const height = this.canvas.height / this.dpr
+
+    if (typeof this.ctx.setTransform === 'function') {
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    }
     this.ui.setDistanceMeters(Math.floor(this.state.distance / DISTANCE_PX_PER_METER))
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    this.ctx.clearRect(0, 0, width, height)
 
     const palette = this.atmosphere.getPalette()
 
@@ -859,6 +981,12 @@ export class Game {
     this.enemyManager.render(this.ctx, this.colorblind)
     if (this.boss && this.boss.active) {
       this.bossRenderer.render(this.ctx, this.boss)
+    }
+    if (this.ghostReplayEnabled) {
+      const ghost = this.ghostReplay.getGhostStateAtTime(this.gameTime)
+      if (ghost) {
+        this.ghostRenderer.render(this.ctx, ghost, this.player.animFrame)
+      }
     }
     this.player.render(this.ctx)
     this.fx.render(this.ctx)
@@ -884,8 +1012,8 @@ export class Game {
     // Procedural Weather particles (Rain with lightning, Sandstorm, Smog, Snow)
     this.weather.render(
       this.ctx,
-      this.canvas.width,
-      this.canvas.height,
+      width,
+      height,
       this.weatherEnabled,
       this.reducedMotion
     )
@@ -905,16 +1033,20 @@ export class Game {
     overdriveData.remainingTimer = this.overdrive.remainingTimer
     overdriveData.activeRatio = this.overdrive.activeRatio
 
+    const minimapData = this.gameModeConfig.minimapEnabled
+      ? {
+          player: { x: this.player.x, y: this.player.y },
+          segments: this.world.segments,
+          enemies: this.collectActiveEntities(this.enemyManager.enemies, this.minimapEnemies),
+          fuelTanks: this.collectActiveEntities(this.fuelSystem.tanks, this.minimapFuelTanks),
+          powerUps: this.collectActiveEntities(this.powerUpSystem.powerUps, this.minimapPowerUps),
+        }
+      : undefined
+
     this.ui.render(
-      this.ctx, this.score, this.fuelSystem.fuel, this.canvas.width,
+      this.ctx, this.score, this.fuelSystem.fuel, width,
       this.sound.isMuted(), this.paused,
-      {
-        player: { x: this.player.x, y: this.player.y },
-        segments: this.world.segments,
-        enemies: this.collectActiveEntities(this.enemyManager.enemies, this.minimapEnemies),
-        fuelTanks: this.collectActiveEntities(this.fuelSystem.tanks, this.minimapFuelTanks),
-        powerUps: this.collectActiveEntities(this.powerUpSystem.powerUps, this.minimapPowerUps),
-      },
+      minimapData,
       this.player.doubleShotTimer,
       this.slowMotionTimer,
       { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
@@ -926,10 +1058,10 @@ export class Game {
       overdriveData,
     )
 
-    this.debugPanel.render(this.ctx, this.canvas.width)
+    this.debugPanel.render(this.ctx, width)
 
     // CRT scanlines — screen-space overlay applied last, over everything including HUD
-    this.atmosphere.renderScanlines(this.ctx, this.canvas.width, this.canvas.height)
+    this.atmosphere.renderScanlines(this.ctx, width, height)
   }
 
   private checkExtraLife(): void {
@@ -967,7 +1099,20 @@ export class Game {
   handlePlayerDeath(): void {
     if (this.gameOverTriggered) return
     this.achievements.onPlayerDeath()
+    this.haptics.triggerPlayerDamage()
     this.vibrate(60)
+
+    if (this.gameModeConfig.infiniteLives) {
+      this.registerMiss()
+      this.respawnTimeoutId = setTimeout(() => {
+        this.respawnTimeoutId = null
+        if (!this.running || this.gameOverTriggered) return
+        this.fuelSystem.fuel = 100
+        this.player.respawn(this.canvas.width, this.canvas.height)
+      }, RESPAWN_DELAY)
+      return
+    }
+
     this.lives--
     this.registerMiss() // Reset combo on death
 
@@ -992,12 +1137,28 @@ export class Game {
     if (this.gameOverTriggered) return
     this.gameOverTriggered = true
 
-    this.achievements.onGameOver(this.score, this.comboMultiplier)
+    if (this.gameModeConfig.trackAchievements) {
+      this.achievements.onGameOver(this.score, this.comboMultiplier)
+    }
+
+    this.careerStats.recordRun({
+      flightTimeSeconds: this.gameTime,
+      score: this.score,
+      fuelPickedUp: this.sessionFuelCount,
+      enemiesKilled: this.sessionEnemiesKilled,
+      shotsFired: this.sessionShotsFired,
+      shotsHit: this.sessionShotsHit,
+      highestCombo: this.sessionHighestCombo,
+    })
+
+    if (this.gameModeConfig.recordGhost) {
+      this.ghostReplay.saveIfBest(this.gameModeId, this.score, this.gameTime)
+    }
 
     this.fx.addShake(15, 0.6)
     this.sound.gameOver()
     const isNewBest = this.score > this.getHighScore()
-    if (isNewBest) {
+    if (isNewBest && this.gameModeConfig.trackLeaderboard) {
       this.saveHighScore()
     }
     this.gameOverTimeoutId = setTimeout(() => {

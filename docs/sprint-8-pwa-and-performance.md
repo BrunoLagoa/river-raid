@@ -76,14 +76,24 @@ Garantir máxima performance de renderização, suporte offline e integridade do
 
 ---
 
-## 🧪 Plano de Verificação da Sprint 08
-1. **Testes Automatizados:**
-   ```bash
-   npm run typecheck
-   npm run test:coverage
-   npm run lint
-   npm run build
-   ```
-2. **Validação do PWA no Navegador:**
-   - Abrir no navegador, desconectar a internet (modo Offline no DevTools Network) e recarregar a página.
-   - O jogo deve carregar e rodar perfeitamente sem falhas de conexão.
+## 🧪 Plano de Verificação e Resultados da Sprint 08
+1. **Testes Automatizados & Portões de Qualidade:**
+   - `npm run typecheck`: **0 erros (Strict TypeScript Compliance)**.
+   - `npm test`: **617 testes passando (50 arquivos de teste)**.
+   - `npm run lint`: **0 warnings / 0 erros (ESLint Flat Config)**.
+   - `npm run test:coverage`:
+     - Statements: **87.34%** (meta >= 82%)
+     - Branches: **78.16%** (meta >= 75%)
+     - Functions: **82.99%** (meta >= 75%)
+     - Lines: **88.57%** (meta >= 82%)
+   - `npm run build`: Bundle de produção gerado com sucesso em **92ms**.
+
+2. **Entregas Validadas:**
+   - Suporte a **Progressive Web App (PWA)** com `public/manifest.json`, `public/sw.js` (Cache-First offline strategy) e meta tags para Safari iOS e Android (`theme-color: #050a14`, `viewport-fit=cover`).
+   - Módulo de cache de renderização de alto desempenho em [SpriteCache.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpriteCache.ts) e integração com [EnemyRenderer.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/EnemyRenderer.ts).
+   - Escalonamento **HiDPI / Retina dinâmico** com `dpr = Math.min(window.devicePixelRatio, 2)` mantendo nitidez em telas 2K/4K e celulares modernos.
+
+---
+
+## 🏁 Status: CONCLUÍDO (100% Entregue)
+

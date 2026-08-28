@@ -427,6 +427,7 @@ export class CollisionSystem {
         ctx.sound.enemyHit()
         ctx.registerHit()
         if (res.defeated) {
+          ctx.onEnemyDestroyed?.('boss' as EnemyType)
           ctx.fx.bigExplosion(boss.x, boss.y, '#ff3300')
           ctx.fx.addShake(15, 1.2)
           ctx.sound.explosion()
@@ -576,6 +577,7 @@ export class CollisionSystem {
         const res = boss.takeDamage(OVERDRIVE_LASER_DPS * (ctx.dt ?? DEFAULT_DT))
         ctx.fx.bulletSpark(ctx.player.x, boss.y + boss.height / 4, '#00ffff')
         if (res.defeated) {
+          ctx.onEnemyDestroyed?.('boss' as EnemyType)
           ctx.fx.bigExplosion(boss.x, boss.y, '#00ffff')
           ctx.fx.addShake(16, 1.2)
           ctx.sound.explosion()

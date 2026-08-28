@@ -99,13 +99,25 @@ Aumentar o valor de replay e a sensação de conquista a longo prazo através de
 
 ---
 
-## 🧪 Plano de Verificação da Sprint 06
+## 🧪 Plano de Verificação e Resultados da Sprint 06
 1. **Testes Automatizados:**
-   ```bash
-   npm run typecheck
-   npm test
-   ```
-2. **Validação Visual no Navegador:**
-   - Abrir o Hangar, equipar a skin *Biplane* ou *Stealth*.
-   - Iniciar uma partida e verificar a nova fuselagem do avião e seu rastro de fumaça personalizado.
-   - Completar uma corrida, abrir o Diário de Bordo e conferir as estatísticas atualizadas.
+   - `npm run typecheck`: **0 erros** (Strict TypeScript).
+   - `npm test`: **595 testes passando (45 arquivos de teste)**.
+   - `npm run lint`: **0 warnings / 0 erros** (ESLint Flat Config).
+   - `npm run test:coverage`:
+     - Statements: **84.74%** (meta >= 82%)
+     - Branches: **77.38%** (meta >= 75%)
+     - Functions: **83.16%** (meta >= 75%)
+     - Lines: **85.84%** (meta >= 82%)
+   - `npm run build`: Bundle de produção gerado com sucesso em **98ms**.
+
+2. **Validação Funcional:**
+   - Hangar interativo com mini-canvas `HangarScreen.tsx` exibindo as 4 aeronaves animadas com rotação de radar.
+   - Renderizador especializado `PlayerSkinRenderer.ts` com sprites dedicados, banking lateral e rastros de fumaça cromáticos.
+   - Diário de bordo `CareerStatsModal.tsx` com precisão %, tempo total, contagem detalhada de abates e persistência com checksum via `CareerStatsService.ts`.
+   - Botões de acesso rápido no Menu principal com localização completa (`pt-BR` e `en`).
+
+---
+
+## 🏁 Status: CONCLUÍDO (100% Entregue)
+

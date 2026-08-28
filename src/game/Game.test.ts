@@ -924,6 +924,17 @@ describe('Game resize', () => {
     expect(canvas.height).toBe(300)
     game.destroy()
   })
+
+  it('suporta escalonamento HiDPI / Retina com DPR > 1', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.resize(400, 300, 2)
+
+    expect(canvas.width).toBe(800)
+    expect(canvas.height).toBe(600)
+    game.destroy()
+  })
 })
 
 describe('Game render', () => {
@@ -1608,4 +1619,130 @@ describe('Game achievement system', () => {
     expect(voiceSpy).toHaveBeenCalled()
     expect(dynamicSpy).toHaveBeenCalledWith(expect.objectContaining({ lowFuel: true }))
   })
+
+  it('setKeybindings, setHapticsEnabled, setAnalogVector e setTouchShoot repassam configuracoes', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.setKeybindings({ left: ['KeyA'] })
+    expect(game.keybindings.getBindings().left).toEqual(['KeyA'])
+
+    game.setHapticsEnabled(false)
+    expect(game.haptics.isEnabled()).toBe(false)
+
+    const initialX = game.player.x
+    game.setAnalogVector(1, 0)
+    game.setTouchShoot(true)
+
+    type GamePrivate = { updateWorldAndPlayer: (dt: number, envDt: number) => void; handleAliveState: (dt: number, envDt: number, sm: number) => boolean }
+    ;(game as unknown as GamePrivate).updateWorldAndPlayer(0.1, 0.1)
+    ;(game as unknown as GamePrivate).handleAliveState(0.1, 0.1, 1)
+
+    expect(game.player.x).toBeGreaterThan(initialX)
+    expect(game.player.justShot || game.player.bullets.length > 0).toBe(true)
+  })
+
+  it('haptics sao acionados em eventos de combate e overdrive', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const shootHapticSpy = vi.spyOn(game.haptics, 'triggerShoot')
+    const overdriveHapticSpy = vi.spyOn(game.haptics, 'triggerOverdriveActive')
+    const damageHapticSpy = vi.spyOn(game.haptics, 'triggerPlayerDamage')
+
+    // Atirar
+    game.player.justShot = true
+    type GamePrivate = { handleAliveState: (dt: number, envDt: number, sm: number) => boolean }
+    ;(game as unknown as GamePrivate).handleAliveState(0.1, 0.1, 1)
+    expect(shootHapticSpy).toHaveBeenCalled()
+
+    // Overdrive
+    game.start()
+    game.overdrive.addEnergy(100)
+    game.activateOverdrive()
+    expect(overdriveHapticSpy).toHaveBeenCalled()
+
+    // Morte do jogador
+    game.handlePlayerDeath()
+    expect(damageHapticSpy).toHaveBeenCalled()
+  })
+
+  it('registra estatisticas de carreira ao ocorrer game over', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const recordSpy = vi.spyOn(game.careerStats, 'recordRun')
+
+    game.score = 4500
+    game.gameTime = 120
+    game.lives = 1
+    game.handlePlayerDeath() // lives chega a 0 -> triggerGameOver
+
+    expect(recordSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flightTimeSeconds: 120,
+        score: 4500,
+      })
+    )
+  })
+
+  it('setSkin altera skin no jogador e altera cor da fumaca', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas, () => 0.1)
+    const smokeSpy = vi.spyOn(game.fx, 'smokeTrail')
+
+    game.setSkin('stealth')
+    expect(game.player.skinId).toBe('stealth')
+
+    game.player.keys.add('ArrowUp')
+    type GamePrivate = { handleAliveState: (dt: number, envDt: number, sm: number) => boolean }
+    ;(game as unknown as GamePrivate).handleAliveState(0.1, 0.1, 1.5) // Fast speed mod
+
+    expect(smokeSpy).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), '#c084fc')
+  })
+
+  it('setGameMode configura regras de modo de jogo (hardcore, zen, boss_rush)', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    // Hardcore
+    game.setGameMode('hardcore')
+    expect(game.getGameMode()).toBe('hardcore')
+    expect(game.lives).toBe(1)
+
+    // Zen
+    game.setGameMode('zen')
+    expect(game.getGameMode()).toBe('zen')
+    expect(game.lives).toBe(99)
+    expect(game.fuelSystem.drainMultiplier).toBe(0)
+
+    // Boss rush
+    game.setGameMode('boss_rush')
+    expect(game.getGameMode()).toBe('boss_rush')
+    expect(game.lives).toBe(3)
+  })
+
+  it('zen mode nao da game over na morte do jogador', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    game.setGameMode('zen')
+
+    const gameOverSpy = vi.fn()
+    game.setOnGameOver(gameOverSpy)
+
+    game.handlePlayerDeath()
+    vi.advanceTimersByTime(2000)
+
+    expect(gameOverSpy).not.toHaveBeenCalled()
+    expect(game.lives).toBe(99)
+  })
+
+  it('setGhostReplayEnabled controla renderizacao do fantasma', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    expect(game.isGhostReplayEnabled()).toBe(true)
+    game.setGhostReplayEnabled(false)
+    expect(game.isGhostReplayEnabled()).toBe(false)
+  })
 })
+
+

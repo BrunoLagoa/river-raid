@@ -1,0 +1,19 @@
+{
+  "name": "River Raid",
+  "short_name": "RiverRaid",
+  "description": "Retro River Raid arcade combat flight simulator",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050a14",
+  "theme_color": "#050a14",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

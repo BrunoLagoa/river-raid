@@ -1,6 +1,8 @@
+import React, { useState } from 'react'
 import type { GameSettings } from '../game/SettingsService'
 import type { Strings } from '../i18n'
 import type { Achievement } from '../game/AchievementService'
+import { KeybindingModal } from './KeybindingModal'
 
 interface SettingsScreenProps {
   settings: GameSettings
@@ -12,6 +14,8 @@ interface SettingsScreenProps {
 }
 
 export default function SettingsScreen({ settings, achievements, t, onUpdate, onBack, onPlay }: SettingsScreenProps) {
+  const [isKeybindOpen, setIsKeybindOpen] = useState(false)
+
   return (
     <div className="screen-wrapper menu">
       <div className="menu-scanlines" aria-hidden="true" />
@@ -25,7 +29,8 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
         <div className="divider menu-divider" />
 
         <div className="settings-body">
-          {/* Audio Channels */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">{t.settingsSectionAudio}</h2>
           <div className="settings-row settings-row--slider">
             <div className="settings-row-label">
               {t.settingsLabelVolume}
@@ -90,9 +95,10 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             />
           </div>
 
-          <div className="settings-divider" />
+          </section>
 
-          {/* Toggles */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">{t.settingsSectionGameplay}</h2>
           <div className="settings-toggles">
             <label className="settings-toggle">
               <input
@@ -170,12 +176,60 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
               <span className="settings-toggle-track" />
               <span className="settings-toggle-label">{t.settingsLabelGamepad}</span>
             </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.hapticsEnabled}
+                onChange={(e) => onUpdate({ hapticsEnabled: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelHaptics}</span>
+            </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.ghostReplay}
+                onChange={(e) => onUpdate({ ghostReplay: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelGhostReplay}</span>
+            </label>
           </div>
 
-          <div className="settings-divider" />
+          </section>
 
-          {/* Selects row */}
+          <section className="settings-section">
+            <h2 className="settings-section-title">{t.settingsLabelControls}</h2>
+
+          <div className="settings-row settings-row--inline">
+            <span className="settings-row-title">{t.settingsLabelKeyboard}</span>
+            <button
+              type="button"
+              onClick={() => setIsKeybindOpen(true)}
+              className="menu-btn menu-btn--ghost menu-btn--compact"
+            >
+              ⌨ {t.settingsBtnConfigureKeys}
+            </button>
+          </div>
+
           <div className="settings-selects">
+            <div className="settings-select-group">
+              <div className="settings-select-label">{t.settingsLabelMobileControl}</div>
+              <select
+                value={settings.mobileControlMode}
+                onChange={(e) => onUpdate({ mobileControlMode: e.target.value as GameSettings['mobileControlMode'] })}
+                className="settings-select"
+              >
+                <option value="joystick">{t.mobileControlJoystick}</option>
+                <option value="dpad">{t.mobileControlDpad}</option>
+                <option value="swipe">{t.mobileControlSwipe}</option>
+              </select>
+            </div>
+
             <div className="settings-select-group">
               <div className="settings-select-label">{t.settingsLabelDifficulty}</div>
               <select
@@ -214,10 +268,10 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             </div>
           </div>
 
-          <div className="settings-divider" />
+          </section>
 
-          {/* Achievements */}
-          <div className="settings-achievements-label">{t.settingsLabelAchievements}</div>
+          <section className="settings-section">
+            <h2 className="settings-section-title">{t.settingsLabelAchievements}</h2>
           <div className="settings-achievements">
             {achievements.map((a) => (
               <div key={a.id} className={`settings-achievement-row ${a.unlocked ? 'unlocked' : 'locked'}`}>
@@ -247,6 +301,7 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
               </div>
             ))}
           </div>
+          </section>
         </div>
 
         <div className="menu-actions settings-actions">
@@ -256,6 +311,14 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
           </button>
         </div>
       </div>
+
+      <KeybindingModal
+        isOpen={isKeybindOpen}
+        onClose={() => setIsKeybindOpen(false)}
+        currentBindings={settings.keybindings}
+        onSave={(keybindings) => onUpdate({ keybindings })}
+        locale={t}
+      />
     </div>
   )
 }

@@ -12,8 +12,11 @@ function renderMenu(overrides: Partial<Parameters<typeof MenuScreen>[0]> = {}) {
     t,
     onStart: vi.fn(),
     onDaily: vi.fn(),
+    onModes: vi.fn(),
     onTutorial: vi.fn(),
     onSettings: vi.fn(),
+    onHangar: vi.fn(),
+    onStats: vi.fn(),
     muted: false,
     onToggleMute: vi.fn(),
     dailyBest: 0,
@@ -28,6 +31,9 @@ describe('MenuScreen', () => {
     renderMenu()
     expect(screen.getByText('RIVER RAID')).toBeTruthy()
     expect(screen.getByText(t.menuBtnStart)).toBeTruthy()
+    expect(screen.getByText(`🎮 ${t.menuBtnModes}`)).toBeTruthy()
+    expect(screen.getByText(`🛩️ ${t.menuBtnHangar}`)).toBeTruthy()
+    expect(screen.getByText(`📊 ${t.menuBtnStats}`)).toBeTruthy()
     expect(screen.getByText(t.menuBtnTutorial)).toBeTruthy()
     expect(screen.getByText(t.menuBtnSettings)).toBeTruthy()
   })
@@ -35,9 +41,15 @@ describe('MenuScreen', () => {
   it('dispara os callbacks dos botões', () => {
     const props = renderMenu()
     fireEvent.click(screen.getByText(t.menuBtnStart))
+    fireEvent.click(screen.getByText(`🎮 ${t.menuBtnModes}`))
+    fireEvent.click(screen.getByText(`🛩️ ${t.menuBtnHangar}`))
+    fireEvent.click(screen.getByText(`📊 ${t.menuBtnStats}`))
     fireEvent.click(screen.getByText(t.menuBtnTutorial))
     fireEvent.click(screen.getByText(t.menuBtnSettings))
     expect(props.onStart).toHaveBeenCalledTimes(1)
+    expect(props.onModes).toHaveBeenCalledTimes(1)
+    expect(props.onHangar).toHaveBeenCalledTimes(1)
+    expect(props.onStats).toHaveBeenCalledTimes(1)
     expect(props.onTutorial).toHaveBeenCalledTimes(1)
     expect(props.onSettings).toHaveBeenCalledTimes(1)
   })
