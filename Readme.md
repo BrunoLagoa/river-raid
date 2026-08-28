@@ -20,6 +20,13 @@ O projeto utiliza uma arquitetura híbrida de alto desempenho: o **React** cuida
   - **Aviões de Caça:** Velozes, cruzam a tela horizontalmente e atiram com precisão.
   - **Barcos:** Obstáculos lentos que patrulham o rio.
   - **Pontes:** Checkpoints físicos e estratégicos que podem dropar combustível.
+  - **Dreadnought MK-I (Boss):** Encouraçado blindado multi-fase com 4 torres giratórias, núcleo exposto e propulsores em chamas no modo de desespero (+5000 pts).
+
+### ⚡ Sistema de Especial Overdrive
+Medidor tático carregado ao abater inimigos (+4%) e realizar manobras arriscadas *Near Miss* (+12%):
+- **Gatilho:** Pressione `Shift`, `X`, botão `B` (gamepad) ou toque no botão `⚡` (mobile) ao atingir 100%.
+- **Pulso EMP Defensivo:** Limpa instantaneamente todos os projéteis inimigos na tela com onda de choque.
+- **Laser Contínuo de Plasma:** Feixe de energia devastador por 6 segundos que atravessa e vaporiza qualquer alvo na linha de tiro.
 
 ### 🌟 Sistema de Power-ups
 Itens especiais flutuam no rio após a destruição de inimigos (8% de chance):
@@ -96,15 +103,23 @@ O jogo permite personalizar a experiência através de um menu de configuraçõe
 - `←` / `→` ou `A` / `D`: Movimentação lateral.
 - `↑` / `↓` ou `W` / `S`: Ajuste de velocidade (Acelerar/Frear).
 - `Espaço`: Disparar metralhadora.
+- `Shift` ou `X`: Ativar Especial **Overdrive** (Laser contínuo + EMP).
 - `P` / `Esc`: Pausar jogo.
 - `M`: Alternar Mudo.
 - `Enter`: Iniciar / Reiniciar.
 
+### Gamepad (Controles USB / Bluetooth)
+- `D-Pad / Analógico`: Movimentação e velocidade.
+- `Botão A` (Cross): Disparar metralhadora.
+- `Botão B` (Circle): Ativar **Overdrive**.
+- `Start`: Pausar / Continuar.
+
 ### Mobile (Touch)
-- O jogo detecta automaticamente dispositivos touch e oferece dois modos de controle:
-  - **D-Pad Virtual:** Direcional com botões de seta e botão FIRE dedicado.
-  - **Swipe Controls:** Arraste para mover horizontalmente, toque para atirar.
-- Botões de Pausa e Mudo posicionados no canto superior esquerdo da tela.
+- O jogo detecta automaticamente dispositivos touch e oferece controles ergonômicos:
+  - **Swipe Controls:** Arraste para mover suavemente pela tela.
+  - **Botão FIRE:** Disparos de metralhadora.
+  - **Botão ⚡ (Overdrive):** Disparo de especial quando a barra atinge 100%.
+- Botões de Pausa e Mudo posicionados no topo da tela.
 
 ---
 

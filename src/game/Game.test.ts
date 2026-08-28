@@ -1507,4 +1507,54 @@ describe('Game achievement system', () => {
 
     expect(spy).toHaveBeenCalled()
   })
+
+  it('activateOverdrive com energia suficiente ativa modo overdrive e limpa tiros inimigos', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.enemyManager.spawnEnemyBullet({ x: 100, y: 100, vx: 0, speed: 200 })
+    expect(game.enemyManager.bullets.length).toBe(1)
+
+    // Cannot activate when empty
+    expect(game.activateOverdrive()).toBe(false)
+
+    // Fill overdrive
+    game.overdrive.addEnergy(100)
+    game.start()
+
+    const activated = game.activateOverdrive()
+    expect(activated).toBe(true)
+    expect(game.player.overdriveActive).toBe(true)
+    // EMP clears active enemy bullets
+    expect(game.enemyManager.bullets.length).toBe(0)
+    game.stop()
+  })
+
+  it('globalKeyHandler X ativa overdrive e ignora Shift/auto-repeat', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const spy = vi.spyOn(game, 'activateOverdrive')
+
+    // Shift é modificador: Shift+P, maiúsculas etc. não podem disparar overdrive.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Shift' }))
+    expect(spy).not.toHaveBeenCalled()
+
+    // Auto-repeat de tecla presa também não.
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x', repeat: true }))
+    expect(spy).not.toHaveBeenCalled()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'x' }))
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('restart reseta estado do boss e overdrive', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    game.overdrive.addEnergy(100)
+    game.restart()
+
+    expect(game.overdrive.currentEnergy).toBe(0)
+    expect(game.boss).toBeNull()
+    expect(game.player.overdriveActive).toBe(false)
+  })
 })

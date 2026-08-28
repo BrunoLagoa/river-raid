@@ -1,19 +1,35 @@
 import type { Player } from './Player'
 import { BULLET_STYLES } from './BulletStyles'
-import { ENEMY_COLORS, type EnemyManager, type EnemyType } from './EnemyManager'
+import { ENEMY_COLORS, type Enemy, type EnemyBullet, type EnemyManager, type EnemyType } from './EnemyManager'
 import type { FuelSystem } from './FuelSystem'
 import type { Fx } from './Fx'
 import type { PowerUpSystem } from './PowerUpSystem'
 import type { SoundManager } from './SoundManager'
 import type { World } from './World'
-import { POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION, POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION, BRIDGE_FUEL_DROP_CHANCE } from './constants'
+import {
+  POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION,
+  POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION, BRIDGE_FUEL_DROP_CHANCE,
+  BOSS_TURRET_BULLET_DAMAGE, BOSS_HULL_BULLET_DAMAGE, BOSS_TURRET_SCORE,
+  OVERDRIVE_LASER_DPS, OVERDRIVE_LASER_WIDTH,
+} from './constants'
 import { SpatialGrid } from './SpatialGrid'
 import type { RandomSource } from './random'
+import type { BossDreadnought } from './BossDreadnought'
+
+/** Fallback frame step when a caller does not supply one (60 FPS). */
+const DEFAULT_DT = 1 / 60
 
 const enemyGrid = new SpatialGrid(64)
 const bulletGrid = new SpatialGrid(64)
 // Reused across queries to avoid per-frame array allocation in hot paths.
 const candidates: number[] = []
+// Stable per-frame views of the pools. `EnemyManager.enemies` / `.bullets` are
+// getters over `ObjectPool.activeItems`, which rebuilds a shared cache on every
+// read: deactivating one entity mid-resolution shifts every later index, so the
+// indices the grid handed out would point at the wrong entity (or past the end).
+// Copying once, alongside the grid build, keeps them valid for the whole frame.
+const enemySnapshot: Enemy[] = []
+const bulletSnapshot: EnemyBullet[] = []
 
 interface GridItem { x: number; y: number; width: number; height: number; active: boolean }
 
@@ -41,6 +57,10 @@ export interface CollisionContext {
   onEnemyDestroyed?: (enemyType: EnemyType) => void
   onFuelCollected?: (count: number) => void
   onPowerUpCollected?: (type: string) => void
+  boss?: BossDreadnought | null
+  onOverdriveKill?: () => void
+  /** Seconds elapsed this frame; continuous-damage sources scale by it. */
+  dt?: number
   /** Deterministic RNG; falls back to Math.random if not provided. */
   random?: RandomSource
 }
@@ -69,23 +89,68 @@ export class CollisionSystem {
 
     // Build the enemy grid once per frame — both player-vs-enemies and
     // bullets-vs-enemies reuse it (previously rebuilt twice).
-    CollisionSystem.buildGrid(ctx.enemyManager.enemies, enemyGrid)
+    CollisionSystem.buildGrid(ctx.enemyManager.enemies, enemyGrid, enemySnapshot)
 
     if (CollisionSystem.checkPlayerVsEnemies(ctx, playerRect)) return
     if (CollisionSystem.checkPlayerVsEnemyBullets(ctx, playerRect)) return
+    if (CollisionSystem.checkPlayerVsBoss(ctx, playerRect)) return
 
     CollisionSystem.checkBulletsVsEnemies(ctx)
+    CollisionSystem.checkBulletsVsBoss(ctx)
+    CollisionSystem.checkOverdriveLaser(ctx)
     CollisionSystem.checkPlayerVsFuel(ctx, playerRect)
     CollisionSystem.checkPlayerVsPowerUps(ctx, playerRect)
   }
 
-  private static buildGrid(items: GridItem[], grid: SpatialGrid): void {
+  /**
+   * Copies `items` into `snapshot` and indexes the grid against that snapshot,
+   * so grid indices stay meaningful even after entities are deactivated during
+   * resolution. `snapshot` is a reused array — no per-frame allocation.
+   */
+  private static buildGrid<T extends GridItem>(items: readonly T[], grid: SpatialGrid, snapshot: T[]): void {
     grid.clear()
-    for (let i = 0; i < items.length; i++) {
-      const it = items[i]
+    snapshot.length = 0
+    for (const it of items) {
+      snapshot.push(it)
+    }
+    for (let i = 0; i < snapshot.length; i++) {
+      const it = snapshot[i]
       if (!it.active) continue
       grid.insert(i, it)
     }
+  }
+
+  /**
+   * Single destruction path shared by every weapon that kills a normal enemy —
+   * score, FX, combo, objectives and the bridge/power-up drop roll all live here
+   * so new weapons cannot silently skip half of it.
+   */
+  private static destroyEnemy(
+    ctx: CollisionContext,
+    enemy: { type: EnemyType; x: number; y: number; points: number; active: boolean },
+    explosionColor?: string,
+  ): void {
+    const color = explosionColor ?? ENEMY_COLORS[enemy.type] ?? '#ffffff'
+    if (enemy.type === 'bridge') {
+      ctx.fx.bigExplosion(enemy.x, enemy.y, color)
+    } else {
+      ctx.fx.explosion(enemy.x, enemy.y, color)
+    }
+    ctx.fx.deathSmoke(enemy.x, enemy.y)
+    ctx.sound.explosion()
+    const scoredPoints = enemy.points * ctx.comboMultiplier
+    ctx.addScore(scoredPoints)
+    ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${scoredPoints}`)
+    ctx.registerHit()
+    ctx.onEnemyDestroyed?.(enemy.type)
+
+    if (enemy.type === 'bridge' && (ctx.random ?? Math.random)() < BRIDGE_FUEL_DROP_CHANCE) {
+      ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
+    } else {
+      ctx.powerUpSystem.trySpawnAt(enemy.x, enemy.y)
+    }
+    enemy.active = false
+    ctx.sound.enemyHit()
   }
 
   private static killPlayer(ctx: CollisionContext, px: number, py: number, color: string): void {
@@ -112,7 +177,7 @@ export class CollisionSystem {
     enemyGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
-      const enemy = ctx.enemyManager.enemies[idx]
+      const enemy = enemySnapshot[idx]
       if (!enemy || !enemy.active) continue
       const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
       if (!CollisionSystem.checkAABB(playerRect, enemyRect)) continue
@@ -137,11 +202,11 @@ export class CollisionSystem {
   private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
     const isInvincible = ctx.player.invincibilityTimer > 0
 
-    CollisionSystem.buildGrid(ctx.enemyManager.bullets, bulletGrid)
+    CollisionSystem.buildGrid(ctx.enemyManager.bullets, bulletGrid, bulletSnapshot)
     bulletGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
-      const bullet = ctx.enemyManager.bullets[idx]
+      const bullet = bulletSnapshot[idx]
       if (!bullet || !bullet.active) continue
       const bulletRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
       if (!CollisionSystem.checkAABB(playerRect, bulletRect)) continue
@@ -180,7 +245,7 @@ export class CollisionSystem {
       enemyGrid.query(bulletRect, candidates)
 
       for (const idx of candidates) {
-        const enemy = ctx.enemyManager.enemies[idx]
+        const enemy = enemySnapshot[idx]
         if (!enemy || !enemy.active) continue
 
         const enemyRect: Rect = {
@@ -193,26 +258,7 @@ export class CollisionSystem {
         if (CollisionSystem.checkAABB(bulletRect, enemyRect)) {
           bullet.active = false
           ctx.fx.bulletSpark(bullet.x, bullet.y, BULLET_STYLES[bullet.kind].core)
-          if (enemy.type === 'bridge') {
-            ctx.fx.bigExplosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
-          } else {
-            ctx.fx.explosion(enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
-          }
-          ctx.fx.deathSmoke(enemy.x, enemy.y)
-          ctx.sound.explosion()
-          const scoredPoints = enemy.points * ctx.comboMultiplier
-          ctx.addScore(scoredPoints)
-          ctx.fx.scorePopup(enemy.x, enemy.y - 15, `+${scoredPoints}`)
-          ctx.registerHit()
-          ctx.onEnemyDestroyed?.(enemy.type)
-
-          if (enemy.type === 'bridge' && (ctx.random ?? Math.random)() < BRIDGE_FUEL_DROP_CHANCE) {
-            ctx.fuelSystem.spawnAt(enemy.x, enemy.y)
-          } else {
-            ctx.powerUpSystem.trySpawnAt(enemy.x, enemy.y)
-          }
-          enemy.active = false
-          ctx.sound.enemyHit()
+          CollisionSystem.destroyEnemy(ctx, enemy)
           break
         }
       }
@@ -246,10 +292,11 @@ export class CollisionSystem {
         }
         if (p.type === 'bomb') {
           ctx.sound.powerUpBomb()
-          const enemies = ctx.enemyManager.enemies
+          // Snapshot, not the live getter: destroying entries rebuilds the
+          // pool's shared cache and would shift the indices under this loop.
           let destroyed = 0
-          for (let i = enemies.length - 1; i >= 0; i--) {
-            const enemy = enemies[i]
+          for (let i = enemySnapshot.length - 1; i >= 0; i--) {
+            const enemy = enemySnapshot[i]
             if (!enemy.active) continue
             enemy.active = false
             ctx.fx.bigExplosion(enemy.x, enemy.y, '#ff6600')
@@ -266,6 +313,129 @@ export class CollisionSystem {
         ctx.addScore(POWERUP_SCORE)
         ctx.fx.scorePopup(p.x, p.y - 15, `+100`)
         ctx.onPowerUpCollected?.(p.type)
+      }
+    }
+  }
+
+  private static checkPlayerVsBoss(ctx: CollisionContext, playerRect: Rect): boolean {
+    if (!ctx.boss || !ctx.boss.isAlive) return false
+
+    const bossRect: Rect = {
+      x: ctx.boss.x,
+      y: ctx.boss.y,
+      width: ctx.boss.width,
+      height: ctx.boss.height,
+    }
+
+    if (CollisionSystem.checkAABB(playerRect, bossRect)) {
+      if (ctx.player.shieldActive) {
+        ctx.player.breakShield()
+        ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ffffaa')
+        ctx.sound.enemyHit()
+        return false
+      }
+      if (ctx.player.invincibilityTimer > 0) return false
+
+      CollisionSystem.killPlayer(ctx, ctx.player.x, ctx.player.y, '#ff3300')
+      return true
+    }
+    return false
+  }
+
+  private static checkBulletsVsBoss(ctx: CollisionContext): void {
+    if (!ctx.boss || !ctx.boss.isAlive) return
+    const boss = ctx.boss
+
+    for (const bullet of ctx.player.bullets) {
+      if (!bullet.active) continue
+      const bRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
+
+      // 1. Check turrets first
+      let hitTurret = false
+      for (const t of boss.turrets) {
+        if (!t.active) continue
+        const tRect: Rect = {
+          x: boss.x + t.xOffset,
+          y: boss.y + t.yOffset,
+          width: t.width,
+          height: t.height,
+        }
+        if (CollisionSystem.checkAABB(bRect, tRect)) {
+          bullet.active = false
+          hitTurret = true
+          const result = boss.takeDamage(BOSS_TURRET_BULLET_DAMAGE, t.id)
+          ctx.fx.bulletSpark(bullet.x, bullet.y, '#ffaa00')
+          ctx.sound.enemyHit()
+          ctx.registerHit()
+          if (result.turretDestroyed) {
+            ctx.fx.explosion(tRect.x, tRect.y, '#ff4400')
+            ctx.addScore(BOSS_TURRET_SCORE * ctx.comboMultiplier)
+          }
+          break
+        }
+      }
+
+      if (hitTurret) continue
+
+      // 2. Check main Hull
+      const bossRect: Rect = {
+        x: boss.x,
+        y: boss.y,
+        width: boss.width,
+        height: boss.height,
+      }
+      if (CollisionSystem.checkAABB(bRect, bossRect)) {
+        bullet.active = false
+        const res = boss.takeDamage(BOSS_HULL_BULLET_DAMAGE)
+        ctx.fx.bulletSpark(bullet.x, bullet.y, '#ffaa00')
+        ctx.sound.enemyHit()
+        ctx.registerHit()
+        if (res.defeated) {
+          ctx.fx.bigExplosion(boss.x, boss.y, '#ff3300')
+          ctx.fx.addShake(15, 1.2)
+          ctx.sound.explosion()
+          ctx.addScore(boss.points * ctx.comboMultiplier)
+          ctx.fx.scorePopup(boss.x, boss.y - 20, `+${boss.points * ctx.comboMultiplier}`)
+        }
+      }
+    }
+  }
+
+  private static checkOverdriveLaser(ctx: CollisionContext): void {
+    if (!ctx.player.overdriveActive) return
+
+    // The beam is a vertical slab from the top of the screen to the ship's nose.
+    const beamRect: Rect = {
+      x: ctx.player.x,
+      y: ctx.player.y / 2,
+      width: OVERDRIVE_LASER_WIDTH,
+      height: Math.max(0, ctx.player.y),
+    }
+
+    // 1. Destroy normal enemies in beam path
+    for (const enemy of enemySnapshot) {
+      if (!enemy.active) continue
+      const enemyRect: Rect = { x: enemy.x, y: enemy.y, width: enemy.width, height: enemy.height }
+      if (!CollisionSystem.checkAABB(beamRect, enemyRect)) continue
+
+      CollisionSystem.destroyEnemy(ctx, enemy, '#00ffff')
+      ctx.onOverdriveKill?.()
+    }
+
+    // 2. Damage boss in beam path — continuous, so scale by the frame step.
+    const boss = ctx.boss
+    if (boss && boss.isAlive) {
+      const bossRect: Rect = { x: boss.x, y: boss.y, width: boss.width, height: boss.height }
+      if (CollisionSystem.checkAABB(beamRect, bossRect)) {
+        const res = boss.takeDamage(OVERDRIVE_LASER_DPS * (ctx.dt ?? DEFAULT_DT))
+        ctx.fx.bulletSpark(ctx.player.x, boss.y + boss.height / 4, '#00ffff')
+        if (res.defeated) {
+          ctx.fx.bigExplosion(boss.x, boss.y, '#00ffff')
+          ctx.fx.addShake(16, 1.2)
+          ctx.sound.explosion()
+          ctx.addScore(boss.points * ctx.comboMultiplier)
+          ctx.fx.scorePopup(boss.x, boss.y - 20, `+${boss.points * ctx.comboMultiplier}`)
+        }
       }
     }
   }

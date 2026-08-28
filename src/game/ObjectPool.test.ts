@@ -47,6 +47,57 @@ describe('ObjectPool', () => {
       pool.acquire()
       expect(pool.all.length).toBe(4)
     })
+
+    it('nao cresce alem do teto (2x o tamanho inicial por padrao)', () => {
+      expect(pool.capacity).toBe(6)
+      for (let i = 0; i < 20; i++) pool.acquire()
+      expect(pool.all.length).toBe(6)
+    })
+
+    it('respeita um maxSize explicito', () => {
+      const capped = new ObjectPool<TestItem>(
+        2,
+        () => ({ active: false, value: 0 }),
+        (item) => { item.active = true },
+        3,
+      )
+      for (let i = 0; i < 10; i++) capped.acquire()
+      expect(capped.capacity).toBe(3)
+      expect(capped.all.length).toBe(3)
+    })
+
+    it('nunca aceita maxSize abaixo do tamanho inicial', () => {
+      const capped = new ObjectPool<TestItem>(
+        4,
+        () => ({ active: false, value: 0 }),
+        (item) => { item.active = true },
+        1,
+      )
+      expect(capped.capacity).toBe(4)
+      expect(capped.all.length).toBe(4)
+    })
+
+    it('recicla o item vivo mais antigo em round-robin quando saturado', () => {
+      const saturated: TestItem[] = []
+      for (let i = 0; i < 6; i++) saturated.push(pool.acquire())
+
+      // Pool cheio no teto: os proximos acquire reusam os mais antigos, em ordem.
+      expect(pool.acquire()).toBe(saturated[0])
+      expect(pool.acquire()).toBe(saturated[1])
+      expect(pool.all.length).toBe(6)
+    })
+
+    it('aplica resetFn ao item reciclado', () => {
+      const live: TestItem[] = []
+      for (let i = 0; i < 6; i++) live.push(pool.acquire())
+      live[0].value = 99
+
+      const recycled = pool.acquire()
+
+      expect(recycled).toBe(live[0])
+      expect(recycled.value).toBe(0)
+      expect(recycled.active).toBe(true)
+    })
   })
 
   describe('activeItems', () => {
@@ -70,6 +121,15 @@ describe('ObjectPool', () => {
       pool.acquire()
       pool.resetAll()
       expect(pool.activeItems.length).toBe(0)
+    })
+
+    it('zera o cursor de reciclagem', () => {
+      for (let i = 0; i < 6; i++) pool.acquire()
+      pool.acquire() // avanca o cursor para 1
+      pool.resetAll()
+
+      const first = pool.acquire()
+      expect(first).toBe(pool.all[0])
     })
   })
 })

@@ -3,6 +3,7 @@ import { CollisionSystem, type CollisionContext } from './CollisionSystem'
 import { SpatialGrid } from './SpatialGrid'
 import { ENEMY_COLORS } from './EnemyManager'
 import type { Enemy } from './EnemyManager'
+import { OVERDRIVE_LASER_DPS } from './constants'
 
 function makeCtx() {
   const player = {
@@ -447,6 +448,8 @@ describe('CollisionSystem', () => {
 
   it('executa caminho bridge em checkBulletsVsEnemies', () => {
     const ctx = makeCtx()
+    // Fora do alcance da ponte, senão o player morre antes da fase bala-vs-inimigo.
+    ctx.player.y = 300
     ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
@@ -460,7 +463,7 @@ describe('CollisionSystem', () => {
       active: true,
     })
 
-    ;(CollisionSystem as unknown as { checkBulletsVsEnemies: (c: CollisionContext) => void }).checkBulletsVsEnemies(ctx)
+    CollisionSystem.resolveCollisions(ctx)
 
     expect(ctx.fx.bigExplosion).toHaveBeenCalled()
   })
@@ -507,6 +510,7 @@ describe('CollisionSystem', () => {
 
   it('bridge sem cor definida usa fallback no bigExplosion', () => {
     const ctx = makeCtx()
+    ctx.player.y = 300
     ctx.player.bullets.push({ x: 100, y: 100, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
     ctx.enemyManager.enemies.push({
       type: 'bridge',
@@ -525,7 +529,7 @@ describe('CollisionSystem', () => {
     colors.bridge = undefined
 
     try {
-      ;(CollisionSystem as unknown as { checkBulletsVsEnemies: (c: CollisionContext) => void }).checkBulletsVsEnemies(ctx)
+      CollisionSystem.resolveCollisions(ctx)
       expect(ctx.fx.bigExplosion).toHaveBeenCalledWith(100, 100, '#ffffff')
     } finally {
       colors.bridge = prevBridgeColor
@@ -559,7 +563,7 @@ function makeFullCtx() {
     powerUpSystem: { powerUps: [] as { type: string; x: number; y: number; width: number; height: number; active: boolean }[], trySpawnAt: vi.fn() },
     fx: {
       explosion: vi.fn(), flash: vi.fn(), addShake: vi.fn(), bigExplosion: vi.fn(),
-      deathSmoke: vi.fn(), scorePopup: vi.fn(), triggerShockwave: vi.fn(),
+      deathSmoke: vi.fn(), scorePopup: vi.fn(), triggerShockwave: vi.fn(), bulletSpark: vi.fn(),
     },
     sound: {
       explosion: vi.fn(), enemyHit: vi.fn(), fuelCollect: vi.fn(),
@@ -645,5 +649,198 @@ describe('CollisionSystem — power-up tipos adicionais', () => {
     const calls = (ctx.addScore as ReturnType<typeof vi.fn>).mock.calls as number[][]
     const helicopterScoreCalls = calls.filter((c) => c[0] === 60 * ctx.comboMultiplier)
     expect(helicopterScoreCalls.length).toBe(0)
+  })
+
+  it('balas do player causam dano ao boss e suas torres', () => {
+    const ctx = makeFullCtx()
+    const boss = {
+      x: 200,
+      y: 100,
+      width: 100,
+      height: 150,
+      isAlive: true,
+      points: 5000,
+      turrets: [
+        { id: 'fl', xOffset: -30, yOffset: -40, width: 20, height: 20, active: true },
+      ],
+      takeDamage: vi.fn(() => ({ defeated: false, turretDestroyed: 'fl' })),
+    }
+    ctx.boss = boss as never
+    ctx.player.bullets.push({ x: 170, y: 60, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(boss.takeDamage).toHaveBeenCalled()
+    expect(ctx.player.bullets[0].active).toBe(false)
+    expect(ctx.addScore).toHaveBeenCalled()
+  })
+
+  it('colisao direta do player com boss sem escudo mata o player', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 100
+    ctx.boss = {
+      x: 200,
+      y: 100,
+      width: 100,
+      height: 150,
+      isAlive: true,
+    } as never
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+  })
+
+  it('overdrive laser destroi inimigos e causa dano ao boss', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 500
+    ctx.player.overdriveActive = true
+    ctx.onOverdriveKill = vi.fn()
+
+    const boss = {
+      x: 200,
+      y: 100,
+      width: 100,
+      height: 150,
+      isAlive: true,
+      points: 5000,
+      takeDamage: vi.fn(() => ({ defeated: true })),
+    }
+    ctx.boss = boss as never
+
+    ctx.enemyManager.enemies.push({
+      type: 'plane',
+      x: 200,
+      y: 300,
+      width: 30,
+      height: 30,
+      points: 100,
+      active: true,
+    } as never)
+
+    ctx.dt = 1 / 60
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.enemyManager.enemies[0].active).toBe(false)
+    expect(ctx.onOverdriveKill).toHaveBeenCalled()
+    expect(boss.takeDamage).toHaveBeenCalled()
+  })
+
+  it('overdrive laser usa o mesmo caminho de destruicao das balas', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 500
+    ctx.player.overdriveActive = true
+
+    ctx.enemyManager.enemies.push({
+      type: 'bridge', x: 200, y: 300, width: 30, height: 30, points: 100, active: true,
+    } as never)
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    // Combo, fumaca, drop e o callback de objetivos valem para qualquer arma.
+    expect(ctx.registerHit).toHaveBeenCalled()
+    expect(ctx.fx.deathSmoke).toHaveBeenCalled()
+    expect(ctx.onEnemyDestroyed).toHaveBeenCalledWith('bridge')
+    expect(ctx.fx.bigExplosion).toHaveBeenCalled()
+    const dropped = (ctx.fuelSystem.spawnAt as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+      + (ctx.powerUpSystem.trySpawnAt as unknown as { mock: { calls: unknown[] } }).mock.calls.length
+    expect(dropped).toBe(1)
+  })
+
+  it('dano do laser no boss escala com dt (independente de frame rate)', () => {
+    const damages: number[] = []
+    const makeBoss = () => ({
+      x: 200, y: 100, width: 100, height: 150, isAlive: true, points: 5000, turrets: [],
+      takeDamage: vi.fn((amount: number) => { damages.push(amount); return { defeated: false } }),
+    })
+
+    for (const dt of [1 / 60, 1 / 120]) {
+      const ctx = makeFullCtx()
+      ctx.player.x = 200
+      ctx.player.y = 500
+      ctx.player.overdriveActive = true
+      ctx.boss = makeBoss() as never
+      ctx.dt = dt
+      CollisionSystem.resolveCollisions(ctx)
+    }
+
+    expect(damages).toHaveLength(2)
+    expect(damages[0]).toBeCloseTo(damages[1] * 2, 5)
+    expect(damages[0]).toBeCloseTo(OVERDRIVE_LASER_DPS / 60, 5)
+  })
+})
+
+// ── Grid index stability vs. the pooled entity getters ───────────────────────
+//
+// `EnemyManager.enemies` / `.bullets` are getters over `ObjectPool.activeItems`,
+// which rebuilds a shared cache on every read. Plain arrays (used by the other
+// mocks above) cannot reproduce that, so these tests wire getters with the same
+// semantics: deactivating an entity mid-resolution must not shift the indices
+// the spatial grid handed out.
+
+function pooledView<T extends { active: boolean }>(all: T[]): () => T[] {
+  const cache: T[] = []
+  return () => {
+    cache.length = 0
+    for (const item of all) if (item.active) cache.push(item)
+    return cache
+  }
+}
+
+function usePooledEntities(ctx: CollisionContext, enemies: Enemy[], bullets: EnemyBullet[]): void {
+  const enemyView = pooledView(enemies)
+  const bulletView = pooledView(bullets)
+  ;(ctx as unknown as { enemyManager: unknown }).enemyManager = {
+    get enemies() { return enemyView() },
+    get bullets() { return bulletView() },
+  }
+}
+
+function mkEnemyBullet(x: number, y: number): EnemyBullet {
+  return { x, y, speed: 100, vx: 0, width: 4, height: 8, active: true, fromPlane: false }
+}
+
+function mkPlane(x: number, y: number): Enemy {
+  return {
+    type: 'plane', aiTier: 'basic', x, y, width: 20, height: 20, points: 100, speed: 200,
+    canShoot: false, shootCooldown: 0, shootInterval: 1, active: true,
+  } as unknown as Enemy
+}
+
+describe('CollisionSystem — estabilidade de índices do grid', () => {
+  it('processa todas as balas inimigas mesmo desativando-as no meio do loop', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    // Três balas na mesma célula do grid, todas sobre o player.
+    const bullets = [mkEnemyBullet(100, 100), mkEnemyBullet(101, 100), mkEnemyBullet(102, 100)]
+    usePooledEntities(ctx, [], bullets)
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    // Sem snapshot, desativar a primeira encurta o cache e as seguintes são
+    // lidas do índice errado (ou de fora do array) e atravessam o player.
+    expect(bullets.map((b) => b.active)).toEqual([false, false, false])
+    expect(ctx.player.breakShield).toHaveBeenCalledTimes(3)
+  })
+
+  it('mantém índices de inimigos válidos entre as fases da resolução', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    // Índice 0 morre na fase player-vs-inimigos; índice 1 é alvo da fase
+    // bala-vs-inimigos, que reusa o mesmo grid construído no início do frame.
+    const rammed = mkPlane(100, 100)
+    const target = mkPlane(100, 300)
+    usePooledEntities(ctx, [rammed, target], [])
+    ctx.player.bullets.push({ x: 100, y: 300, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(rammed.active).toBe(false)
+    expect(target.active).toBe(false)
+    expect(ctx.addScore).toHaveBeenCalledWith(100)
   })
 })

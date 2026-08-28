@@ -10,6 +10,7 @@ import {
   PLAYER_INVINCIBILITY_TIME, PLAYER_SHIELD_BREAK_INVINCIBILITY,
   PLAYER_DOUBLE_SHOT_SPREAD, PLAYER_DOUBLE_SHOT_SPEED_MULTIPLIER,
   POWERUP_RAPID_FIRE_COOLDOWN_MULTIPLIER,
+  OVERDRIVE_LASER_WIDTH,
 } from './constants'
 
 export type GameState = 'alive' | 'exploding' | 'dead'
@@ -53,6 +54,7 @@ export class Player {
   magnetFuelTimer = 0
   shieldActive = false
   invincibilityTimer = 0
+  overdriveActive = false
   private readonly MAX_BULLETS = PLAYER_MAX_BULLETS
   private animFrame = 0
   private animTimer = 0
@@ -204,6 +206,9 @@ export class Player {
 
   render(ctx: CanvasRenderingContext2D): void {
     if (this.state === 'alive') {
+      if (this.overdriveActive) {
+        this.renderOverdriveBeam(ctx)
+      }
       ctx.save()
       if (this.invincibilityTimer > 0) {
         ctx.globalAlpha = Math.floor(this.invincibilityTimer * 10) % 2 === 0 ? 0.4 : 1.0
@@ -220,6 +225,40 @@ export class Player {
     }
 
     this.bulletRenderer.render(ctx, this.bullets)
+  }
+
+  private renderOverdriveBeam(ctx: CanvasRenderingContext2D): void {
+    const cx = this.x
+    const topY = 0
+    const startY = this.y - this.height / 2
+    const beamHeight = startY - topY
+    if (beamHeight <= 0) return
+
+    // Widths derive from the hitbox so the beam never lies about its reach.
+    const outerW = OVERDRIVE_LASER_WIDTH
+    const midW = outerW / 2
+    const coreW = outerW / 6
+
+    ctx.save()
+    // Outer glow
+    ctx.fillStyle = 'rgba(0, 240, 255, 0.35)'
+    ctx.fillRect(cx - outerW / 2, topY, outerW, beamHeight)
+
+    // Mid plasma layer
+    ctx.fillStyle = 'rgba(120, 255, 255, 0.7)'
+    ctx.fillRect(cx - midW / 2, topY, midW, beamHeight)
+
+    // Core white beam
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(cx - coreW / 2, topY, coreW, beamHeight)
+
+    // Energy muzzle ring at nose
+    ctx.fillStyle = '#00ffff'
+    ctx.beginPath()
+    ctx.arc(cx, startY, 8, 0, Math.PI * 2)
+    ctx.fill()
+
+    ctx.restore()
   }
 
   private renderShip(ctx: CanvasRenderingContext2D): void {
@@ -444,6 +483,7 @@ export class Player {
     this.magnetFuelTimer = 0
     this.shieldActive = false
     this.invincibilityTimer = 0
+    this.overdriveActive = false
     this.animFrame = 0
     this.animTimer = 0
     this.keys.clear()

@@ -7,10 +7,11 @@ interface SwipeControlsProps {
   onMute: () => void
   onFireDown: () => void
   onFireUp: () => void
+  onOverdrive?: () => void
   fireLabel: string
 }
 
-export default function SwipeControls({ onSetPosition, onPause, onMute, onFireDown, onFireUp, fireLabel }: SwipeControlsProps) {
+export default function SwipeControls({ onSetPosition, onPause, onMute, onFireDown, onFireUp, onOverdrive, fireLabel }: SwipeControlsProps) {
   const touching = useRef(false)
   const firing = useRef(false)
 
@@ -94,6 +95,17 @@ export default function SwipeControls({ onSetPosition, onPause, onMute, onFireDo
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerCancel}
       />
+
+      {onOverdrive && (
+        <button
+          className="btn-overdrive"
+          aria-label="OVERDRIVE"
+          onClick={onOverdrive}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          ⚡
+        </button>
+      )}
 
       <button
         className="btn-fire"

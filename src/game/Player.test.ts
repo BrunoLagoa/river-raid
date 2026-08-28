@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Player } from './Player'
-import { PLAYER_BULLET_W, PLAYER_BULLET_H } from './constants'
+import { PLAYER_BULLET_W, PLAYER_BULLET_H, OVERDRIVE_LASER_WIDTH } from './constants'
 import { createMockContext2D } from './test-helpers/canvas'
 
 describe('Player', () => {
@@ -444,5 +444,34 @@ describe('Player edge cases', () => {
     p.update(1.0, 0, 800) // dt grande para snap
     expect(p.x).toBe(200)
     expect(p.y).toBe(300)
+  })
+})
+
+describe('Player overdrive', () => {
+  it('reset limpa overdriveActive junto dos demais estados temporarios', () => {
+    const p = new Player(800, 600)
+    p.overdriveActive = true
+
+    p.reset(800, 600)
+
+    expect(p.overdriveActive).toBe(false)
+  })
+
+  it('renderiza o feixe de overdrive com a largura do hitbox', () => {
+    const p = new Player(800, 600)
+    const baseCtx = createMockContext2D()
+    p.render(baseCtx)
+    const baseline = (baseCtx.fillRect as unknown as { mock: { calls: number[][] } }).mock.calls.length
+
+    const ctx = createMockContext2D()
+    p.overdriveActive = true
+    p.render(ctx)
+    const calls = (ctx.fillRect as unknown as { mock: { calls: number[][] } }).mock.calls
+
+    // Tres camadas extras (glow, plasma, nucleo) antes do desenho da nave.
+    expect(calls.length).toBe(baseline + 3)
+    const [glowX, , glowW] = calls[0]
+    expect(glowW).toBe(OVERDRIVE_LASER_WIDTH)
+    expect(glowX).toBeCloseTo(p.x - OVERDRIVE_LASER_WIDTH / 2, 5)
   })
 })
