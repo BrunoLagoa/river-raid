@@ -15,6 +15,11 @@ import {
   LIGHTING_SUNSET_ALPHA,
   LIGHTING_BULLET_RADIUS,
   LIGHTING_EXPLOSION_RADIUS,
+  LIGHTING_HEADLIGHT_WARMUP,
+  LIGHTING_HEADLIGHT_FADE_OUT,
+  LIGHTING_HEADLIGHT_FLICKER_SPEED,
+  LIGHTING_HEADLIGHT_FLICKER_DEPTH,
+  LIGHTING_HEADLIGHT_MIN_REACH,
 } from './constants'
 
 export interface PointLight {
@@ -29,6 +34,12 @@ export class LightingSystem {
   private canvasHeight: number
   private maskCanvas: HTMLCanvasElement | null = null
   private maskCtx: CanvasRenderingContext2D | null = null
+  /** Intensidade efetiva do farol (0–1): é ela que o render usa, não o liga/desliga. */
+  private headlightIntensity = 0
+  private headlightOn = false
+  private headlightTimer = 0
+  /** Intensidade no instante da última troca, para a transição nunca dar salto. */
+  private headlightFrom = 0
 
   constructor(canvasWidth: number, canvasHeight: number) {
     this.canvasWidth = canvasWidth
@@ -61,6 +72,53 @@ export class LightingSystem {
   /**
    * Calculates the target darkness alpha based on atmosphere phase and brightness.
    */
+  /** Intensidade atual do farol, 0–1. Exposta para testes e HUD/debug. */
+  getHeadlightIntensity(): number {
+    return this.headlightIntensity
+  }
+
+  /**
+   * Anima o farol. Acender é um warm-up com piscadas que vão sumindo conforme a
+   * lâmpada "esquenta"; apagar é um fade curto. Com `reducedMotion` a transição
+   * é suave e sem flicker.
+   */
+  updateHeadlight(dt: number, on: boolean, reducedMotion = false): void {
+    if (!Number.isFinite(dt) || dt < 0) return
+
+    if (on !== this.headlightOn) {
+      this.headlightOn = on
+      this.headlightTimer = 0
+      this.headlightFrom = this.headlightIntensity
+    }
+    this.headlightTimer += dt
+
+    if (on) {
+      const duration = LIGHTING_HEADLIGHT_WARMUP
+      const t = duration > 0 ? Math.min(1, this.headlightTimer / duration) : 1
+      // smoothstep do valor de partida até o brilho cheio
+      const eased = t * t * (3 - 2 * t)
+      const ramp = this.headlightFrom + (1 - this.headlightFrom) * eased
+      const flicker = reducedMotion
+        ? 0
+        : (1 - t) * LIGHTING_HEADLIGHT_FLICKER_DEPTH * Math.sin(this.headlightTimer * LIGHTING_HEADLIGHT_FLICKER_SPEED)
+      this.headlightIntensity = Math.max(0, Math.min(1, ramp + flicker))
+      return
+    }
+
+    const fade = LIGHTING_HEADLIGHT_FADE_OUT
+    const t = fade > 0 ? Math.min(1, this.headlightTimer / fade) : 1
+    // Cai rápido no começo e "morre" devagar, como filamento esfriando.
+    this.headlightIntensity = this.headlightFrom * (1 - t) * (1 - t)
+  }
+
+  /** Corta a animação (nova run / respawn) sem transição. */
+  resetHeadlight(): void {
+    this.headlightIntensity = 0
+    this.headlightOn = false
+    this.headlightTimer = 0
+    this.headlightFrom = 0
+  }
+
   getDarknessAlpha(phaseIndex: number, phaseProgress: number, isNight = false): number {
     // phaseIndex: 0 = Day, 1 = Sunset, 2 = Night, 3 = Dawn
     if (isNight || phaseIndex === 2) {
@@ -106,9 +164,13 @@ export class LightingSystem {
     ctx.save()
     ctx.globalCompositeOperation = 'destination-out'
 
-    // A. Player Headlight (Conical Beam)
-    if (player && player.state === 'alive') {
-      this.renderHeadlight(ctx, player.x, player.y)
+    // A. Farol cônico — a intensidade vem de updateHeadlight(), então acender e
+    // apagar são animados em vez de aparecer/sumir de um frame para o outro.
+    if (this.headlightIntensity > 0.01 && player && player.state === 'alive') {
+      const prevAlpha = ctx.globalAlpha
+      ctx.globalAlpha = prevAlpha * this.headlightIntensity
+      this.renderHeadlight(ctx, player.x, player.y, this.headlightIntensity)
+      ctx.globalAlpha = prevAlpha
     }
 
     // B. Bullets Point Lights
@@ -136,8 +198,15 @@ export class LightingSystem {
     }
   }
 
-  private renderHeadlight(ctx: CanvasRenderingContext2D, px: number, py: number): void {
-    const range = LIGHTING_HEADLIGHT_RANGE
+  private renderHeadlight(
+    ctx: CanvasRenderingContext2D,
+    px: number,
+    py: number,
+    intensity = 1,
+  ): void {
+    // O cone também cresce ao acender: só o alpha faria a luz "aparecer pronta".
+    const reach = LIGHTING_HEADLIGHT_MIN_REACH + (1 - LIGHTING_HEADLIGHT_MIN_REACH) * intensity
+    const range = LIGHTING_HEADLIGHT_RANGE * reach
     const halfAngle = LIGHTING_HEADLIGHT_ANGLE / 2
 
     if (typeof ctx.createRadialGradient !== 'function') {

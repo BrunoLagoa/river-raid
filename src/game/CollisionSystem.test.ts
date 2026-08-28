@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest'
 import { CollisionSystem, type CollisionContext } from './CollisionSystem'
 import { SpatialGrid } from './SpatialGrid'
-import { ENEMY_COLORS } from './EnemyManager'
-import type { Enemy } from './EnemyManager'
+import { ENEMY_COLORS, type Enemy, type EnemyBullet } from './EnemyManager'
+import type { HazardManager } from './HazardManager'
 import { OVERDRIVE_LASER_DPS } from './constants'
 
 function makeCtx() {
@@ -772,6 +772,133 @@ describe('CollisionSystem — power-up tipos adicionais', () => {
     expect(damages[0]).toBeCloseTo(damages[1] * 2, 5)
     expect(damages[0]).toBeCloseTo(OVERDRIVE_LASER_DPS / 60, 5)
   })
+
+  it('colisao direta do player com mina aquatica mata o player sem escudo', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 200
+    ctx.hazards = {
+      mines: [{ x: 200, y: 200, width: 18, height: 18, active: true, points: 50, pulseTimer: 0, chainExplodeTimer: 0 }],
+      bunkers: [],
+      whirlpools: [],
+    } as unknown as HazardManager
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+    expect(ctx.hazards.mines[0].active).toBe(false)
+  })
+
+  it('colisao do player com mina aquatica quebra o escudo se ativo', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 200
+    ctx.player.shieldActive = true
+    ctx.hazards = {
+      mines: [{ x: 200, y: 200, width: 18, height: 18, active: true, points: 50, pulseTimer: 0, chainExplodeTimer: 0 }],
+      bunkers: [],
+      whirlpools: [],
+    } as unknown as HazardManager
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.breakShield).toHaveBeenCalled()
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    expect(ctx.hazards.mines[0].active).toBe(false)
+  })
+
+  it('bala do player detona mina e destroi inimigos no raio da explosao', () => {
+    const ctx = makeFullCtx()
+    const triggerMineChain = vi.fn()
+    ctx.hazards = {
+      mines: [{ x: 200, y: 200, width: 18, height: 18, active: true, points: 50, pulseTimer: 0, chainExplodeTimer: 0 }],
+      bunkers: [],
+      whirlpools: [],
+      triggerMineChain,
+    } as unknown as HazardManager
+
+    ctx.player.bullets.push({ x: 200, y: 200, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
+    ctx.enemyManager.enemies.push({
+      type: 'ship',
+      x: 220,
+      y: 200,
+      width: 20,
+      height: 20,
+      points: 30,
+      active: true,
+    } as never)
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.hazards.mines[0].active).toBe(false)
+    expect(ctx.player.bullets[0].active).toBe(false)
+    expect(ctx.addScore).toHaveBeenCalledWith(50 * ctx.comboMultiplier)
+    expect(triggerMineChain).toHaveBeenCalled()
+    expect(ctx.enemyManager.enemies[0].active).toBe(false)
+  })
+
+  it('balas do player causam dano e destroem bunkers costeiros', () => {
+    const ctx = makeFullCtx()
+    const bunker = {
+      x: 100,
+      y: 200,
+      width: 26,
+      height: 26,
+      hp: 1,
+      maxHp: 3,
+      points: 150,
+      damageFlashTimer: 0,
+      active: true,
+    }
+    ctx.hazards = {
+      mines: [],
+      bunkers: [bunker],
+      whirlpools: [],
+    } as unknown as HazardManager
+
+    ctx.player.bullets.push({ x: 100, y: 200, width: 4, height: 8, speed: 500, kind: 'normal', active: true })
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(bunker.active).toBe(false)
+    expect(ctx.addScore).toHaveBeenCalledWith(150 * ctx.comboMultiplier)
+    expect(ctx.sound.explosion).toHaveBeenCalled()
+  })
+
+  it('mina nao mata o player durante a invencibilidade de respawn', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 200
+    ctx.player.y = 200
+    ctx.player.invincibilityTimer = 2.5
+    ctx.hazards = {
+      mines: [{ x: 200, y: 200, width: 18, height: 18, active: true, points: 50, pulseTimer: 0, chainExplodeTimer: 0 }],
+      bunkers: [],
+      whirlpools: [],
+    } as unknown as HazardManager
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).not.toHaveBeenCalled()
+    expect(ctx.hazards.mines[0].active).toBe(true)
+  })
+
+  it('colisao direta do player com bunker costeiro e letal', () => {
+    const ctx = makeFullCtx()
+    ctx.player.x = 100
+    ctx.player.y = 200
+    ctx.hazards = {
+      mines: [],
+      bunkers: [{ x: 100, y: 200, width: 26, height: 26, hp: 3, maxHp: 3, points: 150, damageFlashTimer: 0, active: true }],
+      whirlpools: [],
+    } as unknown as HazardManager
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.explode).toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).toHaveBeenCalled()
+  })
 })
 
 // ── Grid index stability vs. the pooled entity getters ───────────────────────
@@ -842,5 +969,35 @@ describe('CollisionSystem — estabilidade de índices do grid', () => {
     expect(rammed.active).toBe(false)
     expect(target.active).toBe(false)
     expect(ctx.addScore).toHaveBeenCalledWith(100)
+  })
+})
+
+describe('CollisionSystem.destroyEnemiesInRadius', () => {
+  it('destroi apenas inimigos dentro do raio, pelo caminho compartilhado', () => {
+    const ctx = makeCtx()
+    const inside = mkPlane(210, 200)
+    const outside = mkPlane(400, 200)
+    usePooledEntities(ctx, [inside, outside], [])
+
+    const destroyed = CollisionSystem.destroyEnemiesInRadius(ctx, 200, 200, 65, '#ffaa00')
+
+    expect(destroyed).toBe(1)
+    expect(inside.active).toBe(false)
+    expect(outside.active).toBe(true)
+    // Caminho compartilhado: score, combo e drop acompanham a explosão em área.
+    expect(ctx.addScore).toHaveBeenCalledWith(100)
+    expect(ctx.registerHit).toHaveBeenCalledTimes(1)
+    expect(ctx.powerUpSystem.trySpawnAt).toHaveBeenCalledWith(210, 200)
+  })
+
+  it('nao quebra ao destruir varios inimigos de uma vez', () => {
+    const ctx = makeCtx()
+    const cluster = [mkPlane(200, 200), mkPlane(205, 205), mkPlane(210, 210)]
+    usePooledEntities(ctx, cluster, [])
+
+    const destroyed = CollisionSystem.destroyEnemiesInRadius(ctx, 200, 200, 65)
+
+    expect(destroyed).toBe(3)
+    expect(cluster.every((e) => !e.active)).toBe(true)
   })
 })

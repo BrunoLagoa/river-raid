@@ -80,4 +80,78 @@ describe('LightingSystem', () => {
     // Render with dying/exploding player
     expect(() => ls.render(mockCtx, { x: 240, y: 500, state: 'exploding' }, bullets, explosions, LIGHTING_NIGHT_ALPHA, true)).not.toThrow()
   })
+  describe('animacao do farol', () => {
+    it('comeca apagado', () => {
+      expect(ls.getHeadlightIntensity()).toBe(0)
+    })
+
+    it('acende progressivamente em vez de aparecer pronto', () => {
+      ls.updateHeadlight(1 / 60, true)
+      const firstFrame = ls.getHeadlightIntensity()
+
+      expect(firstFrame).toBeGreaterThan(0)
+      expect(firstFrame).toBeLessThan(1)
+
+      for (let i = 0; i < 120; i++) ls.updateHeadlight(1 / 60, true)
+      expect(ls.getHeadlightIntensity()).toBeCloseTo(1, 2)
+    })
+
+    it('apaga com fade, nao de um frame para o outro', () => {
+      for (let i = 0; i < 120; i++) ls.updateHeadlight(1 / 60, true)
+
+      ls.updateHeadlight(1 / 60, false)
+      const justAfter = ls.getHeadlightIntensity()
+      expect(justAfter).toBeGreaterThan(0)
+      expect(justAfter).toBeLessThan(1)
+
+      for (let i = 0; i < 120; i++) ls.updateHeadlight(1 / 60, false)
+      expect(ls.getHeadlightIntensity()).toBe(0)
+    })
+
+    it('sem reducedMotion o warm-up pisca (nao e monotonico)', () => {
+      const samples: number[] = []
+      for (let i = 0; i < 40; i++) {
+        ls.updateHeadlight(1 / 60, true)
+        samples.push(ls.getHeadlightIntensity())
+      }
+      const dipped = samples.some((v, i) => i > 0 && v < samples[i - 1])
+      expect(dipped).toBe(true)
+    })
+
+    it('com reducedMotion sobe suave, sem piscar', () => {
+      const samples: number[] = []
+      for (let i = 0; i < 40; i++) {
+        ls.updateHeadlight(1 / 60, true, true)
+        samples.push(ls.getHeadlightIntensity())
+      }
+      const dipped = samples.some((v, i) => i > 0 && v < samples[i - 1])
+      expect(dipped).toBe(false)
+    })
+
+    it('nao da salto ao inverter no meio da transicao', () => {
+      for (let i = 0; i < 20; i++) ls.updateHeadlight(1 / 60, true, true)
+      const beforeSwitch = ls.getHeadlightIntensity()
+
+      ls.updateHeadlight(1 / 60, false, true)
+
+      // O fade parte da intensidade atual — nada de voltar para 1 antes de cair.
+      expect(ls.getHeadlightIntensity()).toBeLessThanOrEqual(beforeSwitch)
+    })
+
+    it('resetHeadlight zera a animacao', () => {
+      for (let i = 0; i < 60; i++) ls.updateHeadlight(1 / 60, true)
+      ls.resetHeadlight()
+      expect(ls.getHeadlightIntensity()).toBe(0)
+    })
+
+    it('ignora dt invalido', () => {
+      for (let i = 0; i < 60; i++) ls.updateHeadlight(1 / 60, true, true)
+      const stable = ls.getHeadlightIntensity()
+
+      ls.updateHeadlight(Number.NaN, true, true)
+      ls.updateHeadlight(-1, true, true)
+
+      expect(ls.getHeadlightIntensity()).toBe(stable)
+    })
+  })
 })

@@ -26,6 +26,30 @@ describe('SettingsService', () => {
     })
   })
 
+  describe('mute e estado de sessao', () => {
+    it('sempre carrega com som ligado, mesmo com mute salvo', () => {
+      vi.mocked(StorageService.readSecureJSON).mockReturnValue({ muted: true, masterVolume: 0.8 })
+
+      const settings = getStoredSettings()
+
+      expect(settings.muted).toBe(false)
+      // Volume continua sendo preferencia persistida.
+      expect(settings.masterVolume).toBe(0.8)
+    })
+
+    it('nao persiste o mute, mas mantem o valor na sessao', () => {
+      const saved = saveStoredSettings({ ...getDefaultSettings(), muted: true })
+
+      // O estado devolvido (usado pelo React) respeita o mute atual...
+      expect(saved.muted).toBe(true)
+      // ...mas o que vai para o storage nunca fica mudo.
+      expect(StorageService.writeSecureJSON).toHaveBeenCalledWith(
+        'river-raid-settings',
+        expect.objectContaining({ muted: false }),
+      )
+    })
+  })
+
   describe('normalizacao', () => {
     it('normaliza perfil invalido para conservador na leitura', () => {
       vi.mocked(StorageService.readSecureJSON).mockReturnValue({
