@@ -10,78 +10,74 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ## 📋 Mapeamento de Tarefas Detalhadas
 
-### Task 4.1: Arquitetura de Camadas Musicais no `SoundManager.ts`
+### [x] Task 4.1: Configurações, Persistência e Internacionalização dos Canais de Áudio
+- **Arquivos impactados:**
+  - [SettingsService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.ts)
+  - [SettingsService.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.test.ts)
+  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
+- **Entregas:**
+  - Campos `musicVolume`, `sfxVolume`, `voiceVolume`, `voiceEnabled` adicionados ao modelo `GameSettings`, `DEFAULT_SETTINGS` e métodos `getStoredSettings()` / `saveStoredSettings()`.
+  - Chaves de tradução em inglês (`en`) e português (`pt-BR`).
+
+---
+
+### [x] Task 4.2: Motor de Síntese de Voz Retrô 8-Bit (`SpeechSynth8Bit.ts`)
+- **Arquivos impactados:**
+  - [SpeechSynth8Bit.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpeechSynth8Bit.ts)
+  - [SpeechSynth8Bit.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpeechSynth8Bit.test.ts)
+- **Entregas:**
+  - Síntese de formantes procedurais (F1/F2 filtros ressonantes + oscilador glótico em pulso dente de serra + modulação de ruído branco com envelope dedicado).
+  - Suporte Bilíngue (`en` e `pt-BR`): Formantes e fonemas em Português (*"Alerta Combustível"*, *"Combo Máximo"*, *"Alerta Chefe"*, *"Sobrecarga Pronta"*, *"Missão Concluída"*) e Inglês.
+  - Cooldowns inteligentes e canais de volume dedicados com mute.
+
+---
+
+### [x] Task 4.3: Canais de Áudio, Intensidade Adaptativa e Filtros por Bioma
 - **Arquivos impactados:**
   - [SoundManager.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.ts)
   - [SoundManager.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.test.ts)
-- **Sub-etapas:**
-  1. Estruturar os nós de áudio do `SoundManager` com nós de ganho (`GainNode`) dedicados para:
-     - `coreLeadGain`, `bassGain`, `arpeggioIntensityGain`, `drumTensionGain`.
-  2. Implementar método `setDynamicIntensity({ comboMax: boolean, lowFuel: boolean, inBossFight: boolean })`:
-     - **Combo x4**: Eleva o volume da camada de arpejos rápidos em 16-bits.
-     - **Low Fuel (<20%)**: Aplica um filtro passa-baixa dramático (LowPass BiquadFilter a 650 Hz) e acelera o pulso do bumbo (*heartbeat effect*).
-     - **Boss Fight**: Ativa a faixa de percussão pesada contínua.
-  3. Atualizar testes unitários em `SoundManager.test.ts`.
-- **Critérios de Aceite:**
-  - As transições de volume entre camadas usam `gainNode.gain.linearRampToValueAtTime` para evitar cliques ou estalos de áudio.
+- **Entregas:**
+  - Árvore de canais Web Audio API (`musicGain`, `sfxGain`, `voiceGain`, `musicFilter`, `sfxFilter`).
+  - Recuperação robusta de contexto de áudio em `resume()` e `init()` quando o estado estiver em `closed`.
+  - Rampas de ganho suaves com `linearRampToValueAtTime` ao arrastar controles deslizantes de volume.
+  - `setDynamicIntensity({ comboMax, lowFuel, inBossFight })`:
+    - `lowFuel`: Filtro passa-baixa dramático (650 Hz) gerando atmosfera tensa e abafada.
+    - `comboMax`: Camada rápida de arpejos em semicolcheias na melodia.
+    - `inBossFight`: Bateria pesada ininterrupta em quatro tempos.
+  - `setBiomeAcoustics(biomeId)`: Filtro acústico de atenuação para tempestade de neve (4500 Hz).
 
 ---
 
-### Task 4.2: Motor de Síntese de Voz Retrô 8-Bit (`SpeechSynth8Bit.ts`)
+### [x] Task 4.4: Controles de Áudio no Menu React & Opções de Volume
 - **Arquivos impactados:**
-  - `src/game/SpeechSynth8Bit.ts` [NEW]
-  - `src/game/SpeechSynth8Bit.test.ts` [NEW]
-  - [SoundManager.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.ts)
-- **Sub-etapas:**
-  1. Implementar sintetizador baseado em formantes (formant synthesis) ou reprodução de fonemas PCM sintéticos de 4-bits com osciladores modulados por frequência (FM) + ruído filtrado:
-     - Clips táticos gerados puramente via Web Audio API:
-       - `playWarningLowFuel()`
-       - `playComboMax()`
-       - `playBossAlert()`
-       - `playMissionComplete()`
-  2. Adicionar controle de volume independente e cooldown para evitar sobreposição caótica de vozes.
-  3. Testes unitários em `SpeechSynth8Bit.test.ts`.
-- **Critérios de Aceite:**
-  - Áudio soa autêntico como os chips de voz dos fliperamas dos anos 80 (estilo *Berzerk* / *Sinistar*).
-  - 100% procedural, sem necessidade de arquivos `.mp3`/`.wav` externos pesados.
-
----
-
-### Task 4.3: Filtros de Ambiência por Bioma
-- **Arquivos impactados:**
-  - [SoundManager.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.ts)
-  - [BiomeSystem.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/BiomeSystem.ts)
-- **Sub-etapas:**
-  1. Criar nós `ConvolverNode` / `DelayNode` para simular reverberação leve nos biomas de montanha/cânion e abafamento suave na neve.
-  2. Conectar os efeitos aos tiros e explosões dependendo do bioma atual reportado pelo `BiomeSystem`.
-  3. Validar no `SoundManager.test.ts`.
-- **Critérios de Aceite:**
-  - Tiro no desfiladeiro tem eco audível característico.
-  - Zero sobrecarga de CPU no processamento de áudio.
-
----
-
-### Task 4.4: Controles de Áudio no Menu React & Opções de Volume
-- **Arquivos impactados:**
-  - [SettingsService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.ts)
   - [SettingsScreen.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/SettingsScreen.tsx)
-  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
-- **Sub-etapas:**
-  1. Adicionar sliders separados para **Volume da Música**, **Volume dos Efeitos (SFX)** e toggle para **Voz Retrô**.
-  2. Atualizar UI de configurações com feedback auditivo ao arrastar os sliders (toca um beep de teste no volume escolhido).
-  3. Atualizar traduções em `i18n.ts`.
-- **Critérios de Aceite:**
-  - O usuário pode mutar apenas a voz ou música sem afetar os SFX essenciais de tiros e combustível.
+  - [GameCanvas.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/GameCanvas.tsx)
+  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+- **Entregas:**
+  - Sliders para Volume Master, Volume da Música, Volume de Efeitos (SFX) e Volume da Voz.
+  - Checkbox para ativar/desativar Síntese de Voz Retrô 8-Bit.
+  - Propagação reativa para o motor de jogo via `GameCanvas.tsx` e `Game.ts` (incluindo `setLanguage`).
+
+---
+
+### [x] Task 4.5: Disparadores de Voz e Loop de Jogo
+- **Arquivos impactados:**
+  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [Game.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.test.ts)
+- **Entregas:**
+  - Disparo de aviso de combustível baixo ao atingir `<= 20%`.
+  - Disparo de aviso *"Combo Max"* ao atingir multiplicador 4x.
+  - Disparo de *"Overdrive Ready"* e *"Boss Alert"*.
+  - Disparo de *"Zone Cleared"* na derrota do chefe dreadnought.
 
 ---
 
 ## 🧪 Plano de Verificação da Sprint 04
 1. **Testes Automatizados:**
    ```bash
-   npm run typecheck
-   npm test
+   npm run typecheck       # 0 erros
+   npm test                # 541 testes passando (35 arquivos de teste)
+   npm run test:coverage   # Statements 84.55%, Branches 78.36%, Functions 82.57%, Lines 85.52%
+   npm run lint            # 0 erros, 0 warnings
+   npm run build           # Build de produção otimizado com sucesso
    ```
-2. **Validação Sonora no Navegador:**
-   - Jogar até alcançar combo x4 e notar o aumento da camada de arpejos na música.
-   - Deixar o combustível cair abaixo de 20% e ouvir o anúncio vocal retrô *"Warning: Low Fuel"* e o filtro tenso na trilha.
-   - Ajustar os sliders de música e voz no menu de configurações.

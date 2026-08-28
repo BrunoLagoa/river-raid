@@ -138,9 +138,13 @@ describe('LightingSystem', () => {
       expect(ls.getHeadlightIntensity()).toBeLessThanOrEqual(beforeSwitch)
     })
 
-    it('resetHeadlight zera a animacao', () => {
+    it('resetHeadlight e reset zeram a animacao', () => {
       for (let i = 0; i < 60; i++) ls.updateHeadlight(1 / 60, true)
       ls.resetHeadlight()
+      expect(ls.getHeadlightIntensity()).toBe(0)
+
+      for (let i = 0; i < 60; i++) ls.update(1 / 60, true)
+      ls.reset()
       expect(ls.getHeadlightIntensity()).toBe(0)
     })
 

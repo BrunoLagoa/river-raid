@@ -1,8 +1,8 @@
 import {
   BULLET_STYLES, BULLET_OUTLINE, BULLET_OUTLINE_STRONG,
   type BulletKind,
+  type Bullet,
 } from './BulletStyles'
-import type { Bullet } from './Player'
 
 const KIND_ORDER: BulletKind[] = ['normal', 'rapid', 'double', 'overcharge']
 

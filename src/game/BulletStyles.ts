@@ -7,6 +7,22 @@ import { PLAYER_BULLET_W, PLAYER_BULLET_H } from './constants'
  */
 export type BulletKind = 'normal' | 'rapid' | 'double' | 'overcharge'
 
+/**
+ * Projétil do jogador. Fica aqui, e não no Player, para que o BulletRenderer
+ * possa tipá-lo sem importar o Player de volta (o ciclo que isso fechava fazia
+ * o checker resolver o módulo como tipo-erro).
+ */
+export interface Bullet {
+  x: number
+  y: number
+  speed: number
+  width: number
+  height: number
+  active: boolean
+  /** Visual state, frozen at spawn from the fire power-ups then active. */
+  kind: BulletKind
+}
+
 export interface BulletStyle {
   /** Dominant hue — what the player reads at a glance. */
   body: string

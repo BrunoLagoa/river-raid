@@ -25,20 +25,59 @@ describe('SoundManager', () => {
     })
   })
 
-  describe('volume', () => {
-    it('setVolume limita entre 0 e 1', () => {
-      sm.setVolume(1.5)
-      expect((sm as unknown as { volume: number }).volume).toBe(1)
-      sm.setVolume(-0.5)
-      expect((sm as unknown as { volume: number }).volume).toBe(0)
-      sm.setVolume(0.5)
-      expect((sm as unknown as { volume: number }).volume).toBe(0.5)
+  describe('channels and volumes', () => {
+    it('setMasterVolume limita entre 0 e 1', () => {
+      sm.setMasterVolume(1.5)
+      expect(sm.getMasterVolume()).toBe(1)
+      sm.setMasterVolume(-0.5)
+      expect(sm.getMasterVolume()).toBe(0)
+      sm.setMasterVolume(0.5)
+      expect(sm.getMasterVolume()).toBe(0.5)
+    })
+
+    it('setMusicVolume, setSfxVolume, setVoiceVolume e setVoiceEnabled funcionam', () => {
+      sm.setMusicVolume(0.4)
+      expect(sm.getMusicVolume()).toBe(0.4)
+
+      sm.setSfxVolume(0.6)
+      expect(sm.getSfxVolume()).toBe(0.6)
+
+      sm.setVoiceVolume(0.75)
+      expect(sm.getVoiceVolume()).toBe(0.75)
+
+      sm.setVoiceEnabled(false)
+      expect(sm.isVoiceEnabled()).toBe(false)
+      sm.setVoiceEnabled(true)
+      expect(sm.isVoiceEnabled()).toBe(true)
+    })
+
+    it('setDynamicIntensity e setBiomeAcoustics nao falham', () => {
+      expect(() => sm.setDynamicIntensity({ comboMax: true, lowFuel: true, inBossFight: true })).not.toThrow()
+      expect(() => sm.setBiomeAcoustics('snow')).not.toThrow()
+      expect(() => sm.setBiomeAcoustics('desert')).not.toThrow()
+    })
+
+    it('setLanguage repassa para o sintetizador de voz', () => {
+      sm.setLanguage('pt-BR')
+      expect(sm.speech.getLanguage()).toBe('pt-BR')
+      sm.setLanguage('en')
+      expect(sm.speech.getLanguage()).toBe('en')
     })
   })
 
   describe('resume', () => {
     it('resume nao falha se ctx null', () => {
       expect(() => sm.resume()).not.toThrow()
+    })
+
+    it('resume recria contexto quando closed', () => {
+      mockAudioContext()
+      sm.init()
+      const ctx = (sm as unknown as { ctx: { state: string } }).ctx
+      ctx.state = 'closed'
+
+      sm.resume()
+      expect((sm as unknown as { ctx: { state: string } }).ctx).not.toBeNull()
     })
   })
 

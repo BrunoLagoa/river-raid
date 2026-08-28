@@ -1574,4 +1574,38 @@ describe('Game achievement system', () => {
 
     expect(game.player.x).toBeGreaterThan(initialX)
   })
+
+  it('setters de canais de audio repassam para o SoundManager', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.setMusicVolume(0.5)
+    expect(game.sound.getMusicVolume()).toBe(0.5)
+
+    game.setSfxVolume(0.7)
+    expect(game.sound.getSfxVolume()).toBe(0.7)
+
+    game.setVoiceVolume(0.9)
+    expect(game.sound.getVoiceVolume()).toBe(0.9)
+
+    game.setVoiceEnabled(false)
+    expect(game.sound.isVoiceEnabled()).toBe(false)
+
+    game.setLanguage('pt-BR')
+    expect(game.sound.speech.getLanguage()).toBe('pt-BR')
+  })
+
+  it('updateGameplaySystems dispara alertas de voz e intensidade adaptativa', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const voiceSpy = vi.spyOn(game.sound.speech, 'playWarningLowFuel')
+    const dynamicSpy = vi.spyOn(game.sound, 'setDynamicIntensity')
+
+    game.fuelSystem.fuel = 5 // low fuel
+    type GamePrivate = { updateGameplaySystems: (envDt: number) => void }
+    ;(game as unknown as GamePrivate).updateGameplaySystems(1 / 60)
+
+    expect(voiceSpy).toHaveBeenCalled()
+    expect(dynamicSpy).toHaveBeenCalledWith(expect.objectContaining({ lowFuel: true }))
+  })
 })

@@ -1,4 +1,4 @@
-import type { Rect } from './CollisionSystem'
+import type { Rect } from './geometry'
 
 export class SpatialGrid {
   private readonly cellSize: number

@@ -82,6 +82,10 @@ export class LightingSystem {
    * lâmpada "esquenta"; apagar é um fade curto. Com `reducedMotion` a transição
    * é suave e sem flicker.
    */
+  update(dt: number, on: boolean, reducedMotion = false): void {
+    this.updateHeadlight(dt, on, reducedMotion)
+  }
+
   updateHeadlight(dt: number, on: boolean, reducedMotion = false): void {
     if (!Number.isFinite(dt) || dt < 0) return
 
@@ -112,6 +116,10 @@ export class LightingSystem {
   }
 
   /** Corta a animação (nova run / respawn) sem transição. */
+  reset(): void {
+    this.resetHeadlight()
+  }
+
   resetHeadlight(): void {
     this.headlightIntensity = 0
     this.headlightOn = false

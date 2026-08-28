@@ -1,4 +1,5 @@
 import type { Strings } from '../i18n'
+import type { PowerUpType } from '@/game/PowerUpSystem'
 
 interface TutorialScreenProps {
   t: Strings
@@ -7,7 +8,7 @@ interface TutorialScreenProps {
 }
 
 // Letter + colour mirror the in-game power-up sprites (PowerUpSystem.render).
-const POWER_UPS: { type: string; letter: string; color: string }[] = [
+const POWER_UPS: { type: PowerUpType; letter: string; color: string }[] = [
   { type: 'double_shot', letter: 'D', color: '#ff4444' },
   { type: 'shield', letter: 'S', color: '#4488ff' },
   { type: 'slow_motion', letter: 'T', color: '#eebb00' },
