@@ -45,6 +45,8 @@ export class UI {
   private pauseHintLabel = 'Press P or ESC to resume'
   private distanceLabel = 'DIST'
   private distanceMeters = 0
+  private pauseShortcutLabel = 'P  PAUSE'
+  private muteShortcutLabel = 'M  MUTE'
 
   /** Localized pause-overlay strings (defaults are English). */
   setPauseLabels(paused: string, hint: string): void {
@@ -54,6 +56,11 @@ export class UI {
 
   setDistanceLabel(label: string): void {
     this.distanceLabel = label
+  }
+
+  setShortcutLabels(pause: string, mute: string): void {
+    this.pauseShortcutLabel = pause
+    this.muteShortcutLabel = mute
   }
 
   setDistanceMeters(meters: number): void {
@@ -179,8 +186,8 @@ export class UI {
     ctx.font = '11px "Courier New", monospace'
     ctx.fillStyle = '#9aabbd'
     ctx.textAlign = 'right'
-    ctx.fillText('P  pausa', canvasWidth - 16, 44)
-    ctx.fillText('M  muta o som', canvasWidth - 16, 57)
+    ctx.fillText(this.pauseShortcutLabel, canvasWidth - 16, 44)
+    ctx.fillText(this.muteShortcutLabel, canvasWidth - 16, 57)
 
     if (muted) {
       ctx.font = 'bold 11px "Courier New", monospace'

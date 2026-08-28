@@ -79,6 +79,9 @@ export interface Strings {
   hudPaused: string
   hudPauseHint: string
   hudDistance: string
+  hudPauseLabel: string
+  hudMuteLabel: string
+  hudExtraLife: string
 
   // Power-ups (tutorial + pickup toast)
   tutorialCardPowerups: string
@@ -172,6 +175,9 @@ const en: Strings = {
   hudPaused: 'PAUSED',
   hudPauseHint: 'Press P or ESC to resume',
   hudDistance: 'DIST',
+  hudPauseLabel: 'P  PAUSE',
+  hudMuteLabel: 'M  MUTE',
+  hudExtraLife: 'EXTRA LIFE!',
 
   tutorialCardPowerups: 'POWER-UPS',
   powerupNames: {
@@ -285,6 +291,9 @@ const ptBR: Strings = {
   hudPaused: 'PAUSADO',
   hudPauseHint: 'Pressione P ou ESC para continuar',
   hudDistance: 'DIST',
+  hudPauseLabel: 'P  PAUSA',
+  hudMuteLabel: 'M  MUDO',
+  hudExtraLife: 'VIDA EXTRA!',
 
   tutorialCardPowerups: 'POWER-UPS',
   powerupNames: {

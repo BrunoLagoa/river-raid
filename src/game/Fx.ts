@@ -22,6 +22,8 @@ interface ScorePopup {
 const POOL_SIZE = 100
 const POPUP_POOL_SIZE = 20
 
+import type { RandomSource } from './random'
+
 export class Fx {
   private particles: Particle[] = []
   private reducedMotion = false
@@ -34,13 +36,15 @@ export class Fx {
   private shockwaveTimer = 0
   private shockwaveDuration = 0
   private shockwaveOrigin = { x: 0, y: 0 }
+  private random: RandomSource
 
   public shakeX = 0
   public shakeY = 0
   private shakeTimer = 0
   private shakeIntensity = 0
 
-  constructor() {
+  constructor(random: RandomSource = Math.random) {
+    this.random = random
     for (let i = 0; i < POOL_SIZE; i++) {
       this.particles.push({
         x: 0, y: 0, vx: 0, vy: 0,
@@ -58,19 +62,19 @@ export class Fx {
   }
 
   explosion(x: number, y: number, color: string): void {
-    const count = this.reducedMotion ? 2 : 8 + Math.floor(Math.random() * 5)
+    const count = this.reducedMotion ? 2 : 8 + Math.floor(this.random() * 5)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
-      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
-      const speed = 40 + Math.random() * 80
+      const angle = (i / count) * Math.PI * 2 + this.random() * 0.5
+      const speed = 40 + this.random() * 80
       p.x = x
       p.y = y
       p.vx = Math.cos(angle) * speed
       p.vy = Math.sin(angle) * speed
-      p.life = 0.3 + Math.random() * 0.4
+      p.life = 0.3 + this.random() * 0.4
       p.maxLife = p.life
-      p.size = 2 + Math.random() * 3
+      p.size = 2 + this.random() * 3
       p.color = color
       p.active = true
     }
@@ -80,19 +84,19 @@ export class Fx {
   }
 
   bigExplosion(x: number, y: number, color: string): void {
-    const count = this.reducedMotion ? 4 : 14 + Math.floor(Math.random() * 6)
+    const count = this.reducedMotion ? 4 : 14 + Math.floor(this.random() * 6)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
-      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
-      const speed = 50 + Math.random() * 120
+      const angle = (i / count) * Math.PI * 2 + this.random() * 0.5
+      const speed = 50 + this.random() * 120
       p.x = x
       p.y = y
       p.vx = Math.cos(angle) * speed
       p.vy = Math.sin(angle) * speed
-      p.life = 0.4 + Math.random() * 0.5
+      p.life = 0.4 + this.random() * 0.5
       p.maxLife = p.life
-      p.size = 3 + Math.random() * 4
+      p.size = 3 + this.random() * 4
       p.color = color
       p.active = true
     }
@@ -108,29 +112,29 @@ export class Fx {
   smokeTrail(x: number, y: number, color = '#888888'): void {
     const p = this.getNextParticle()
     if (!p) return
-    p.x = x + (Math.random() - 0.5) * 4
-    p.y = y + (Math.random() - 0.5) * 2
-    p.vx = (Math.random() - 0.5) * 10
-    p.vy = 80 + Math.random() * 40
-    p.life = 0.3 + Math.random() * 0.2
+    p.x = x + (this.random() - 0.5) * 4
+    p.y = y + (this.random() - 0.5) * 2
+    p.vx = (this.random() - 0.5) * 10
+    p.vy = 80 + this.random() * 40
+    p.life = 0.3 + this.random() * 0.2
     p.maxLife = p.life
-    p.size = 2 + Math.random() * 2
+    p.size = 2 + this.random() * 2
     p.color = color
     p.active = true
   }
 
   deathSmoke(x: number, y: number): void {
-    const count = 4 + Math.floor(Math.random() * 3)
+    const count = 4 + Math.floor(this.random() * 3)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
-      p.x = x + (Math.random() - 0.5) * 16
-      p.y = y + (Math.random() - 0.5) * 8
-      p.vx = (Math.random() - 0.5) * 20
-      p.vy = 40 + Math.random() * 60
-      p.life = 0.5 + Math.random() * 0.4
+      p.x = x + (this.random() - 0.5) * 16
+      p.y = y + (this.random() - 0.5) * 8
+      p.vx = (this.random() - 0.5) * 20
+      p.vy = 40 + this.random() * 60
+      p.life = 0.5 + this.random() * 0.4
       p.maxLife = p.life
-      p.size = 3 + Math.random() * 3
+      p.size = 3 + this.random() * 3
       p.color = i % 2 === 0 ? '#333333' : '#555555'
       p.active = true
     }
@@ -145,13 +149,13 @@ export class Fx {
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
-      p.x = x + (Math.random() - 0.5) * 4
+      p.x = x + (this.random() - 0.5) * 4
       p.y = y
-      p.vx = (Math.random() - 0.5) * 60
-      p.vy = -60 - Math.random() * 50
-      p.life = 0.08 + Math.random() * 0.06
+      p.vx = (this.random() - 0.5) * 60
+      p.vy = -60 - this.random() * 50
+      p.life = 0.08 + this.random() * 0.06
       p.maxLife = p.life
-      p.size = 2 + Math.random() * 2
+      p.size = 2 + this.random() * 2
       p.color = color
       p.active = true
     }
@@ -166,15 +170,15 @@ export class Fx {
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
       if (!p) break
-      const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI
-      const speed = 60 + Math.random() * 70
+      const angle = -Math.PI / 2 + (this.random() - 0.5) * Math.PI
+      const speed = 60 + this.random() * 70
       p.x = x
       p.y = y
       p.vx = Math.cos(angle) * speed
       p.vy = Math.sin(angle) * speed
-      p.life = 0.12 + Math.random() * 0.12
+      p.life = 0.12 + this.random() * 0.12
       p.maxLife = p.life
-      p.size = 1 + Math.random() * 2
+      p.size = 1 + this.random() * 2
       p.color = color
       p.active = true
     }
@@ -252,8 +256,8 @@ export class Fx {
         this.shakeX = 0
         this.shakeY = 0
       } else {
-        this.shakeX = (Math.random() - 0.5) * 2 * this.shakeIntensity
-        this.shakeY = (Math.random() - 0.5) * 2 * this.shakeIntensity
+        this.shakeX = (this.random() - 0.5) * 2 * this.shakeIntensity
+        this.shakeY = (this.random() - 0.5) * 2 * this.shakeIntensity
       }
     }
   }

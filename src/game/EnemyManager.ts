@@ -40,6 +40,7 @@ export interface EnemyBullet {
   height: number
   active: boolean
   fromPlane: boolean
+  nearMissRewarded?: boolean
 }
 
 /** Where the AI believes the player currently is. Enables aimed/leading fire. */
@@ -146,7 +147,7 @@ export interface GunboatEnemy extends BaseEnemy {
 
 export type Enemy = HelicopterEnemy | PlaneEnemy | BoatEnemy | BridgeEnemy | TankEnemy | GunboatEnemy
 
-const ENEMY_CONFIGS: Record<EnemyType, { width: number; height: number; points: number }> = {
+export const ENEMY_CONFIGS: Record<EnemyType, { width: number; height: number; points: number }> = {
   helicopter: { width: 28, height: 20, points: 60 },
   plane: { width: 32, height: 28, points: 100 },
   boat: { width: 24, height: 16, points: 30 },

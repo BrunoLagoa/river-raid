@@ -178,3 +178,8 @@ export const ENEMY_ESCALATION_FULL = 360       // s — when escalation maxes ou
 export const ENEMY_ESCALATION_ELITE_SHIFT = 0.5
 // At full escalation, enemies fire up to this fraction faster (cadence speedup).
 export const ENEMY_ESCALATION_SHOOT_SPEEDUP = 0.18
+
+export const EXTRA_LIFE_SCORE_INTERVAL = 10000
+export const NEAR_MISS_DISTANCE = 40
+export const NEAR_MISS_POINTS = 10
+export const NEAR_MISS_COOLDOWN = 0.3

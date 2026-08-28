@@ -29,6 +29,7 @@ import {
   SMOKE_TRAIL_SPAWN_CHANCE, SMOKE_TRAIL_FAST_SPEED_MOD, SMOKE_TRAIL_SLOW_SPEED_MOD,
   SHOCKWAVE_MAX_RADIUS_RATIO, SHOCKWAVE_BASE_ALPHA,
   DISTANCE_PX_PER_METER,
+  EXTRA_LIFE_SCORE_INTERVAL, NEAR_MISS_DISTANCE, NEAR_MISS_POINTS, NEAR_MISS_COOLDOWN,
   DIFFICULTY_PRESETS, type Difficulty, type DifficultyPreset,
 } from './constants'
 import {
@@ -64,6 +65,8 @@ export class Game {
   atmosphere: Atmosphere
   objectives: ObjectiveSystem
   private debugPanel = new DebugPanel()
+  private extraLifeThreshold = EXTRA_LIFE_SCORE_INTERVAL
+  private nearMissCooldown = 0
 
   private onGameOver: GameCallback | null = null
   private onAchievementUnlocked: AchievementCallback | null = null
@@ -121,7 +124,7 @@ export class Game {
     this.fuelSystem = new FuelSystem(canvas.width, canvas.height, this.random)
     this.powerUpSystem = new PowerUpSystem(canvas.width, canvas.height, this.random)
     this.sound = new SoundManager()
-    this.fx = new Fx()
+    this.fx = new Fx(this.random)
     this.scenery = new Scenery(canvas.width, canvas.height)
     this.atmosphere = new Atmosphere(canvas.width, canvas.height)
     this.objectives = new ObjectiveSystem(this.random, (points) => {
@@ -278,6 +281,8 @@ export class Game {
     this.debugPanel.reset()
     this.objectives.reset()
     this.achievements.reset()
+    this.extraLifeThreshold = EXTRA_LIFE_SCORE_INTERVAL
+    this.nearMissCooldown = 0
     this.clearPendingTimers()
     this.start()
   }
@@ -292,6 +297,7 @@ export class Game {
     this.locale = strings
     this.ui.setPauseLabels(strings.hudPaused, strings.hudPauseHint)
     this.ui.setDistanceLabel(strings.hudDistance)
+    this.ui.setShortcutLabels(strings.hudPauseLabel, strings.hudMuteLabel)
   }
 
   resize(width: number, height: number): void {
@@ -311,6 +317,7 @@ export class Game {
   registerHit(): void {
     const previous = this.comboMultiplier
     this.scoring.registerHit()
+    this.checkExtraLife()
     if (this.comboMultiplier > previous) {
       this.fx.addShake(3, 0.1)
     }
@@ -477,6 +484,7 @@ export class Game {
   private handleAliveState(dt: number, speedMod: number): boolean {
     this.renderSmokeTrail(speedMod)
     this.resolveGameplayCollisions()
+    this.checkNearMisses()
 
     this.achievements.updateFuel(dt, this.fuelSystem.fuel)
 
@@ -674,6 +682,37 @@ export class Game {
 
     // CRT scanlines — screen-space overlay applied last, over everything including HUD
     this.atmosphere.renderScanlines(this.ctx, this.canvas.width, this.canvas.height)
+  }
+
+  private checkExtraLife(): void {
+    while (this.score >= this.extraLifeThreshold) {
+      this.extraLifeThreshold += EXTRA_LIFE_SCORE_INTERVAL
+      this.lives++
+      this.ui.pushToast(this.locale?.hudExtraLife || 'EXTRA LIFE!', '+1')
+      this.sound.powerUpBomb()
+    }
+  }
+
+  private checkNearMisses(): void {
+    this.nearMissCooldown = Math.max(0, this.nearMissCooldown - 1 / 60)
+    if (this.nearMissCooldown > 0) return
+
+    for (const bullet of this.enemyManager.bullets) {
+      if (!bullet.active) continue
+      if (bullet.nearMissRewarded) continue
+      const dx = this.player.x - bullet.x
+      const dy = this.player.y - bullet.y
+      const dist = Math.sqrt(dx * dx + dy * dy)
+      const minDist = this.player.width / 2 + bullet.width / 2
+      if (dist < NEAR_MISS_DISTANCE && dist >= minDist) {
+        bullet.nearMissRewarded = true
+        this.scoring.addScore(NEAR_MISS_POINTS)
+        this.fx.scorePopup(bullet.x, bullet.y - 10, `+${NEAR_MISS_POINTS}`)
+        this.fx.flash('#00ffcc', 0.1)
+        this.nearMissCooldown = NEAR_MISS_COOLDOWN
+        break
+      }
+    }
   }
 
   handlePlayerDeath(): void {

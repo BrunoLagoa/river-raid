@@ -278,10 +278,9 @@ export class SoundManager {
   private musicTimer: number | null = null
   private musicStep = 0
   private active: { track: MusicTrack; compiled: CompiledSong; totalSteps: number } | null = null
-  /** Bioma cuja trilha está (ou estará) tocando. Casa com BiomeId. */
   private currentBiome = 'forest'
-  /** Fase do dia que modula a trilha (índice em PHASE_MOODS). */
   private musicPhase = 0
+  private crossfadeTimer: number | null = null
 
   private static readonly STEPS_PER_BAR = 16
 
@@ -295,8 +294,14 @@ export class SoundManager {
   }
 
   resume(): void {
-    if (this.ctx?.state === 'suspended') {
-      void this.ctx.resume()
+    if (!this.ctx) return
+    const state = this.ctx.state
+    if (state === 'suspended' || state === 'interrupted') {
+      void this.ctx.resume().catch(() => {
+        if (this.ctx?.state === 'closed') this.init()
+      })
+    } else if (state === 'closed') {
+      this.init()
     }
   }
 
@@ -339,8 +344,33 @@ export class SoundManager {
     if (biome === this.currentBiome) return
     this.currentBiome = biome
     if (this.musicTimer === null) return
-    this.stopMusic()
-    this.playTrack(BIOME_TRACKS[biome] ?? FOREST_TRACK)
+    this.crossfadeToBiome(biome)
+  }
+
+  private crossfadeToBiome(newBiome: string): void {
+    const ctx = this.ctx
+    if (!ctx || !this.masterGain) {
+      this.stopMusic()
+      this.playTrack(BIOME_TRACKS[newBiome] ?? FOREST_TRACK)
+      return
+    }
+    const now = ctx.currentTime
+    const fadeDur = 0.3
+    const currentVol = this.masterGain.gain.value
+    this.masterGain.gain.cancelScheduledValues(now)
+    this.masterGain.gain.setValueAtTime(currentVol, now)
+    this.masterGain.gain.exponentialRampToValueAtTime(0.001, now + fadeDur)
+    this.crossfadeTimer = window.setTimeout(() => {
+      this.crossfadeTimer = null
+      this.stopMusic()
+      this.playTrack(BIOME_TRACKS[newBiome] ?? FOREST_TRACK)
+      if (this.masterGain) {
+        const target = this.muted ? 0 : this.volume
+        this.masterGain.gain.cancelScheduledValues(ctx.currentTime)
+        this.masterGain.gain.setValueAtTime(0.001, ctx.currentTime)
+        this.masterGain.gain.exponentialRampToValueAtTime(target, ctx.currentTime + fadeDur)
+      }
+    }, fadeDur * 1000 + 50)
   }
 
   // Define a fase do dia (0=dia, 1=pôr do sol, 2=noite, 3=amanhecer) que modula
@@ -824,6 +854,10 @@ export class SoundManager {
 
   destroy(): void {
     this.stopMusic()
+    if (this.crossfadeTimer !== null) {
+      window.clearTimeout(this.crossfadeTimer)
+      this.crossfadeTimer = null
+    }
     this.stopEngine()
     if (this.ctx) {
       void this.ctx.close()
