@@ -20,6 +20,8 @@ import {
   ENEMY_ESCALATION_START, ENEMY_ESCALATION_FULL,
   ENEMY_ESCALATION_ELITE_SHIFT, ENEMY_ESCALATION_SHOOT_SPEEDUP,
   ENEMY_TIER_SMART_UNLOCK_TIME, ENEMY_TIER_ELITE_UNLOCK_TIME,
+  ENEMY_BULLET_WIDTH, ENEMY_BULLET_HEIGHT,
+  ENEMY_BULLET_PLANE_WIDTH, ENEMY_BULLET_PLANE_HEIGHT,
 } from './constants'
 import { EnemyRenderer } from './EnemyRenderer'
 import type { RandomSource } from './random'
@@ -285,10 +287,12 @@ export class EnemyManager {
 
   private bulletPool = new ObjectPool<EnemyBullet>(
     80,
-    () => ({ x: 0, y: 0, speed: 0, vx: 0, width: 4, height: 8, active: false, fromPlane: false }),
+    () => ({ x: 0, y: 0, speed: 0, vx: 0, width: ENEMY_BULLET_WIDTH, height: ENEMY_BULLET_HEIGHT, active: false, fromPlane: false }),
     (bullet) => {
       bullet.active = true
       bullet.vx = 0
+      // Pooled shells are reused: a stale flag would silently kill near-miss rewards.
+      bullet.nearMissRewarded = false
     },
   )
 
@@ -306,6 +310,22 @@ export class EnemyManager {
 
   get activeBulletCount(): number {
     return this.bullets.length
+  }
+
+  /** Spawns an enemy shell from an external source (e.g. the boss). */
+  spawnEnemyBullet(params: {
+    x: number; y: number; vx: number; speed: number
+    fromPlane?: boolean; width?: number; height?: number
+  }): void {
+    const bullet = this.bulletPool.acquire()
+    bullet.x = params.x
+    bullet.y = params.y
+    bullet.vx = params.vx
+    bullet.speed = params.speed
+    bullet.fromPlane = !!params.fromPlane
+    // Pooled objects keep the previous shooter's size unless it is written back.
+    bullet.width = params.width ?? ENEMY_BULLET_WIDTH
+    bullet.height = params.height ?? ENEMY_BULLET_HEIGHT
   }
 
   private renderer = new EnemyRenderer()
@@ -484,8 +504,8 @@ export class EnemyManager {
             bullet.y = enemy.y + enemy.height / 2
             bullet.speed = baseBulletSpeed * tierBulletSpeed
             bullet.vx = this.computeAimVx(enemy, bullet.speed, target)
-            bullet.width = enemy.type === 'plane' ? 5 : 4
-            bullet.height = enemy.type === 'plane' ? 10 : 8
+            bullet.width = enemy.type === 'plane' ? ENEMY_BULLET_PLANE_WIDTH : ENEMY_BULLET_WIDTH
+            bullet.height = enemy.type === 'plane' ? ENEMY_BULLET_PLANE_HEIGHT : ENEMY_BULLET_HEIGHT
             bullet.fromPlane = enemy.type === 'plane'
             const tierInterval = this.getTierShootIntervalMult(enemy.aiTier)
             const tierRandom = this.getTierShootRandomMult(enemy.aiTier)

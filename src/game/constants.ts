@@ -116,6 +116,11 @@ export const ENEMY_SPAWN_INTERVAL_MIN = 0.25
 export const ENEMY_SPAWN_INTERVAL_DECAY = 0.008
 export const ENEMY_SPAWN_Y = -20
 export const ENEMY_OFFSCREEN_Y = 50
+/** Default enemy shell size; planes fire the larger variant. */
+export const ENEMY_BULLET_WIDTH = 4
+export const ENEMY_BULLET_HEIGHT = 8
+export const ENEMY_BULLET_PLANE_WIDTH = 5
+export const ENEMY_BULLET_PLANE_HEIGHT = 10
 
 export const ENEMY_ACTIVE_CAP_BASE = 10
 export const ENEMY_ACTIVE_CAP_GROWTH_PER_SECOND = 0.08
@@ -201,4 +206,50 @@ export const LIGHTING_DAWN_ALPHA = 0.35
 export const LIGHTING_SUNSET_ALPHA = 0.20
 export const LIGHTING_BULLET_RADIUS = 32
 export const LIGHTING_EXPLOSION_RADIUS = 80
+
+// Overdrive Super Weapon System
+export const OVERDRIVE_MAX = 100
+export const OVERDRIVE_KILL_GAIN = 4
+export const OVERDRIVE_NEAR_MISS_GAIN = 12
+export const OVERDRIVE_DURATION = 6.0
+/** Beam damage per SECOND (dt-scaled) — frame-rate independent. */
+export const OVERDRIVE_LASER_DPS = 90
+/** Full beam width in px; the hitbox and the rendered beam share it. */
+export const OVERDRIVE_LASER_WIDTH = 24
+
+// Boss Battles System
+export const BOSS_SPAWN_INTERVAL = 90
+export const BOSS_DREADNOUGHT_HP = 160
+export const BOSS_TURRET_HP = 35
+export const BOSS_TURRET_SHOOT_INTERVAL = 1.4
+export const BOSS_CORE_SHOOT_INTERVAL = 1.8
+export const BOSS_POINTS = 5000
+export const BOSS_WIDTH = 110
+export const BOSS_HEIGHT = 160
+export const BOSS_TURRET_SCORE = 500
+/** Player bullet damage against a turret / against the bare hull. */
+export const BOSS_TURRET_BULLET_DAMAGE = 10
+export const BOSS_HULL_BULLET_DAMAGE = 8
+/** Share of a turret's HP that also comes off the hull pool when it blows. */
+export const BOSS_TURRET_HULL_DAMAGE_RATIO = 0.7
+/** Hull integrity below this ratio flips the boss into its berserk phase. */
+export const BOSS_PHASE3_HEALTH_RATIO = 0.25
+export const BOSS_ENTRY_SPEED = 120
+export const BOSS_ENTRY_TARGET_Y = 120
+export const BOSS_STRAFE_SPEED = 45
+export const BOSS_STRAFE_SPEED_BERSERK = 75
+export const BOSS_STRAFE_RATE = 1.4
+export const BOSS_STRAFE_RATE_BERSERK = 2.2
+export const BOSS_STRAFE_MARGIN = 10
+export const BOSS_TURRET_BULLET_SPEED = 240
+/** Fraction of the shell speed that becomes horizontal lead when aiming. */
+export const BOSS_TURRET_AIM_FACTOR = 0.55
+export const BOSS_CORE_BULLET_SPEED = 260
+export const BOSS_CORE_BURST_VX = [-45, 0, 45]
+export const BOSS_CORE_BERSERK_INTERVAL_MULT = 0.55
+export const BOSS_DEATH_EXPLOSION_TIME = 2.4
+export const BOSS_DAMAGE_FLASH_TIME = 0.12
+/** River scroll is cut to this fraction (floored) while a boss is fighting. */
+export const BOSS_FIGHT_SCROLL_FACTOR = 0.96
+export const BOSS_FIGHT_MIN_SCROLL_SPEED = 60
 

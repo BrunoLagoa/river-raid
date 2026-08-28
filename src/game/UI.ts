@@ -39,6 +39,27 @@ interface AchievementToast {
 const TOAST_DURATION = 3.5
 const TOAST_FADE_DURATION = 0.5
 
+export interface BossHudData {
+  healthRatio: number
+  phase: number
+  isAlive: boolean
+}
+
+export interface OverdriveHudData {
+  energyRatio: number
+  isActive: boolean
+  isReady: boolean
+  remainingTimer: number
+  /** Share of the Overdrive window still left (1 → 0). */
+  activeRatio: number
+}
+
+// Minimap geometry — shared so other HUD layers can steer clear of the radar.
+const MINIMAP_WIDTH = 128
+const MINIMAP_HEIGHT = 90
+const MINIMAP_MARGIN = 16
+const MINIMAP_Y = 70
+
 export class UI {
   private toasts: AchievementToast[] = []
   private pausedLabel = 'PAUSED'
@@ -47,6 +68,10 @@ export class UI {
   private distanceMeters = 0
   private pauseShortcutLabel = 'P  PAUSE'
   private muteShortcutLabel = 'M  MUTE'
+  private bossNameLabel = 'DREADNOUGHT MK-I'
+  private bossPhaseLabel = 'PHASE'
+  private overdriveActiveLabel = 'OVERDRIVE'
+  private overdriveReadyLabel = 'OVERDRIVE READY! [X]'
 
   /** Localized pause-overlay strings (defaults are English). */
   setPauseLabels(paused: string, hint: string): void {
@@ -61,6 +86,17 @@ export class UI {
   setShortcutLabels(pause: string, mute: string): void {
     this.pauseShortcutLabel = pause
     this.muteShortcutLabel = mute
+  }
+
+  /** Localized boss/Overdrive HUD strings (defaults are English). */
+  setBossLabels(name: string, phase: string): void {
+    this.bossNameLabel = name
+    this.bossPhaseLabel = phase
+  }
+
+  setOverdriveLabels(active: string, ready: string): void {
+    this.overdriveActiveLabel = active
+    this.overdriveReadyLabel = ready
   }
 
   setDistanceMeters(meters: number): void {
@@ -101,6 +137,8 @@ export class UI {
     lives = 3,
     rapidFireTimer = 0,
     magnetFuelTimer = 0,
+    bossData?: BossHudData | null,
+    overdriveData?: OverdriveHudData | null,
   ): void {
     ctx.save()
 
@@ -196,11 +234,83 @@ export class UI {
       ctx.fillText('MUTED', canvasWidth - 132, 57)
     }
 
+    // Overdrive Gauge (Center Bottom of HUD)
+    if (overdriveData) {
+      const odRatio = overdriveData.energyRatio
+      const odActive = overdriveData.isActive
+      const odReady = overdriveData.isReady
+      const odW = 110
+      const odH = 6
+      const odX = (canvasWidth - odW) / 2
+      const odY = 50
+
+      ctx.fillStyle = '#141a24'
+      ctx.fillRect(odX, odY, odW, odH)
+
+      if (odActive) {
+        ctx.fillStyle = '#00ffff'
+        ctx.fillRect(odX, odY, odW * overdriveData.activeRatio, odH)
+      } else {
+        ctx.fillStyle = odReady ? '#ffff00' : '#00aaff'
+        ctx.fillRect(odX, odY, odW * odRatio, odH)
+      }
+
+      ctx.strokeStyle = odReady ? '#ffff00' : '#3d4f66'
+      ctx.lineWidth = 1
+      ctx.strokeRect(odX, odY, odW, odH)
+
+      // Label sits below the bar: above it, it collided with the centered
+      // 22px distance readout that shares this axis.
+      const odLabelY = odY + odH + 9
+      ctx.font = 'bold 9px "Courier New", monospace'
+      ctx.textAlign = 'center'
+      if (odActive) {
+        ctx.fillStyle = '#00ffff'
+        ctx.fillText(`⚡ ${this.overdriveActiveLabel} ${overdriveData.remainingTimer.toFixed(1)}s`, canvasWidth / 2, odLabelY)
+      } else if (odReady) {
+        ctx.fillStyle = '#ffff00'
+        ctx.fillText(`⚡ ${this.overdriveReadyLabel}`, canvasWidth / 2, odLabelY)
+      }
+    }
+
     if (minimap) {
       this.renderMinimap(ctx, canvasWidth, minimap)
     }
 
-    let activeY = 80
+    let activeY = 76
+
+    // Boss Health Bar (Top under HUD)
+    if (bossData && bossData.isAlive) {
+      // Stop short of the radar instead of painting straight through it.
+      const bossBarRight = minimap
+        ? canvasWidth - MINIMAP_WIDTH - MINIMAP_MARGIN - 12
+        : canvasWidth - 16
+      const bossBarX = 16
+      const bossBarW = Math.max(0, Math.min(340, bossBarRight - bossBarX))
+      const bossBarH = 10
+      const bossBarY = activeY
+
+      // Header
+      ctx.font = 'bold 10px "Courier New", monospace'
+      ctx.fillStyle = '#ff4444'
+      ctx.textAlign = 'left'
+      ctx.fillText(`⚠️ ${this.bossNameLabel} — ${this.bossPhaseLabel} ${bossData.phase}`, bossBarX, bossBarY - 3)
+
+      // Bar bg
+      ctx.fillStyle = 'rgba(15, 18, 26, 0.88)'
+      ctx.fillRect(bossBarX, bossBarY, bossBarW, bossBarH)
+
+      // HP fill
+      const hpW = Math.max(0, bossBarW * Math.min(1, bossData.healthRatio))
+      ctx.fillStyle = bossData.phase === 3 ? '#ff0033' : '#ff7700'
+      ctx.fillRect(bossBarX, bossBarY, hpW, bossBarH)
+
+      ctx.strokeStyle = '#ff4444'
+      ctx.lineWidth = 1
+      ctx.strokeRect(bossBarX, bossBarY, bossBarW, bossBarH)
+
+      activeY += bossBarH + 16
+    }
 
     // Overcharge — both fire power-ups at once. Flagged first, in the same
     // lime the bullets take, so the player learns what the colour means.
@@ -401,10 +511,10 @@ export class UI {
   }
 
   private renderMinimap(ctx: CanvasRenderingContext2D, canvasWidth: number, minimap: MinimapData): void {
-    const width = 128
-    const height = 90
-    const x = canvasWidth - width - 16
-    const y = 70
+    const width = MINIMAP_WIDTH
+    const height = MINIMAP_HEIGHT
+    const x = canvasWidth - width - MINIMAP_MARGIN
+    const y = MINIMAP_Y
     const visibleHeight = 280
     const scaleX = width / ctx.canvas.width
     const scaleY = height / visibleHeight

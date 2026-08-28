@@ -3,7 +3,7 @@ import { BULLET_STYLES } from './BulletStyles'
 import { World } from './World'
 import { CollisionSystem } from './CollisionSystem'
 import type { CollisionContext } from './CollisionSystem'
-import { UI } from './UI'
+import { UI, type BossHudData, type OverdriveHudData } from './UI'
 import { EnemyManager } from './EnemyManager'
 import { FuelSystem } from './FuelSystem'
 import { PowerUpSystem } from './PowerUpSystem'
@@ -14,6 +14,9 @@ import { Atmosphere } from './Atmosphere'
 import { BiomeSystem } from './BiomeSystem'
 import { WeatherSystem } from './WeatherSystem'
 import { LightingSystem } from './LightingSystem'
+import { OverdriveSystem } from './OverdriveSystem'
+import { BossDreadnought } from './BossDreadnought'
+import { BossRenderer } from './BossRenderer'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
@@ -32,6 +35,8 @@ import {
   SHOCKWAVE_MAX_RADIUS_RATIO, SHOCKWAVE_BASE_ALPHA,
   DISTANCE_PX_PER_METER,
   EXTRA_LIFE_SCORE_INTERVAL, NEAR_MISS_DISTANCE, NEAR_MISS_POINTS, NEAR_MISS_COOLDOWN,
+  BOSS_SPAWN_INTERVAL, BOSS_HEIGHT,
+  BOSS_FIGHT_SCROLL_FACTOR, BOSS_FIGHT_MIN_SCROLL_SPEED,
   DIFFICULTY_PRESETS, type Difficulty, type DifficultyPreset,
 } from './constants'
 import {
@@ -67,6 +72,17 @@ export class Game {
   atmosphere: Atmosphere
   weather: WeatherSystem
   lighting: LightingSystem
+  overdrive = new OverdriveSystem()
+  boss: BossDreadnought | null = null
+  private bossRenderer = new BossRenderer()
+  private bossSpawnTimer = BOSS_SPAWN_INTERVAL
+  /** Bound once — the boss update runs every frame and must not allocate. */
+  private spawnBossBullet = (b: { x: number; y: number; vx: number; speed: number; fromPlane: boolean }): void => {
+    this.enemyManager.spawnEnemyBullet(b)
+  }
+  // Reused HUD payloads: render() runs 60x/s and must not allocate.
+  private bossHud: BossHudData = { healthRatio: 1, phase: 1, isAlive: false }
+  private overdriveHud: OverdriveHudData = { energyRatio: 0, isActive: false, isReady: false, remainingTimer: 0, activeRatio: 0 }
   objectives: ObjectiveSystem
   private debugPanel = new DebugPanel()
   private extraLifeThreshold = EXTRA_LIFE_SCORE_INTERVAL
@@ -148,6 +164,11 @@ export class Game {
     }
     if (e.key === 'm' || e.key === 'M') {
       this.sound.toggleMute()
+    }
+    // Shift is a modifier — binding it here fired Overdrive on Shift+P, capitals
+    // and key auto-repeat, so the beam is on X only.
+    if (!e.repeat && (e.key === 'x' || e.key === 'X')) {
+      this.activateOverdrive()
     }
     this.debugPanel.onKeyDown(e.key)
   }
@@ -232,6 +253,21 @@ export class Game {
     }
   }
 
+  public activateOverdrive(): boolean {
+    if (!this.running || this.paused || this.player.state !== 'alive') return false
+    const activated = this.overdrive.activate()
+    if (activated) {
+      this.player.overdriveActive = true
+      // Clear active enemy bullets on screen (EMP blast)
+      for (const b of this.enemyManager.bullets) b.active = false
+      this.fx.triggerShockwave(this.player.x, this.player.y, 1.2)
+      this.fx.flash('#00ffff', 0.25)
+      this.sound.bombShockwave()
+      this.vibrate(80)
+    }
+    return activated
+  }
+
   setTouchPosition(screenX: number | null, screenY: number | null = null): void {
     this.player.setTouchTarget(screenX, screenY)
   }
@@ -294,6 +330,10 @@ export class Game {
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.weather.reset()
+    this.overdrive.reset()
+    this.boss = null
+    this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
+    this.player.overdriveActive = false
     this.biomeSystem.reset()
     this.debugPanel.reset()
     this.objectives.reset()
@@ -315,6 +355,8 @@ export class Game {
     this.ui.setPauseLabels(strings.hudPaused, strings.hudPauseHint)
     this.ui.setDistanceLabel(strings.hudDistance)
     this.ui.setShortcutLabels(strings.hudPauseLabel, strings.hudMuteLabel)
+    this.ui.setBossLabels(strings.hudBossName, strings.hudBossPhase)
+    this.ui.setOverdriveLabels(strings.hudOverdriveActive, strings.hudOverdriveReady)
   }
 
   resize(width: number, height: number): void {
@@ -397,6 +439,8 @@ export class Game {
     if (gp.buttons[0]?.pressed) this.player.keys.add(' ')
     else this.player.keys.delete(' ')
 
+    if (gp.buttons[1]?.pressed) this.activateOverdrive()
+
     if (gp.buttons[9]?.pressed) this.togglePause()
   }
 
@@ -410,7 +454,7 @@ export class Game {
     this.updateGameplaySystems(envDt)
 
     if (this.player.state === 'alive') {
-      if (this.handleAliveState(dt, speedMod)) return
+      if (this.handleAliveState(dt, envDt, speedMod)) return
     }
 
     this.fx.update(dt)
@@ -439,6 +483,11 @@ export class Game {
     this.pollGamepad()
     this.state.updateTime(dt)
     const speedMod = this.state.updateSpeed(this.player.keys)
+    // A boss fight drags the current back. Applied here, before distance, the
+    // world and every entity riding on it read the same scroll speed this frame.
+    if (this.boss?.isFighting) {
+      this.scrollSpeed = Math.max(BOSS_FIGHT_MIN_SCROLL_SPEED, this.scrollSpeed * BOSS_FIGHT_SCROLL_FACTOR)
+    }
     this.state.addDistance(this.scrollSpeed * dt)
     this.scoring.update(dt)
     this.objectives.update(dt, this.comboMultiplier)
@@ -479,6 +528,27 @@ export class Game {
   }
 
   private updateGameplaySystems(envDt: number): void {
+    // Overdrive system update — isActive is already false on the expiring frame.
+    this.overdrive.update(envDt)
+    this.player.overdriveActive = this.overdrive.isActive
+
+    // Boss spawn & update cycle
+    if (!this.boss) {
+      this.bossSpawnTimer -= envDt
+      if (this.bossSpawnTimer <= 0) {
+        this.boss = new BossDreadnought(this.canvas.width, -BOSS_HEIGHT, this.random)
+        this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
+        this.fx.flash('#ff0044', 0.2)
+      }
+    } else {
+      if (this.boss.active) {
+        const riverBounds = this.world.getBoundsAtY(this.boss.y)
+        this.boss.update(envDt, this.player.x, this.player.y, riverBounds, this.spawnBossBullet)
+      } else if (this.boss.state === 'defeated') {
+        this.boss = null
+      }
+    }
+
     // Smart/elite enemies aim at the live ship; don't feed them a dying target.
     const aimTarget = this.player.state === 'alive'
       ? { x: this.player.x, y: this.player.y }
@@ -501,9 +571,9 @@ export class Game {
     }
   }
 
-  private handleAliveState(dt: number, speedMod: number): boolean {
+  private handleAliveState(dt: number, envDt: number, speedMod: number): boolean {
     this.renderSmokeTrail(speedMod)
-    this.resolveGameplayCollisions()
+    this.resolveGameplayCollisions(envDt)
     this.checkNearMisses()
 
     this.achievements.updateFuel(dt, this.fuelSystem.fuel)
@@ -595,6 +665,7 @@ export class Game {
         onEnemyDestroyed: (enemyType) => {
           this.objectives.onEnemyDestroyed(enemyType)
           this.achievements.onEnemyDestroyed(enemyType)
+          this.overdrive.onEnemyKilled()
         },
         onFuelCollected: (count) => this.objectives.onFuelCollected(count),
         onPowerUpCollected: (type) => {
@@ -603,15 +674,18 @@ export class Game {
           const desc = this.locale?.powerupDescs[type]
           if (name) this.ui.pushToast(name, desc ?? '')
         },
+        // `boss` and `dt` are refreshed per frame in resolveGameplayCollisions.
         random: this.random,
       }
     }
     return this.collisionCtx
   }
 
-  private resolveGameplayCollisions(): void {
+  private resolveGameplayCollisions(envDt: number): void {
     const ctx = this.getCollisionContext()
     ctx.comboMultiplier = this.comboMultiplier
+    ctx.boss = this.boss
+    ctx.dt = envDt
     CollisionSystem.resolveCollisions(ctx)
   }
 
@@ -670,6 +744,9 @@ export class Game {
     this.fuelSystem.render(this.ctx)
     this.powerUpSystem.render(this.ctx)
     this.enemyManager.render(this.ctx, this.colorblind)
+    if (this.boss && this.boss.active) {
+      this.bossRenderer.render(this.ctx, this.boss)
+    }
     this.player.render(this.ctx)
     this.fx.render(this.ctx)
     this.renderShockwave(this.ctx)
@@ -700,6 +777,21 @@ export class Game {
       this.reducedMotion
     )
 
+    let bossData: BossHudData | null = null
+    if (this.boss && this.boss.isAlive) {
+      this.bossHud.healthRatio = this.boss.healthRatio
+      this.bossHud.phase = this.boss.phase
+      this.bossHud.isAlive = true
+      bossData = this.bossHud
+    }
+
+    const overdriveData = this.overdriveHud
+    overdriveData.energyRatio = this.overdrive.energyRatio
+    overdriveData.isActive = this.overdrive.isActive
+    overdriveData.isReady = this.overdrive.isReady
+    overdriveData.remainingTimer = this.overdrive.remainingTimer
+    overdriveData.activeRatio = this.overdrive.activeRatio
+
     this.ui.render(
       this.ctx, this.score, this.fuelSystem.fuel, this.canvas.width,
       this.sound.isMuted(), this.paused,
@@ -717,6 +809,8 @@ export class Game {
       this.lives,
       this.player.rapidFireTimer,
       this.player.magnetFuelTimer,
+      bossData,
+      overdriveData,
     )
 
     this.debugPanel.render(this.ctx, this.canvas.width)
@@ -748,6 +842,7 @@ export class Game {
       if (dist < NEAR_MISS_DISTANCE && dist >= minDist) {
         bullet.nearMissRewarded = true
         this.scoring.addScore(NEAR_MISS_POINTS)
+        this.overdrive.onNearMiss()
         this.fx.scorePopup(bullet.x, bullet.y - 10, `+${NEAR_MISS_POINTS}`)
         this.fx.flash('#00ffcc', 0.1)
         this.nearMissCooldown = NEAR_MISS_COOLDOWN

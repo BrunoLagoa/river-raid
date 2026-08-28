@@ -84,6 +84,50 @@ describe('UI', () => {
     })
   })
 
+  describe('HUD de boss e overdrive', () => {
+    const bossData = { healthRatio: 0.4, phase: 3, isAlive: true }
+    const overdriveData = { energyRatio: 1, isActive: false, isReady: true, remainingTimer: 0, activeRatio: 0 }
+
+    it('usa os labels localizados de boss e overdrive', () => {
+      const ctx = createMockCtx({ textAlign: 'left' as const })
+      ui.setBossLabels('COURACADO MK-I', 'FASE')
+      ui.setOverdriveLabels('OVERDRIVE', 'OVERDRIVE PRONTO! [X]')
+
+      ui.render(
+        ctx, 1000, 80, 800, false, false, undefined, 0, 0, undefined, undefined,
+        3, 0, 0, bossData, overdriveData,
+      )
+
+      const drawn = (ctx.fillText as unknown as { mock: { calls: unknown[][] } }).mock.calls.map((c) => String(c[0]))
+      expect(drawn.some((t) => t.includes('COURACADO MK-I') && t.includes('FASE 3'))).toBe(true)
+      expect(drawn.some((t) => t.includes('OVERDRIVE PRONTO! [X]'))).toBe(true)
+    })
+
+    it('mantem a barra do boss fora da area do minimapa', () => {
+      const ctx = createMockCtx({ textAlign: 'left' as const })
+      const minimap = {
+        player: { x: 400, y: 300 },
+        segments: [{ y: 300, centerX: 400, width: 200 }],
+        enemies: [],
+        fuelTanks: [],
+        powerUps: [],
+      }
+      const canvasWidth = 480
+
+      ui.render(
+        ctx, 1000, 80, canvasWidth, false, false, minimap, 0, 0, undefined, undefined,
+        3, 0, 0, bossData, overdriveData,
+      )
+
+      // Minimapa ocupa [canvasWidth - 144, canvasWidth - 16] em x.
+      const minimapLeft = canvasWidth - 128 - 16
+      const bossBar = (ctx.fillRect as unknown as { mock: { calls: number[][] } }).mock.calls
+        .find((c) => c[3] === 10)
+      expect(bossBar).toBeDefined()
+      expect((bossBar as number[])[0] + (bossBar as number[])[2]).toBeLessThanOrEqual(minimapLeft)
+    })
+  })
+
   describe('resize', () => {
     it('resize nao falha', () => {
       expect(() => ui.resize(1024)).not.toThrow()

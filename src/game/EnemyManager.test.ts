@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { EnemyManager } from './EnemyManager'
+import { EnemyManager, type EnemyBullet } from './EnemyManager'
 import { createSeededRandom } from './random'
 import {
   ENEMY_ACTIVE_CAP_MAX,
@@ -8,6 +8,10 @@ import {
   ENEMY_SPAWN_MIN_Y_GAP,
   ENEMY_TIER_ELITE_BULLET_SPEED_MULT,
   ENEMY_TIER_BASIC_BULLET_SPEED_MULT,
+  ENEMY_BULLET_WIDTH,
+  ENEMY_BULLET_HEIGHT,
+  ENEMY_BULLET_PLANE_WIDTH,
+  ENEMY_BULLET_PLANE_HEIGHT,
 } from './constants'
 
 const world = { getBoundsAtY: () => ({ left: 100, right: 700 }) }
@@ -652,5 +656,29 @@ describe('EnemyManager', () => {
     const em = new EnemyManager(800, 600)
     const fn = (em as unknown as { getTierLaneWeight: (tier: string) => number }).getTierLaneWeight
     expect(fn.call(em, 'elite')).toBe(0.58)
+  })
+
+  it('spawnEnemyBullet limpa estado herdado do pool de tiros', () => {
+    const em = new EnemyManager(800, 600)
+
+    // Simula um tiro de aviao reciclado: maior e ja premiado por near-miss.
+    const pool = (em as unknown as { bulletPool: { acquire: () => EnemyBullet } }).bulletPool
+    const recycled = pool.acquire()
+    recycled.width = ENEMY_BULLET_PLANE_WIDTH
+    recycled.height = ENEMY_BULLET_PLANE_HEIGHT
+    recycled.nearMissRewarded = true
+    recycled.active = false
+
+    em.spawnEnemyBullet({ x: 100, y: 50, vx: 12, speed: 240 })
+
+    const bullet = em.bullets[0]
+    expect(bullet).toBe(recycled)
+    expect(bullet.active).toBe(true)
+    expect(bullet.width).toBe(ENEMY_BULLET_WIDTH)
+    expect(bullet.height).toBe(ENEMY_BULLET_HEIGHT)
+    expect(bullet.nearMissRewarded).toBe(false)
+    expect(bullet.vx).toBe(12)
+    expect(bullet.speed).toBe(240)
+    expect(bullet.fromPlane).toBe(false)
   })
 })

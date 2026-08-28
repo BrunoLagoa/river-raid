@@ -84,6 +84,10 @@ export interface Strings {
   hudPauseLabel: string
   hudMuteLabel: string
   hudExtraLife: string
+  hudBossName: string
+  hudBossPhase: string
+  hudOverdriveActive: string
+  hudOverdriveReady: string
 
   // Power-ups (tutorial + pickup toast)
   tutorialCardPowerups: string
@@ -118,9 +122,9 @@ const en: Strings = {
   tutorialNavigate1: 'Arrows / WASD — all directions',
   tutorialNavigate2: 'Drag anywhere on mobile',
   tutorialNavigate3: 'Left stick (gamepad)',
-  tutorialCombat1: 'SPACE to shoot',
-  tutorialCombat2: 'A button (gamepad)',
-  tutorialCombat3: 'Destroy enemies & bridges',
+  tutorialCombat1: 'SPACE to shoot · A button (gamepad)',
+  tutorialCombat2: 'X to unleash the Overdrive Laser',
+  tutorialCombat3: 'Destroy enemies, bridges & bosses',
   tutorialSurvive1: 'Collect fuel depots',
   tutorialSurvive2: 'Stay inside the river',
   tutorialSurvive3: 'P to pause · M to mute',
@@ -182,6 +186,10 @@ const en: Strings = {
   hudPauseLabel: 'P  PAUSE',
   hudMuteLabel: 'M  MUTE',
   hudExtraLife: 'EXTRA LIFE!',
+  hudBossName: 'DREADNOUGHT MK-I',
+  hudBossPhase: 'PHASE',
+  hudOverdriveActive: 'OVERDRIVE',
+  hudOverdriveReady: 'OVERDRIVE READY! [X]',
 
   tutorialCardPowerups: 'POWER-UPS',
   powerupNames: {
@@ -236,9 +244,9 @@ const ptBR: Strings = {
   tutorialNavigate1: 'Setas / WASD — todas as direções',
   tutorialNavigate2: 'Arraste em qualquer lugar no mobile',
   tutorialNavigate3: 'Analógico esquerdo (gamepad)',
-  tutorialCombat1: 'ESPAÇO para atirar',
-  tutorialCombat2: 'Botão A (gamepad)',
-  tutorialCombat3: 'Destrua inimigos e pontes',
+  tutorialCombat1: 'ESPAÇO para atirar · Botão A (gamepad)',
+  tutorialCombat2: 'X para ativar o Overdrive Laser',
+  tutorialCombat3: 'Destrua inimigos, pontes e chefes',
   tutorialSurvive1: 'Colete depósitos de combustível',
   tutorialSurvive2: 'Fique dentro do rio',
   tutorialSurvive3: 'P para pausar · M para mutar',
@@ -300,6 +308,10 @@ const ptBR: Strings = {
   hudPauseLabel: 'P  PAUSA',
   hudMuteLabel: 'M  MUDO',
   hudExtraLife: 'VIDA EXTRA!',
+  hudBossName: 'DREADNOUGHT MK-I',
+  hudBossPhase: 'FASE',
+  hudOverdriveActive: 'OVERDRIVE',
+  hudOverdriveReady: 'OVERDRIVE PRONTO! [X]',
 
   tutorialCardPowerups: 'POWER-UPS',
   powerupNames: {

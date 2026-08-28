@@ -40,6 +40,10 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     gameRef.current?.simulateKey(' ', false)
   }, [])
 
+  const handleOverdrive = useCallback(() => {
+    gameRef.current?.activateOverdrive()
+  }, [])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -103,6 +107,7 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
         onMute={handleMute}
         onFireDown={handleFireDown}
         onFireUp={handleFireUp}
+        onOverdrive={handleOverdrive}
         fireLabel={getStrings(settings.language).menuLabelFire}
       />
     </div>
