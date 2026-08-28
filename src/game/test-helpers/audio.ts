@@ -4,6 +4,7 @@ class FakeAudioParam {
   value = 0
   setValueAtTime = vi.fn()
   exponentialRampToValueAtTime = vi.fn()
+  cancelScheduledValues = vi.fn()
 }
 
 class FakeGainNode {
