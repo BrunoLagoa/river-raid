@@ -8,7 +8,9 @@ export const DEFAULT_KEYBINDINGS: Keybindings = {
   accelerate: ['ArrowUp', 'KeyW'],
   brake: ['ArrowDown', 'KeyS'],
   shoot: ['Space'],
-  overdrive: ['ShiftLeft', 'KeyX'],
+  // Shift foi removido de propósito: pressionar o modificador sozinho disparava
+  // o Overdrive (mesmo problema que já existia e motivou o uso só de X).
+  overdrive: ['KeyX'],
   pause: ['KeyP', 'Escape'],
 }
 

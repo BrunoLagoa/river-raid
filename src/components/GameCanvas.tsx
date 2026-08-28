@@ -58,8 +58,13 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
       if (gameRef.current) {
         gameRef.current.resize(window.innerWidth, window.innerHeight, dpr)
       } else {
-        canvas.width = Math.floor(window.innerWidth * dpr)
-        canvas.height = Math.floor(window.innerHeight * dpr)
+        // Antes do Game existir, dimensiona em pixels CSS: o construtor usa
+        // `canvas.width` para criar mundo, jogador e cenário, e não conhece o
+        // DPR. Com pixels de dispositivo (2x num retina) o rio nascia centrado
+        // no dobro da largura visível — fora da tela. O `resize()` logo após a
+        // criação reaplica o DPR.
+        canvas.width = Math.floor(window.innerWidth)
+        canvas.height = Math.floor(window.innerHeight)
       }
     }
 
@@ -70,6 +75,7 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     game.setGameMode(mode)
     game.setGhostReplayEnabled(settings.ghostReplay)
     gameRef.current = game
+    resize()
     game.setOnGameOver((score, highScore) => {
       onGameOver(score, highScore)
     })
@@ -168,4 +174,3 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     </div>
   )
 }
-

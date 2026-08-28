@@ -156,12 +156,14 @@ export const FloatingJoystick: React.FC<FloatingJoystickProps> = ({
         </div>
       )}
 
-      {/* Top action shortcuts (Pause / Mute) */}
+      {/* Atalhos de pausa/mudo no canto inferior esquerdo: o topo tem a faixa do
+          HUD e o radar, e a direita tem FIRE/Overdrive. Em `top: 12px` estes
+          botões cobriam a barra de combustível e as legendas do canvas. */}
       <div
         style={{
           position: 'absolute',
-          top: '12px',
-          right: '12px',
+          bottom: '24px',
+          left: '24px',
           display: 'flex',
           gap: '8px',
           pointerEvents: 'auto',
