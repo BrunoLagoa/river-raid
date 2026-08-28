@@ -18,6 +18,8 @@ describe('SettingsService', () => {
       expect(defaults.masterVolume).toBe(0.3)
       expect(defaults.muted).toBe(false)
       expect(defaults.reducedMotion).toBe(false)
+      expect(defaults.weatherEffects).toBe(true)
+      expect(defaults.dynamicLighting).toBe(true)
       expect(defaults.gamepadEnabled).toBe(true)
       expect(defaults.objectiveBalanceProfile).toBe('conservative')
       expect(defaults.language).toBe('en')
@@ -39,6 +41,8 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        weatherEffects: true,
+        dynamicLighting: true,
         colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'invalid' as never,
@@ -75,6 +79,8 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        weatherEffects: true,
+        dynamicLighting: true,
         colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'conservative',
@@ -93,6 +99,8 @@ describe('SettingsService', () => {
         masterVolume: 0.5,
         muted: false,
         reducedMotion: false,
+        weatherEffects: false,
+        dynamicLighting: false,
         colorblindMode: false,
         gamepadEnabled: true,
         objectiveBalanceProfile: 'conservative',
@@ -102,7 +110,7 @@ describe('SettingsService', () => {
 
       expect(StorageService.writeSecureJSON).toHaveBeenCalledWith(
         'river-raid-settings',
-        expect.objectContaining({ language: 'pt-BR' })
+        expect.objectContaining({ language: 'pt-BR', weatherEffects: false, dynamicLighting: false })
       )
     })
   })

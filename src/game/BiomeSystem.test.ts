@@ -209,4 +209,38 @@ describe('BiomeSystem', () => {
     expect(sys.getCurrentBiomeId()).toBe('forest')
     expect(sys.getConfig().inTransition).toBe(false)
   })
+
+  // ── Weather mapping ──────────────────────────────────────────────────────────
+
+  it('maps weather types correctly for all biomes', () => {
+    // Forest -> rain
+    expect(sys.getConfig().weatherType).toBe('rain')
+    expect(sys.getConfig().fromWeatherType).toBe('rain')
+
+    // Advance to Desert
+    sys.update(BIOME_DURATION)
+    expect(sys.getCurrentBiomeId()).toBe('desert')
+    expect(sys.getConfig().weatherType).toBe('sandstorm')
+
+    // Advance to Industrial
+    sys.update(BIOME_DURATION)
+    expect(sys.getCurrentBiomeId()).toBe('industrial')
+    expect(sys.getConfig().weatherType).toBe('smog')
+
+    // Advance to Snow
+    sys.update(BIOME_DURATION)
+    expect(sys.getCurrentBiomeId()).toBe('snow')
+    expect(sys.getConfig().weatherType).toBe('snow')
+  })
+
+  it('switches dominant weatherType at midpoint of transition', () => {
+    // During forest -> desert transition:
+    sys.update(HOLD + BIOME_FADE_DURATION * 0.25)
+    expect(sys.getConfig().weatherType).toBe('rain')
+    expect(sys.getConfig().fromWeatherType).toBe('rain')
+    expect(sys.getConfig().toWeatherType).toBe('sandstorm')
+
+    sys.update(BIOME_FADE_DURATION * 0.5)
+    expect(sys.getConfig().weatherType).toBe('sandstorm')
+  })
 })

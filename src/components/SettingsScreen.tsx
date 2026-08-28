@@ -71,6 +71,28 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             <label className="settings-toggle">
               <input
                 type="checkbox"
+                checked={settings.weatherEffects}
+                onChange={(e) => onUpdate({ weatherEffects: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelWeather}</span>
+            </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.dynamicLighting}
+                onChange={(e) => onUpdate({ dynamicLighting: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelLighting}</span>
+            </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
                 checked={settings.colorblindMode}
                 onChange={(e) => onUpdate({ colorblindMode: e.target.checked })}
                 className="settings-checkbox"

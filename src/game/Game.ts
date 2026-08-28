@@ -12,6 +12,8 @@ import { Fx } from './Fx'
 import { Scenery } from './Scenery'
 import { Atmosphere } from './Atmosphere'
 import { BiomeSystem } from './BiomeSystem'
+import { WeatherSystem } from './WeatherSystem'
+import { LightingSystem } from './LightingSystem'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
@@ -63,6 +65,8 @@ export class Game {
   fx: Fx
   scenery: Scenery
   atmosphere: Atmosphere
+  weather: WeatherSystem
+  lighting: LightingSystem
   objectives: ObjectiveSystem
   private debugPanel = new DebugPanel()
   private extraLifeThreshold = EXTRA_LIFE_SCORE_INTERVAL
@@ -72,6 +76,8 @@ export class Game {
   private onAchievementUnlocked: AchievementCallback | null = null
   private gameOverTriggered = false
   private reducedMotion = false
+  private weatherEnabled = true
+  private lightingEnabled = true
   private colorblind = false
   private random: RandomSource
 
@@ -127,6 +133,8 @@ export class Game {
     this.fx = new Fx(this.random)
     this.scenery = new Scenery(canvas.width, canvas.height)
     this.atmosphere = new Atmosphere(canvas.width, canvas.height)
+    this.weather = new WeatherSystem(canvas.width, canvas.height, this.random)
+    this.lighting = new LightingSystem(canvas.width, canvas.height)
     this.objectives = new ObjectiveSystem(this.random, (points) => {
       this.scoring.addScore(points)
     }, objectiveProfile)
@@ -250,6 +258,14 @@ export class Game {
     this.gamepadEnabled = enabled
   }
 
+  setWeatherEnabled(enabled: boolean): void {
+    this.weatherEnabled = enabled
+  }
+
+  setLightingEnabled(enabled: boolean): void {
+    this.lightingEnabled = enabled
+  }
+
   setColorblind(enabled: boolean): void {
     this.colorblind = enabled
     this.player.setColorblind(enabled)
@@ -277,6 +293,7 @@ export class Game {
     this.fx.reset()
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
+    this.weather.reset()
     this.biomeSystem.reset()
     this.debugPanel.reset()
     this.objectives.reset()
@@ -309,6 +326,8 @@ export class Game {
     this.powerUpSystem.setCanvasHeight(height)
     this.scenery.setCanvasHeight(height)
     this.atmosphere.resize(width, height)
+    this.weather.setCanvasSize(width, height)
+    this.lighting.setCanvasSize(width, height)
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.resize(width, height, bounds.left, bounds.right)
     this.ui.resize(width)
@@ -450,6 +469,7 @@ export class Game {
       + (biomeCfg.toBiomeId === 'snow' ? biomeCfg.blend : 0)
     this.atmosphere.setSnow(snow)
     this.atmosphere.update(dt, this.scrollSpeed, biomeCfg.basePalette)
+    this.weather.update(dt, this.scrollSpeed, biomeCfg.weatherType, this.reducedMotion)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
@@ -656,8 +676,29 @@ export class Game {
 
     this.ctx.restore()
 
-    // Falling snow — screen-space foreground, above the world but below the HUD.
-    this.atmosphere.renderWeather(this.ctx)
+    // Dynamic 2D Lighting mask (carves headlight & point lights during sunset, night & dawn)
+    const darknessAlpha = this.lighting.getDarknessAlpha(
+      this.atmosphere.getPhaseIndex(),
+      this.atmosphere.getPhaseProgress(),
+      this.atmosphere.isNight()
+    )
+    this.lighting.render(
+      this.ctx,
+      this.player,
+      this.player.bullets,
+      this.fx.getActiveExplosionCenters(),
+      darknessAlpha,
+      this.lightingEnabled
+    )
+
+    // Procedural Weather particles (Rain with lightning, Sandstorm, Smog, Snow)
+    this.weather.render(
+      this.ctx,
+      this.canvas.width,
+      this.canvas.height,
+      this.weatherEnabled,
+      this.reducedMotion
+    )
 
     this.ui.render(
       this.ctx, this.score, this.fuelSystem.fuel, this.canvas.width,

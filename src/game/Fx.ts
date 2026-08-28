@@ -19,8 +19,17 @@ interface ScorePopup {
   active: boolean
 }
 
+export interface ExplosionCenter {
+  x: number
+  y: number
+  radius: number
+  timer: number
+  active: boolean
+}
+
 const POOL_SIZE = 100
 const POPUP_POOL_SIZE = 20
+const EXPLOSION_POOL_SIZE = 12
 
 import type { RandomSource } from './random'
 
@@ -29,6 +38,7 @@ export class Fx {
   private reducedMotion = false
   private freeStack: number[] = []
   private popups: ScorePopup[] = []
+  private explosionCenters: ExplosionCenter[] = []
   private flashColor = ''
   private flashAlpha = 0
   private flashDuration = 0
@@ -59,9 +69,28 @@ export class Fx {
         life: 0, maxLife: 1, active: false,
       })
     }
+    for (let i = 0; i < EXPLOSION_POOL_SIZE; i++) {
+      this.explosionCenters.push({
+        x: 0, y: 0, radius: 70, timer: 0, active: false,
+      })
+    }
+  }
+
+  private spawnExplosionCenter(x: number, y: number, radius: number): void {
+    for (const exp of this.explosionCenters) {
+      if (!exp.active) {
+        exp.x = x
+        exp.y = y
+        exp.radius = radius
+        exp.timer = 0.28
+        exp.active = true
+        return
+      }
+    }
   }
 
   explosion(x: number, y: number, color: string): void {
+    this.spawnExplosionCenter(x, y, 70)
     const count = this.reducedMotion ? 2 : 8 + Math.floor(this.random() * 5)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
@@ -84,6 +113,7 @@ export class Fx {
   }
 
   bigExplosion(x: number, y: number, color: string): void {
+    this.spawnExplosionCenter(x, y, 110)
     const count = this.reducedMotion ? 4 : 14 + Math.floor(this.random() * 6)
     for (let i = 0; i < count; i++) {
       const p = this.getNextParticle()
@@ -234,6 +264,12 @@ export class Fx {
       if (popup.life <= 0) popup.active = false
     }
 
+    for (const exp of this.explosionCenters) {
+      if (!exp.active) continue
+      exp.timer -= dt
+      if (exp.timer <= 0) exp.active = false
+    }
+
     if (this.flashTimer > 0) {
       this.flashTimer -= dt
       this.flashAlpha = Math.max(0, this.flashTimer / this.flashDuration)
@@ -318,6 +354,10 @@ export class Fx {
     return this.getActiveParticleCount()
   }
 
+  getActiveExplosionCenters(): ReadonlyArray<ExplosionCenter> {
+    return this.explosionCenters
+  }
+
   reset(): void {
     this.freeStack.length = 0
     for (let i = 0; i < this.particles.length; i++) {
@@ -325,6 +365,7 @@ export class Fx {
       this.freeStack.push(i)
     }
     for (const p of this.popups) p.active = false
+    for (const exp of this.explosionCenters) exp.active = false
     this.flashTimer = 0
     this.flashAlpha = 0
     this.shakeX = 0
