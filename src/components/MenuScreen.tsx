@@ -4,14 +4,29 @@ interface MenuScreenProps {
   t: Strings
   onStart: () => void
   onDaily: () => void
+  onModes?: () => void
   onTutorial: () => void
   onSettings: () => void
+  onHangar?: () => void
+  onStats?: () => void
   muted: boolean
   onToggleMute: () => void
   dailyBest: number
 }
 
-export default function MenuScreen({ t, onStart, onDaily, onTutorial, onSettings, muted, onToggleMute, dailyBest }: MenuScreenProps) {
+export default function MenuScreen({
+  t,
+  onStart,
+  onDaily,
+  onModes,
+  onTutorial,
+  onSettings,
+  onHangar,
+  onStats,
+  muted,
+  onToggleMute,
+  dailyBest,
+}: MenuScreenProps) {
   return (
     <div className="screen-wrapper menu">
       <div className="menu-scanlines" aria-hidden="true" />
@@ -63,8 +78,15 @@ export default function MenuScreen({ t, onStart, onDaily, onTutorial, onSettings
           <button className="menu-btn menu-btn--primary" onClick={onStart}>
             <span className="menu-btn-arrow">▶</span> {t.menuBtnStart}
           </button>
+          <div className="menu-actions-row">
+            <button className="menu-btn menu-btn--secondary" onClick={onModes}>🎮 {t.menuBtnModes}</button>
+            <button className="menu-btn menu-btn--secondary" onClick={onHangar}>🛩️ {t.menuBtnHangar}</button>
+          </div>
+          <div className="menu-actions-row">
+            <button className="menu-btn menu-btn--secondary" onClick={onStats}>📊 {t.menuBtnStats}</button>
+            <button className="menu-btn menu-btn--secondary" onClick={onSettings}>{t.menuBtnSettings}</button>
+          </div>
           <button className="menu-btn menu-btn--secondary" onClick={onTutorial}>{t.menuBtnTutorial}</button>
-          <button className="menu-btn menu-btn--secondary" onClick={onSettings}>{t.menuBtnSettings}</button>
         </div>
 
         <button className="menu-btn menu-btn--daily" onClick={onDaily}>

@@ -116,29 +116,88 @@ O jogo permite personalizar a experiência através de um menu de configuraçõe
 
 ---
 
+### 🛩️ Hangar de Aeronaves & Estatísticas de Carreira
+- **Hangar Interativo com Mini-Canvas:** Visualizador 3D-like animado no menu para inspecionar aeronaves com rotação de radar e testar fuselagens cosméticas:
+  - 🟡 **Classic 2600:** O lendário caça amarelo interceptor clássico (desbloqueado por padrão).
+  - 🟣 **Stealth Nighthawk F-117:** Caça preto fosco facetado com propulsores violeta (desbloqueado com a conquista *Atirador de Elite*).
+  - 🛩️ **Biplano Vintage:** Caça histórico com asas duplas e hélice frontal giratória animada (desbloqueado com a conquista *Quebra-Pontes*).
+  - 🟢 **Cyber-Viper Neon:** Aeronave futurista ciano/magenta com asas invertidas e propulsão de plasma (desbloqueado ao atingir 25.000 pontos).
+  - **Rastros de Fumaça Cromáticos:** Cada aeronave equipada possui cores personalizadas de exaustão de turbina para aceleração normal, turbo (↑) e frenagem (↓).
+- **Diário de Bordo do Piloto (Career Stats Tracker):** Registro cumulativo persistente de carreira com proteção contra manipulação via checksum FNV-1a:
+  - Tempo total de voo formatado (horas/minutos/segundos) e missões concluídas.
+  - Pontuação acumulada vitalícia e contagem de depósitos de combustível capturados.
+  - Taxa de precisão balística em tempo real (`%`), disparos totais e acertos confirmados.
+  - Maior multiplicador de combo alcançado e inventário detalhado de alvos destruídos por categoria (Helicópteros, Caças, Barcos, Lanchas, Tanques, Pontes e Encouraçados Dreadnought).
+
+---
+
+### 🎮 Novos Modos de Jogo & Avião Fantasma (Ghost Replay)
+- **5 Modos de Jogo Selecionáveis:**
+  - 🛩️ **Patrulha Clássica:** Regras de voo tradicionais de River Raid (3 vidas, drenagem normal e radar completo).
+  - ☀ **Desafio Diário:** Layout de rio gerado deterministicamente a partir da data atual para disputa no placar global diário.
+  - ⚡ **Boss Rush:** Batalhas intensas contra encouraçados Dreadnought a cada 35 segundos com drops generosos de combustível.
+  - 💀 **Iron Man / Hardcore:** Modo definitivo para veteranos com apenas 1 vida, drenagem de combustível +35% mais rápida e sem radar de auxílio.
+  - ☯ **Voo Zen (Prática):** Modo livre relaxante com vidas e combustível infinitos para treino de desvio e controle.
+- **Sistema de Avião Fantasma Holográfico (Ghost Replay):**
+  - Gravação contínua e leve da melhor run a 10 Hz com interpolação linear suave de coordenadas $(x, y)$, inclinação e disparos.
+  - Projeção holográfica em ciano neon brilhante com linhas de interferência e identificador flutuante `[RECORD]` competindo lado a lado na corrida atual.
+  - Substituição automática do fantasma apenas quando o jogador supera seu recorde pessoal anterior.
+  - Chave de ativação/desativação do fantasma disponível nas Configurações.
+
+---
+
+### ⚡ PWA Offline, Cache de Sprites & Escalonamento HiDPI
+- **Progressive Web App (PWA) & Modo Offline:**
+  - Suporte completo a instalação local no Chrome, Edge, Safari iOS e Android.
+  - Service Worker (`sw.js`) com estratégia *Cache-First* para execução 100% offline sem depender de conexão à internet.
+  - Manifesto de aplicativo com tema imersivo retrô (`#050a14`) e display standalone em tela cheia.
+- **Cache de Sprites em Offscreen Canvas (`SpriteCache.ts`):**
+  - Pré-renderização em memória de fuselagens inimigas e depósitos de combustível, eliminando chamadas repetitivas de desenho vetorial no loop a 60 FPS.
+- **Escalonamento HiDPI / Retina Dinâmico:**
+  - Ajuste automático de densidade de pixels no canvas (`devicePixelRatio` até 2x) garantindo nitidez cristalina em telas 2K/4K e monitores Retina mobile sem perda de performance.
+
+---
+
+### 🎮 Controles Customizados, Haptics & Mobile Joystick
+- **Remapeamento Completo de Teclado (Custom Keybindings):** Modal interativo retrô nas Configurações que permite reatribuir qualquer ação (Esquerda, Direita, Acelerar, Frear, Atirar, Overdrive e Pausa) para teclas primárias e secundárias personalizadas, com suporte a restauração de padrões e detecção automática de aliases.
+- **Feedback Tátil Háptico (Haptics Engine):** Vibração háptica de baixa latência integrada a:
+  - Disparos de metralhadora (pulsos curtos e rápidos).
+  - Abate de inimigos e destruição de pontes.
+  - Alerta de aproximação de chefe (Boss Alert).
+  - Ativação do Especial Overdrive.
+  - Impactos e dano no avião.
+  - Suporte completo tanto em **Smartphones** (`navigator.vibrate`) quanto em **Gamepads com vibração dupla** (`vibrationActuator.playEffect('dual-rumble', ...)`).
+- **Modos de Controle Touch Selecionáveis:**
+  - 🕹️ **Floating Joystick:** Joystick analógico flutuante que surge sob o toque em qualquer ponto da metade esquerda da tela com manopla dinâmica e resposta proporcional de 360°.
+  - 🎛️ **D-Pad Fixo:** Botões direcionais clássicos fixos na tela.
+  - 👆 **Gestos Swipe:** Arraste direto para pilotagem livre.
+
+---
+
 ## 📱 Controles e Plataforma
 
-### Desktop (Teclado)
-- `←` / `→` ou `A` / `D`: Movimentação lateral.
+### Desktop (Teclado Customizável)
+- `←` / `→` ou `A` / `D`: Movimentação lateral (reconfigurável).
 - `↑` / `↓` ou `W` / `S`: Ajuste de velocidade (Acelerar/Frear).
-- `Espaço`: Disparar metralhadora.
+- `Espaço`: Disparar metralhadora (reconfigurável).
 - `Shift` ou `X`: Ativar Especial **Overdrive** (Laser contínuo + EMP).
 - `P` / `Esc`: Pausar jogo.
 - `M`: Alternar Mudo.
 - `Enter`: Iniciar / Reiniciar.
 
-### Gamepad (Controles USB / Bluetooth)
+### Gamepad (Controles USB / Bluetooth com Vibração)
 - `D-Pad / Analógico`: Movimentação e velocidade.
 - `Botão A` (Cross): Disparar metralhadora.
 - `Botão B` (Circle): Ativar **Overdrive**.
 - `Start`: Pausar / Continuar.
+- `Dual-Rumble`: Vibração háptica ativa em combates e explosões.
 
-### Mobile (Touch)
-- O jogo detecta automaticamente dispositivos touch e oferece controles ergonômicos:
-  - **Swipe Controls:** Arraste para mover suavemente pela tela.
+### Mobile (Touch com Joystick Flutuante)
+- O jogo oferece 3 modos configuráveis de controle touch com botões dedicados:
+  - **Joystick Flutuante / D-Pad / Swipe** para movimentação.
   - **Botão FIRE:** Disparos de metralhadora.
   - **Botão ⚡ (Overdrive):** Disparo de especial quando a barra atinge 100%.
-- Botões de Pausa e Mudo posicionados no topo da tela.
+  - **Atalhos Rápidos:** Botões de Pausa e Mudo no topo da tela.
 
 ---
 

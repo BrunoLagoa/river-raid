@@ -68,6 +68,7 @@ export class UI {
   private distanceMeters = 0
   private pauseShortcutLabel = 'P  PAUSE'
   private muteShortcutLabel = 'M  MUTE'
+  private keyboardHintsVisible = true
   private bossNameLabel = 'DREADNOUGHT MK-I'
   private bossPhaseLabel = 'PHASE'
   private overdriveActiveLabel = 'OVERDRIVE'
@@ -81,6 +82,14 @@ export class UI {
 
   setDistanceLabel(label: string): void {
     this.distanceLabel = label
+  }
+
+  /**
+   * Atalhos de teclado só aparecem quando há teclado. Em touch eles ficavam
+   * exatamente sob os botões de pausa/mudo da tela, virando texto ilegível.
+   */
+  setKeyboardHintsVisible(visible: boolean): void {
+    this.keyboardHintsVisible = visible
   }
 
   setShortcutLabels(pause: string, mute: string): void {
@@ -167,16 +176,21 @@ export class UI {
       this.drawMiniPlane(ctx, 26 + i * 24, 52)
     }
 
-    // Distance — centered readout for a sense of progress
-    ctx.textAlign = 'center'
-    ctx.font = 'bold 11px "Courier New", monospace'
-    ctx.fillStyle = '#aab4d0'
-    ctx.fillText(this.distanceLabel, canvasWidth / 2, 17)
-    ctx.font = 'bold 22px "Courier New", monospace'
-    ctx.fillStyle = '#8fdcff'
-    ctx.fillText(`${this.distanceMeters.toLocaleString()} m`, canvasWidth / 2, 41)
+    // Distance — centered readout for a sense of progress. Abaixo de ~520px o
+    // score à esquerda e a barra de combustível à direita se encontram no meio,
+    // então a leitura central sai em vez de sobrepor as duas.
+    const compact = canvasWidth < 520
+    if (!compact) {
+      ctx.textAlign = 'center'
+      ctx.font = 'bold 11px "Courier New", monospace'
+      ctx.fillStyle = '#aab4d0'
+      ctx.fillText(this.distanceLabel, canvasWidth / 2, 17)
+      ctx.font = 'bold 22px "Courier New", monospace'
+      ctx.fillStyle = '#8fdcff'
+      ctx.fillText(`${this.distanceMeters.toLocaleString()} m`, canvasWidth / 2, 41)
+    }
 
-    const barWidth = 124
+    const barWidth = compact ? Math.max(70, Math.round(canvasWidth * 0.26)) : 124
     const barHeight = 18
     const barX = canvasWidth - barWidth - 16
     const barY = 9
@@ -221,17 +235,21 @@ export class UI {
     ctx.fillText(`${Math.round(fuel)}%`, barX + barWidth / 2, barY + barHeight - 5)
 
     // Keyboard shortcut legend — below the fuel bar, roomier and lighter
-    ctx.font = '11px "Courier New", monospace'
-    ctx.fillStyle = '#9aabbd'
-    ctx.textAlign = 'right'
-    ctx.fillText(this.pauseShortcutLabel, canvasWidth - 16, 44)
-    ctx.fillText(this.muteShortcutLabel, canvasWidth - 16, 57)
+    if (this.keyboardHintsVisible && !compact) {
+      ctx.font = '11px "Courier New", monospace'
+      ctx.fillStyle = '#9aabbd'
+      ctx.textAlign = 'right'
+      ctx.fillText(this.pauseShortcutLabel, canvasWidth - 16, 44)
+      ctx.fillText(this.muteShortcutLabel, canvasWidth - 16, 57)
+    }
 
+    // MUTED fica à esquerda, depois dos ícones de vida: à direita ele caía sobre
+    // a barra de combustível e sobre as próprias legendas de atalho.
     if (muted) {
       ctx.font = 'bold 11px "Courier New", monospace'
       ctx.fillStyle = '#ff5555'
-      ctx.textAlign = 'right'
-      ctx.fillText('MUTED', canvasWidth - 132, 57)
+      ctx.textAlign = 'left'
+      ctx.fillText('MUTED', 26 + lives * 24 + 6, 56)
     }
 
     // Overdrive Gauge (Center Bottom of HUD)

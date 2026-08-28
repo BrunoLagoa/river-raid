@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Player } from './Player'
+import { KeybindingService } from './KeybindingService'
 import { PLAYER_BULLET_W, PLAYER_BULLET_H, OVERDRIVE_LASER_WIDTH } from './constants'
 import { createMockContext2D } from './test-helpers/canvas'
 
@@ -475,3 +476,72 @@ describe('Player overdrive', () => {
     expect(glowX).toBeCloseTo(p.x - OVERDRIVE_LASER_WIDTH / 2, 5)
   })
 })
+
+describe('Player Custom Keybindings & Analog Controls', () => {
+  it('respeita remapeamento customizado de teclas via KeybindingService', () => {
+    const service = new KeybindingService()
+    service.setBindings({
+      left: ['KeyJ'],
+      right: ['KeyL'],
+      accelerate: ['KeyI'],
+      brake: ['KeyK'],
+      shoot: ['KeyF'],
+    })
+
+    const p = new Player(800, 600)
+    p.setKeybindingService(service)
+    const startX = p.x
+    const startY = p.y
+
+    // Pressiona KeyJ -> Move p/ esquerda
+    p.keys.add('KeyJ')
+    p.update(0.1, 0, 800)
+    expect(p.x).toBeLessThan(startX)
+
+    // Pressiona KeyL -> Move p/ direita
+    p.keys.clear()
+    p.keys.add('KeyL')
+    p.update(0.2, 0, 800)
+    expect(p.x).toBeGreaterThan(startX)
+
+    // Pressiona KeyI -> Acelera (sobe, y diminui)
+    p.keys.clear()
+    p.keys.add('KeyI')
+    p.update(0.1, 0, 800)
+    expect(p.y).toBeLessThan(startY)
+
+    // Pressiona KeyF -> Dispara tiro
+    p.keys.clear()
+    p.keys.add('KeyF')
+    p.update(0.1, 0, 800)
+    expect(p.justShot).toBe(true)
+    expect(p.bullets.length).toBeGreaterThan(0)
+  })
+
+  it('movimenta nave e atira via vetor analogico e touchShoot', () => {
+    const p = new Player(800, 600)
+    const startX = p.x
+    const startY = p.y
+
+    // Vetor analógico: diagonal para cima e direita
+    p.setAnalogVector(0.8, -0.6)
+    p.setTouchShoot(true)
+    p.update(0.1, 0, 800)
+
+    expect(p.x).toBeGreaterThan(startX)
+    expect(p.y).toBeLessThan(startY)
+    expect(p.justShot).toBe(true)
+    expect(p.bullets.length).toBeGreaterThan(0)
+  })
+
+  it('setSkin altera a skin ativa e renderiza corretamente', () => {
+    const p = new Player(800, 600)
+    const ctx = createMockContext2D()
+
+    p.setSkin('stealth')
+    expect(p.skinId).toBe('stealth')
+
+    expect(() => p.render(ctx)).not.toThrow()
+  })
+})
+

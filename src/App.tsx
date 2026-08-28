@@ -3,6 +3,10 @@ import GameCanvas from './components/GameCanvas'
 import MenuScreen from './components/MenuScreen'
 import TutorialScreen from './components/TutorialScreen'
 import SettingsScreen from './components/SettingsScreen'
+import { HangarScreen } from './components/HangarScreen'
+import { CareerStatsModal } from './components/CareerStatsModal'
+import { ModeSelectModal } from './components/ModeSelectModal'
+import type { GameModeId } from './game/GameMode'
 import { getStoredRanking, qualifiesForRanking, saveStoredRankingEntry, type RankingEntry } from './game/RankingService'
 import { getStoredSettings, saveStoredSettings, type GameSettings } from './game/SettingsService'
 import { getStoredAchievements, type AchievementId, type Achievement } from './game/AchievementService'
@@ -12,7 +16,7 @@ import { getStrings } from './i18n'
 
 import './App.css'
 
-type Screen = 'menu' | 'tutorial' | 'settings' | 'playing' | 'gameover'
+type Screen = 'menu' | 'tutorial' | 'settings' | 'hangar' | 'playing' | 'gameover'
 
 
 export default function App() {
@@ -35,6 +39,9 @@ export default function App() {
   const [rankingSaved, setRankingSaved] = useState(false)
   const [currentEntryId, setCurrentEntryId] = useState<string | null>(null)
 
+  const [currentMode, setCurrentMode] = useState<GameModeId>('classic')
+  const [isModeSelectOpen, setIsModeSelectOpen] = useState(false)
+  const [isStatsOpen, setIsStatsOpen] = useState(false)
   const menuSoundRef = useRef<SoundManager | null>(null)
 
   // Daily challenge — deterministic seed from today's date + per-day best score.
@@ -50,11 +57,11 @@ export default function App() {
     setSettings((prev) => saveStoredSettings({ ...prev, muted: !prev.muted }))
   }, [])
 
-  // Trilha das telas fora do jogo (menu/tutorial/opções/game over).
+  // Trilha das telas fora do jogo (menu/tutorial/opções/hangar/game over).
   // O jogo (GameCanvas) tem seu próprio SoundManager; aqui usamos um dedicado.
   useEffect(() => {
     const onMenuScreens =
-      screen === 'menu' || screen === 'tutorial' || screen === 'settings' || screen === 'gameover'
+      screen === 'menu' || screen === 'tutorial' || screen === 'settings' || screen === 'hangar' || screen === 'gameover'
 
     if (!onMenuScreens) {
       menuSoundRef.current?.stopMusic()
@@ -82,9 +89,10 @@ export default function App() {
   }, [])
 
   // Enter a run. `daily` selects the deterministic seeded mode.
-  const enterPlay = useCallback((daily: boolean) => {
-    dailyModeRef.current = daily
-    setDailyMode(daily)
+  const enterPlay = useCallback((daily: boolean, mode: GameModeId = 'classic') => {
+    setCurrentMode(mode)
+    dailyModeRef.current = daily || mode === 'daily'
+    setDailyMode(daily || mode === 'daily')
     setNewlyUnlocked([])
     setScreen('playing')
   }, [])
@@ -131,21 +139,20 @@ export default function App() {
 
   const handleAction = useCallback(() => {
     if (screen === 'menu') {
-      enterPlay(false)
+      enterPlay(false, 'classic')
     } else if (screen === 'gameover') {
       if (needsRankingName && !rankingSaved) {
         saveRanking()
       } else {
-        // Retry preserves the current mode (normal or daily).
+        // Retry preserves the current mode (normal or daily or selected).
         setNewlyUnlocked([])
         setScreen('playing')
       }
     }
   }, [screen, needsRankingName, rankingSaved, saveRanking, enterPlay])
 
-
   useEffect(() => {
-    if (screen === 'playing' || screen === 'settings' || screen === 'tutorial') return
+    if (screen === 'playing' || screen === 'settings' || screen === 'tutorial' || screen === 'hangar') return
     const handler = (e: KeyboardEvent) => {
       if (screen === 'gameover' && needsRankingName && !rankingSaved) {
         if (e.key === 'Enter') {
@@ -162,15 +169,24 @@ export default function App() {
     return () => window.removeEventListener('keydown', handler)
   }, [screen, needsRankingName, rankingSaved, handleAction])
 
+  const currentHighScore = useMemo(() => {
+    if (highScore > 0) return highScore
+    if (ranking.length > 0) return Math.max(...ranking.map((r) => r.score))
+    return 0
+  }, [highScore, ranking])
+
   return (
     <div className={`app-container${settings.reducedMotion ? ' reduced-motion' : ''}`}>
       {screen === 'menu' && (
         <MenuScreen
           t={t}
           onStart={handleAction}
-          onDaily={() => enterPlay(true)}
+          onDaily={() => enterPlay(true, 'daily')}
+          onModes={() => setIsModeSelectOpen(true)}
           onTutorial={() => setScreen('tutorial')}
           onSettings={() => setScreen('settings')}
+          onHangar={() => setScreen('hangar')}
+          onStats={() => setIsStatsOpen(true)}
           muted={settings.muted}
           onToggleMute={toggleMute}
           dailyBest={dailyBest}
@@ -180,7 +196,7 @@ export default function App() {
       {screen === 'tutorial' && (
         <TutorialScreen
           t={t}
-          onStartGame={() => enterPlay(false)}
+          onStartGame={() => enterPlay(false, 'classic')}
           onBack={() => setScreen('menu')}
         />
       )}
@@ -192,15 +208,39 @@ export default function App() {
           achievements={achievements}
           onUpdate={updateSettings}
           onBack={() => setScreen('menu')}
-          onPlay={() => enterPlay(false)}
+          onPlay={() => enterPlay(false, 'classic')}
         />
       )}
+
+      {screen === 'hangar' && (
+        <HangarScreen
+          onBack={() => setScreen('menu')}
+          locale={t}
+          unlockedAchievements={achievements.filter((a) => a.unlocked).map((a) => a.id)}
+          highScore={currentHighScore}
+        />
+      )}
+
+      <CareerStatsModal
+        isOpen={isStatsOpen}
+        onClose={() => setIsStatsOpen(false)}
+        locale={t}
+      />
+
+      <ModeSelectModal
+        isOpen={isModeSelectOpen}
+        onClose={() => setIsModeSelectOpen(false)}
+        onSelectMode={(m) => enterPlay(m === 'daily', m)}
+        locale={t}
+        currentMode={currentMode}
+      />
 
       {screen === 'playing' && (
         <GameCanvas
           onGameOver={handleGameOver}
           onAchievementUnlocked={handleAchievementUnlocked}
           settings={settings}
+          mode={currentMode}
           seed={dailyMode ? dailySeed : undefined}
         />
       )}
@@ -211,6 +251,13 @@ export default function App() {
             {dailyMode && (
               <div className="gameover-daily-badge">
                 {t.dailyBadge} · {dailyDateKey}
+              </div>
+            )}
+            {!dailyMode && currentMode !== 'classic' && (
+              <div className="gameover-daily-badge">
+                {currentMode === 'boss_rush' && `⚡ ${t.modeBossRushName}`}
+                {currentMode === 'hardcore' && `💀 ${t.modeHardcoreName}`}
+                {currentMode === 'zen' && `☯ ${t.modeZenName}`}
               </div>
             )}
             <h1 className="gameover-title">{t.gameoverTitle}</h1>

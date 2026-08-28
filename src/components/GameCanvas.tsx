@@ -1,20 +1,25 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { Game } from '@/game/Game'
 import SwipeControls from './SwipeControls'
+import TouchControls from './TouchControls'
+import { FloatingJoystick } from './FloatingJoystick'
 import type { GameSettings } from '@/game/SettingsService'
 import type { AchievementId } from '@/game/AchievementService'
 import { createSeededRandom } from '@/game/random'
 import { getStrings } from '@/i18n'
 
+import type { GameModeId } from '@/game/GameMode'
+
 interface GameCanvasProps {
   onGameOver: (score: number, highScore: number) => void
   onAchievementUnlocked?: (id: AchievementId, title: string, description: string) => void
   settings: GameSettings
+  mode?: GameModeId
   /** When set, the run is deterministic (daily challenge); otherwise Math.random. */
   seed?: number
 }
 
-export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings, seed }: GameCanvasProps) {
+export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings, mode = 'classic', seed }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const gameRef = useRef<Game | null>(null)
   const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
@@ -49,10 +54,12 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     if (!canvas) return
 
     const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)
       if (gameRef.current) {
-        gameRef.current.resize(canvas.width, canvas.height)
+        gameRef.current.resize(window.innerWidth, window.innerHeight, dpr)
+      } else {
+        canvas.width = Math.floor(window.innerWidth * dpr)
+        canvas.height = Math.floor(window.innerHeight * dpr)
       }
     }
 
@@ -60,6 +67,8 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
 
     const rng = seedRef.current != null ? createSeededRandom(seedRef.current) : Math.random
     const game = new Game(canvas, rng, initialObjectiveProfileRef.current)
+    game.setGameMode(mode)
+    game.setGhostReplayEnabled(settings.ghostReplay)
     gameRef.current = game
     game.setOnGameOver((score, highScore) => {
       onGameOver(score, highScore)
@@ -76,19 +85,22 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
       game.destroy()
       gameRef.current = null
     }
-  }, [onGameOver, onAchievementUnlocked])
+  }, [onGameOver, onAchievementUnlocked, mode, settings.ghostReplay])
 
   useEffect(() => {
     if (!gameRef.current) return
     gameRef.current.setReducedMotion(settings.reducedMotion)
     gameRef.current.setWeatherEnabled(settings.weatherEffects)
     gameRef.current.setLightingEnabled(settings.dynamicLighting)
+    gameRef.current.setGhostReplayEnabled(settings.ghostReplay)
     gameRef.current.setMasterVolume(settings.masterVolume)
     gameRef.current.setMusicVolume(settings.musicVolume)
     gameRef.current.setSfxVolume(settings.sfxVolume)
     gameRef.current.setVoiceVolume(settings.voiceVolume)
     gameRef.current.setVoiceEnabled(settings.voiceEnabled)
     gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
+    gameRef.current.setHapticsEnabled(settings.hapticsEnabled)
+    gameRef.current.setKeybindings(settings.keybindings)
     gameRef.current.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)
     gameRef.current.setDifficulty(settings.difficulty)
     gameRef.current.setColorblind(settings.colorblindMode)
@@ -100,21 +112,60 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     }
   }, [settings])
 
+  // Mesmo critério do CSS dos controles touch: sem teclado, o HUD não desenha
+  // os atalhos — eles ficavam por baixo dos botões de pausa/mudo.
+  useEffect(() => {
+    const query = window.matchMedia('(pointer: coarse), (hover: none)')
+    const apply = () => gameRef.current?.setTouchMode(query.matches)
+    apply()
+    query.addEventListener('change', apply)
+    return () => query.removeEventListener('change', apply)
+  }, [settings])
+
+  const renderMobileControls = () => {
+    switch (settings.mobileControlMode) {
+      case 'joystick':
+        return (
+          <FloatingJoystick
+            onMove={(vec) => gameRef.current?.setAnalogVector(vec.x, vec.y)}
+            onFire={(firing) => gameRef.current?.setTouchShoot(firing)}
+            onOverdrive={handleOverdrive}
+            onPause={handlePause}
+            onMute={handleMute}
+          />
+        )
+      case 'dpad':
+        return (
+          <TouchControls
+            onKey={(key, down) => gameRef.current?.simulateKey(key, down)}
+            onPause={handlePause}
+            onMute={handleMute}
+          />
+        )
+      case 'swipe':
+      default:
+        return (
+          <SwipeControls
+            onSetPosition={handleSwipePosition}
+            onPause={handlePause}
+            onMute={handleMute}
+            onFireDown={handleFireDown}
+            onFireUp={handleFireUp}
+            onOverdrive={handleOverdrive}
+            fireLabel={getStrings(settings.language).menuLabelFire}
+          />
+        )
+    }
+  }
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <canvas
         ref={canvasRef}
         style={{ display: 'block', width: '100%', height: '100%' }}
       />
-      <SwipeControls
-        onSetPosition={handleSwipePosition}
-        onPause={handlePause}
-        onMute={handleMute}
-        onFireDown={handleFireDown}
-        onFireUp={handleFireUp}
-        onOverdrive={handleOverdrive}
-        fireLabel={getStrings(settings.language).menuLabelFire}
-      />
+      {renderMobileControls()}
     </div>
   )
 }
+

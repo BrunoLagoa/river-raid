@@ -13,6 +13,10 @@ import {
   OVERDRIVE_LASER_WIDTH,
 } from './constants'
 
+import type { KeybindingService } from './KeybindingService'
+import { PlayerSkinRenderer } from './PlayerSkinRenderer'
+import type { SkinId } from './SkinService'
+
 export type GameState = 'alive' | 'exploding' | 'dead'
 
 export type { Bullet } from './BulletStyles'
@@ -24,35 +28,58 @@ export class Player {
   height = PLAYER_HEIGHT
   speed = PLAYER_SPEED
   verticalSpeed = PLAYER_VERTICAL_SPEED
-  private canvasHeight: number
   state: GameState = 'alive'
+  justShot = false
+  shieldActive = false
+  doubleShotTimer = 0
+  rapidFireTimer = 0
+  magnetFuelTimer = 0
+  invincibilityTimer = 0
+  overdriveActive = false
+  skinId: SkinId = 'classic'
+
+  readonly MAX_BULLETS = PLAYER_MAX_BULLETS
   private bulletPool = new ObjectPool<Bullet>(
     PLAYER_MAX_BULLETS,
     () => ({ x: 0, y: 0, speed: PLAYER_BULLET_SPEED, width: PLAYER_BULLET_W, height: PLAYER_BULLET_H, active: false, kind: 'normal' as BulletKind }),
     (b) => { b.active = true },
   )
   private bulletRenderer = new BulletRenderer()
+  private skinRenderer = new PlayerSkinRenderer()
   get bullets(): Bullet[] { return this.bulletPool.activeItems }
   /** Visual state the next shot will be fired with. */
   get currentBulletKind(): BulletKind {
     return resolveBulletKind(this.doubleShotTimer, this.rapidFireTimer)
   }
-  shootCooldown = 0
+
   shootInterval = PLAYER_SHOOT_INTERVAL
-  justShot = false
-  doubleShotTimer = 0
-  rapidFireTimer = 0
-  magnetFuelTimer = 0
-  shieldActive = false
-  invincibilityTimer = 0
-  overdriveActive = false
-  private readonly MAX_BULLETS = PLAYER_MAX_BULLETS
-  private animFrame = 0
+  private shootCooldown = 0
+
+  private canvasHeight: number
+  private animFrameIndex = 0
   private animTimer = 0
 
   readonly keys: Set<string> = new Set()
   private explodingTimer = 0
   private readonly explodingDuration = PLAYER_EXPLODING_DURATION
+
+  private keybindingService?: KeybindingService
+  private analogX = 0
+  private analogY = 0
+  private touchShoot = false
+
+  setKeybindingService(service: KeybindingService): void {
+    this.keybindingService = service
+  }
+
+  setAnalogVector(x: number, y: number): void {
+    this.analogX = Math.max(-1, Math.min(1, x))
+    this.analogY = Math.max(-1, Math.min(1, y))
+  }
+
+  setTouchShoot(shooting: boolean): void {
+    this.touchShoot = shooting
+  }
 
   setTouchTarget(x: number | null, y: number | null = null): void {
     this.touchTargetX = x
@@ -91,6 +118,41 @@ export class Player {
     this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
   }
 
+  private isLeftPressed(): boolean {
+    if (this.keybindingService) {
+      return this.keybindingService.isActionPressed('left', this.keys)
+    }
+    return this.keys.has('ArrowLeft') || this.keys.has('a') || this.keys.has('KeyA')
+  }
+
+  private isRightPressed(): boolean {
+    if (this.keybindingService) {
+      return this.keybindingService.isActionPressed('right', this.keys)
+    }
+    return this.keys.has('ArrowRight') || this.keys.has('d') || this.keys.has('KeyD')
+  }
+
+  private isAcceleratePressed(): boolean {
+    if (this.keybindingService) {
+      return this.keybindingService.isActionPressed('accelerate', this.keys)
+    }
+    return this.keys.has('ArrowUp') || this.keys.has('w') || this.keys.has('KeyW')
+  }
+
+  private isBrakePressed(): boolean {
+    if (this.keybindingService) {
+      return this.keybindingService.isActionPressed('brake', this.keys)
+    }
+    return this.keys.has('ArrowDown') || this.keys.has('s') || this.keys.has('KeyS')
+  }
+
+  private isShootPressed(): boolean {
+    if (this.keybindingService) {
+      return this.keybindingService.isActionPressed('shoot', this.keys)
+    }
+    return this.keys.has(' ') || this.keys.has('Space')
+  }
+
   update(dt: number, leftBound: number, rightBound: number, onMiss?: () => void): void {
     if (this.state === 'alive') {
       for (const b of this.bulletPool.activeItems) {
@@ -101,7 +163,9 @@ export class Player {
         }
       }
 
-      if (this.touchTargetX !== null) {
+      if (this.analogX !== 0) {
+        this.x += this.analogX * this.speed * dt
+      } else if (this.touchTargetX !== null) {
         const dx = this.touchTargetX - this.x
         const maxMove = this.speed * dt
         if (Math.abs(dx) <= maxMove) {
@@ -110,25 +174,27 @@ export class Player {
           this.x += Math.sign(dx) * maxMove
         }
       } else {
-        if (this.keys.has('ArrowLeft') || this.keys.has('a')) {
+        if (this.isLeftPressed()) {
           this.x -= this.speed * dt
         }
-        if (this.keys.has('ArrowRight') || this.keys.has('d')) {
+        if (this.isRightPressed()) {
           this.x += this.speed * dt
         }
       }
       this.x = Math.max(leftBound + this.width / 2 + 2, Math.min(rightBound - this.width / 2 - 2, this.x))
 
       // Vertical movement — forward (up) / back (down), clamped to the travel range.
-      if (this.touchTargetY !== null) {
+      if (this.analogY !== 0) {
+        this.y += this.analogY * this.verticalSpeed * dt
+      } else if (this.touchTargetY !== null) {
         const dy = this.touchTargetY - this.y
         const maxMove = this.verticalSpeed * dt
         this.y = Math.abs(dy) <= maxMove ? this.touchTargetY : this.y + Math.sign(dy) * maxMove
       } else {
-        if (this.keys.has('ArrowUp') || this.keys.has('w')) {
+        if (this.isAcceleratePressed()) {
           this.y -= this.verticalSpeed * dt
         }
-        if (this.keys.has('ArrowDown') || this.keys.has('s')) {
+        if (this.isBrakePressed()) {
           this.y += this.verticalSpeed * dt
         }
       }
@@ -141,7 +207,7 @@ export class Player {
 
       this.shootCooldown -= dt
 
-      const wantShoot = this.keys.has(' ') || this.touchTargetX !== null
+      const wantShoot = this.isShootPressed() || this.touchTargetX !== null || this.touchShoot
       if (wantShoot && this.shootCooldown <= 0 && this.bullets.length < this.MAX_BULLETS) {
         const effectiveCooldown = this.shootInterval * (this.rapidFireTimer > 0 ? POWERUP_RAPID_FIRE_COOLDOWN_MULTIPLIER : 1.0)
         // Only the visual kind varies — width/height stay at the pool defaults
@@ -175,7 +241,7 @@ export class Player {
       this.animTimer += dt
       if (this.animTimer > 0.1) {
         this.animTimer = 0
-        this.animFrame = (this.animFrame + 1) % 4
+        this.animFrameIndex = (this.animFrameIndex + 1) % 4
       }
     }
 
@@ -252,112 +318,29 @@ export class Player {
     ctx.restore()
   }
 
+  setSkin(skinId: SkinId): void {
+    this.skinId = skinId
+  }
+
+  /** Inclinação atual: -1 esquerda, 0 reto, 1 direita. */
+  get bankDir(): -1 | 0 | 1 {
+    if (this.isLeftPressed() || this.analogX < -0.2) return -1
+    if (this.isRightPressed() || this.analogX > 0.2) return 1
+    return 0
+  }
+
+  /** Gatilho pressionado agora (teclado, botão touch ou arrasto). */
+  get isShooting(): boolean {
+    return this.isShootPressed() || this.touchTargetX !== null || this.touchShoot
+  }
+
+  /** Quadro da animação do sprite — o fantasma do replay voa em sincronia. */
+  get animFrame(): number {
+    return this.animFrameIndex
+  }
+
   private renderShip(ctx: CanvasRenderingContext2D): void {
-    const cx = this.x
-    const cy = this.y
-    ctx.save()
-
-    // ── Swept wings (mirror left/right) ──────────────────────────────────────
-    for (const s of [-1, 1]) {
-      ctx.fillStyle = '#9fb3c8'
-      ctx.beginPath()
-      ctx.moveTo(cx + s * 2, cy - 2)
-      ctx.lineTo(cx + s * 14, cy + 8)
-      ctx.lineTo(cx + s * 14, cy + 11)
-      ctx.lineTo(cx + s * 4, cy + 8)
-      ctx.closePath()
-      ctx.fill()
-      // Leading-edge highlight
-      ctx.fillStyle = '#c3d2e2'
-      ctx.beginPath()
-      ctx.moveTo(cx + s * 2, cy - 2)
-      ctx.lineTo(cx + s * 14, cy + 8)
-      ctx.lineTo(cx + s * 11, cy + 8)
-      ctx.lineTo(cx + s * 2, cy)
-      ctx.closePath()
-      ctx.fill()
-      // Wingtip pod
-      ctx.fillStyle = '#7f93a8'
-      ctx.fillRect(cx + s * 14 - 1, cy + 6, 2, 5)
-    }
-
-    // ── Rear tail fins ───────────────────────────────────────────────────────
-    ctx.fillStyle = '#8aa0b6'
-    for (const s of [-1, 1]) {
-      ctx.beginPath()
-      ctx.moveTo(cx + s * 1, cy + 9)
-      ctx.lineTo(cx + s * 7, cy + 14)
-      ctx.lineTo(cx + s * 3, cy + 14)
-      ctx.lineTo(cx + s * 1, cy + 11)
-      ctx.closePath()
-      ctx.fill()
-    }
-
-    // ── Fuselage dart (nose up) ──────────────────────────────────────────────
-    ctx.fillStyle = '#d6e2f0'
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - 17)
-    ctx.lineTo(cx - 4, cy - 4)
-    ctx.lineTo(cx - 4, cy + 10)
-    ctx.lineTo(cx - 3, cy + 14)
-    ctx.lineTo(cx + 3, cy + 14)
-    ctx.lineTo(cx + 4, cy + 10)
-    ctx.lineTo(cx + 4, cy - 4)
-    ctx.closePath()
-    ctx.fill()
-    // Port-side shade
-    ctx.fillStyle = '#aabccd'
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - 17)
-    ctx.lineTo(cx - 4, cy - 4)
-    ctx.lineTo(cx - 4, cy + 10)
-    ctx.lineTo(cx - 1, cy + 12)
-    ctx.lineTo(cx - 1, cy - 8)
-    ctx.closePath()
-    ctx.fill()
-    // Spine highlight + blue accent
-    ctx.fillStyle = '#f2f8ff'
-    ctx.fillRect(cx - 1, cy - 12, 2, 18)
-    ctx.fillStyle = '#2f7fd6'
-    ctx.fillRect(cx - 4, cy + 4, 8, 2)
-
-    // ── Cockpit canopy ───────────────────────────────────────────────────────
-    ctx.fillStyle = '#bfe9ff'
-    ctx.beginPath()
-    ctx.moveTo(cx, cy - 9)
-    ctx.lineTo(cx - 2, cy - 3)
-    ctx.lineTo(cx + 2, cy - 3)
-    ctx.closePath()
-    ctx.fill()
-    ctx.fillStyle = '#7fc8f0'
-    ctx.fillRect(cx - 2, cy - 4, 4, 1)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(cx - 1, cy - 8, 1, 2)
-
-    // ── Blinking nav lights — port red, starboard green ──────────────────────
-    if (Math.floor(performance.now() / 250) % 2 === 0) {
-      ctx.fillStyle = '#ff5555'
-      ctx.fillRect(cx - 14, cy + 6, 2, 2)
-      ctx.fillStyle = '#55ff77'
-      ctx.fillRect(cx + 12, cy + 6, 2, 2)
-    }
-
-    // ── Afterburner exhaust (layered, animated) ──────────────────────────────
-    const flameOffsets = [4, 6, 4, 7]
-    const flameH = flameOffsets[this.animFrame]
-    ctx.save()
-    ctx.globalAlpha = 0.45
-    ctx.fillStyle = '#ff8800'
-    ctx.fillRect(cx - 4, cy + 14, 8, flameH)
-    ctx.restore()
-    ctx.fillStyle = '#ff8800'
-    ctx.fillRect(cx - 3, cy + 14, 6, flameH)
-    ctx.fillStyle = '#ffcc00'
-    ctx.fillRect(cx - 2, cy + 14, 4, flameH - 1)
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(cx - 1, cy + 14, 2, Math.max(1, flameH - 3))
-
-    ctx.restore()
+    this.skinRenderer.render(ctx, this.x, this.y, this.skinId, this.animFrameIndex, this.bankDir)
   }
 
   private renderShield(ctx: CanvasRenderingContext2D): void {
@@ -452,7 +435,7 @@ export class Player {
     this.rapidFireTimer = 0
     this.magnetFuelTimer = 0
     this.invincibilityTimer = PLAYER_INVINCIBILITY_TIME
-    this.animFrame = 0
+    this.animFrameIndex = 0
     this.animTimer = 0
   }
 
@@ -475,7 +458,7 @@ export class Player {
     this.shieldActive = false
     this.invincibilityTimer = 0
     this.overdriveActive = false
-    this.animFrame = 0
+    this.animFrameIndex = 0
     this.animTimer = 0
     this.keys.clear()
     this.touchTargetX = null
@@ -484,12 +467,14 @@ export class Player {
 
   private onKeyDown = (e: KeyboardEvent): void => {
     this.keys.add(e.key)
-    if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'a' || e.key === 'd') {
+    this.keys.add(e.code)
+    if (e.key === ' ' || e.code === 'Space' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'a' || e.key === 'd') {
       e.preventDefault()
     }
   }
 
   private onKeyUp = (e: KeyboardEvent): void => {
     this.keys.delete(e.key)
+    this.keys.delete(e.code)
   }
 }

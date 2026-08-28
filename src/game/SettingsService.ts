@@ -1,11 +1,18 @@
 import { readSecureJSON, writeSecureJSON } from './StorageService'
 import { isObjectiveBalanceProfile, type ObjectiveBalanceProfile } from './ObjectiveSystem'
 import { isDifficulty, type Difficulty } from './constants'
+import { DEFAULT_KEYBINDINGS, type Keybindings } from './KeybindingService'
 
 export type Language = 'en' | 'pt-BR'
 
 export function isLanguage(v: unknown): v is Language {
   return v === 'en' || v === 'pt-BR'
+}
+
+export type MobileControlMode = 'joystick' | 'dpad' | 'swipe'
+
+export function isMobileControlMode(v: unknown): v is MobileControlMode {
+  return v === 'joystick' || v === 'dpad' || v === 'swipe'
 }
 
 export interface GameSettings {
@@ -27,6 +34,10 @@ export interface GameSettings {
   dynamicLighting: boolean
   colorblindMode: boolean
   gamepadEnabled: boolean
+  hapticsEnabled: boolean
+  ghostReplay: boolean
+  mobileControlMode: MobileControlMode
+  keybindings: Keybindings
   objectiveBalanceProfile: ObjectiveBalanceProfile
   difficulty: Difficulty
   language: Language
@@ -46,6 +57,10 @@ const DEFAULT_SETTINGS: GameSettings = {
   dynamicLighting: true,
   colorblindMode: false,
   gamepadEnabled: true,
+  hapticsEnabled: true,
+  ghostReplay: true,
+  mobileControlMode: 'joystick',
+  keybindings: DEFAULT_KEYBINDINGS,
   objectiveBalanceProfile: 'conservative',
   difficulty: 'normal',
   language: 'en',
@@ -66,6 +81,10 @@ export function getStoredSettings(): GameSettings {
     dynamicLighting: typeof raw.dynamicLighting === 'boolean' ? raw.dynamicLighting : DEFAULT_SETTINGS.dynamicLighting,
     colorblindMode: typeof raw.colorblindMode === 'boolean' ? raw.colorblindMode : DEFAULT_SETTINGS.colorblindMode,
     gamepadEnabled: typeof raw.gamepadEnabled === 'boolean' ? raw.gamepadEnabled : DEFAULT_SETTINGS.gamepadEnabled,
+    hapticsEnabled: typeof raw.hapticsEnabled === 'boolean' ? raw.hapticsEnabled : DEFAULT_SETTINGS.hapticsEnabled,
+    ghostReplay: typeof raw.ghostReplay === 'boolean' ? raw.ghostReplay : DEFAULT_SETTINGS.ghostReplay,
+    mobileControlMode: isMobileControlMode(raw.mobileControlMode) ? raw.mobileControlMode : DEFAULT_SETTINGS.mobileControlMode,
+    keybindings: raw.keybindings && typeof raw.keybindings === 'object' ? { ...DEFAULT_KEYBINDINGS, ...raw.keybindings } : DEFAULT_SETTINGS.keybindings,
     objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
       ? raw.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
@@ -87,6 +106,10 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     dynamicLighting: typeof next.dynamicLighting === 'boolean' ? next.dynamicLighting : DEFAULT_SETTINGS.dynamicLighting,
     colorblindMode: !!next.colorblindMode,
     gamepadEnabled: !!next.gamepadEnabled,
+    hapticsEnabled: typeof next.hapticsEnabled === 'boolean' ? next.hapticsEnabled : DEFAULT_SETTINGS.hapticsEnabled,
+    ghostReplay: typeof next.ghostReplay === 'boolean' ? next.ghostReplay : DEFAULT_SETTINGS.ghostReplay,
+    mobileControlMode: isMobileControlMode(next.mobileControlMode) ? next.mobileControlMode : DEFAULT_SETTINGS.mobileControlMode,
+    keybindings: next.keybindings ? { ...DEFAULT_KEYBINDINGS, ...next.keybindings } : DEFAULT_SETTINGS.keybindings,
     objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)
       ? next.objectiveBalanceProfile
       : DEFAULT_SETTINGS.objectiveBalanceProfile,
