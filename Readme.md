@@ -28,6 +28,12 @@ Medidor tático carregado ao abater inimigos (+4%) e realizar manobras arriscada
 - **Pulso EMP Defensivo:** Limpa instantaneamente todos os projéteis inimigos na tela com onda de choque.
 - **Laser Contínuo de Plasma:** Feixe de energia devastador por 6 segundos que atravessa e vaporiza qualquer alvo na linha de tiro.
 
+### ⚓ Perigos Ambientais & Obstáculos de Rio
+O rio conta com perigos dinâmicos gerados proceduramente com rotas de navegação sempre garantidas:
+- **Minas Aquáticas Flutuantes (`Sea Mines`):** Esferas de metal com espinhos e LED pulsante. Ao serem atingidas por tiros ou laser, detonam causando explosões em cadeia (*Chain Reactions*) que destroem minas adjacentes e inimigos no raio da explosão (+50 pts).
+- **Redemoinhos no Rio (`Whirlpools`):** Vórtices aquáticos rotativos que exercem força de sucção centrípeta suave sobre a aeronave ao sobrevoá-los, exigindo contra-esterçamento do piloto.
+- **Bunkers e Casamatas Costeiras (`Shore Bunkers`):** Casamatas de concreto blindadas nas margens que miram e disparam canhões pesados contra a aeronave (+150 pts).
+
 ### 🌟 Sistema de Power-ups
 Itens especiais flutuam no rio após a destruição de inimigos (8% de chance):
 - **[D] Double Shot:** Dispare dois mísseis paralelos simultâneos por 10 segundos.

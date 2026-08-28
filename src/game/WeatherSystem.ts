@@ -17,6 +17,9 @@ import {
   WEATHER_LIGHTNING_FLASH_DURATION,
   WEATHER_LIGHTNING_INTERVAL_MIN,
   WEATHER_LIGHTNING_INTERVAL_MAX,
+  WEATHER_OCCURRENCE_CHANCE,
+  WEATHER_RAIN_ALPHA_BASE,
+  WEATHER_RAIN_ALPHA_VARIATION,
 } from './constants'
 import type { RandomSource } from './random'
 
@@ -42,6 +45,10 @@ export class WeatherSystem {
   private lightningTimer = 0
   private lightningFlashTimer = 0
   private currentWeather: WeatherType = 'rain'
+  /** Último clima pedido pelo bioma — a troca é o gatilho do sorteio. */
+  private requestedWeather: WeatherType | null = null
+  /** Resultado do sorteio: se falso, o trecho passa limpo. */
+  private weatherOccurs = true
 
   constructor(
     canvasWidth: number,
@@ -117,7 +124,7 @@ export class WeatherSystem {
         p.vy = 420 + this.random() * 180
         p.length = 12 + this.random() * 10
         p.size = 1.5
-        p.alpha = 0.5 + this.random() * 0.4
+        p.alpha = WEATHER_RAIN_ALPHA_BASE + this.random() * WEATHER_RAIN_ALPHA_VARIATION
         p.color = '#aadcff'
         break
 
@@ -164,10 +171,19 @@ export class WeatherSystem {
   update(
     dt: number,
     scrollSpeed: number,
-    weatherType: WeatherType,
+    requested: WeatherType,
     reducedMotion = false
   ): void {
     if (!Number.isFinite(dt) || dt <= 0) return
+
+    // Cada troca de clima é sorteada uma vez e vale para o trecho inteiro — sem
+    // isso a chuva reapareceria a cada frame (ou piscaria, se sorteada sempre).
+    if (requested !== this.requestedWeather) {
+      this.requestedWeather = requested
+      const chance = WEATHER_OCCURRENCE_CHANCE[requested] ?? 1
+      this.weatherOccurs = chance >= 1 || this.random() < chance
+    }
+    const weatherType: WeatherType = this.weatherOccurs ? requested : 'clear'
     this.currentWeather = weatherType
 
     const targetMax = this.getTargetCount(weatherType, reducedMotion)
@@ -333,6 +349,9 @@ export class WeatherSystem {
   reset(): void {
     this.lightningTimer = this.nextLightningDelay()
     this.lightningFlashTimer = 0
+    // Nova run sorteia o clima de novo, em vez de herdar o do jogo anterior.
+    this.requestedWeather = null
+    this.weatherOccurs = true
     for (const p of this.particles) {
       p.active = false
     }

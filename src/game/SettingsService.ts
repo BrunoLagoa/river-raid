@@ -10,6 +10,13 @@ export function isLanguage(v: unknown): v is Language {
 
 export interface GameSettings {
   masterVolume: number
+  /**
+   * Estado de sessão, não preferência: o jogo sempre abre com som e o jogador
+   * silencia na hora (tecla `M`, botão do menu ou dos controles touch). Por
+   * isso `muted` nunca é lido nem gravado no storage — um mute acidental não
+   * deixa todas as partidas seguintes mudas. Volume fino fica em `masterVolume`,
+   * que continua persistido.
+   */
   muted: boolean
   reducedMotion: boolean
   weatherEffects: boolean
@@ -40,7 +47,8 @@ export function getStoredSettings(): GameSettings {
   const raw = readSecureJSON<Partial<GameSettings>>(SETTINGS_KEY, DEFAULT_SETTINGS)
   return {
     masterVolume: typeof raw.masterVolume === 'number' ? Math.max(0, Math.min(1, raw.masterVolume)) : DEFAULT_SETTINGS.masterVolume,
-    muted: typeof raw.muted === 'boolean' ? raw.muted : DEFAULT_SETTINGS.muted,
+    // Sempre começa com som: ignora qualquer mute salvo por versões anteriores.
+    muted: DEFAULT_SETTINGS.muted,
     reducedMotion: typeof raw.reducedMotion === 'boolean' ? raw.reducedMotion : DEFAULT_SETTINGS.reducedMotion,
     weatherEffects: typeof raw.weatherEffects === 'boolean' ? raw.weatherEffects : DEFAULT_SETTINGS.weatherEffects,
     dynamicLighting: typeof raw.dynamicLighting === 'boolean' ? raw.dynamicLighting : DEFAULT_SETTINGS.dynamicLighting,
@@ -69,7 +77,8 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     difficulty: isDifficulty(next.difficulty) ? next.difficulty : DEFAULT_SETTINGS.difficulty,
     language: isLanguage(next.language) ? next.language : DEFAULT_SETTINGS.language,
   }
-  writeSecureJSON(SETTINGS_KEY, normalized)
+  // `muted` fica de fora do que é gravado — vale só para a sessão atual.
+  writeSecureJSON(SETTINGS_KEY, { ...normalized, muted: DEFAULT_SETTINGS.muted })
   return normalized
 }
 

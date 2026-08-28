@@ -77,7 +77,7 @@ export class Player {
   }
 
   /** Clamp a Y to the allowed vertical travel range. */
-  private clampY(y: number): number {
+  clampY(y: number): number {
     const top = this.canvasHeight * PLAYER_MIN_Y_RATIO
     const bottom = this.canvasHeight - PLAYER_MAX_Y_MARGIN
     return Math.max(top, Math.min(bottom, y))

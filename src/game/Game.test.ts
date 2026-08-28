@@ -1547,14 +1547,31 @@ describe('Game achievement system', () => {
     expect(spy).toHaveBeenCalled()
   })
 
-  it('restart reseta estado do boss e overdrive', () => {
+  it('restart reseta estado de perigos, boss e overdrive', () => {
     const canvas = createMockCanvas()
     const game = new Game(canvas)
     game.overdrive.addEnergy(100)
+    game.hazards.mines[0].active = true
     game.restart()
 
     expect(game.overdrive.currentEnergy).toBe(0)
     expect(game.boss).toBeNull()
+    expect(game.hazards.mines[0].active).toBe(false)
     expect(game.player.overdriveActive).toBe(false)
+  })
+
+  it('redemoinhos aplicam forca de atracao sobre o jogador no updateWorldAndPlayer', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+
+    game.hazards.whirlpools[0].active = true
+    game.hazards.whirlpools[0].x = game.player.x + 20
+    game.hazards.whirlpools[0].y = game.player.y
+
+    const initialX = game.player.x
+    type GamePrivate = { updateWorldAndPlayer: (dt: number, envDt: number) => void }
+    ;(game as unknown as GamePrivate).updateWorldAndPlayer(1 / 60, 1 / 60)
+
+    expect(game.player.x).toBeGreaterThan(initialX)
   })
 })

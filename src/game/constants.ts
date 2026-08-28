@@ -194,6 +194,14 @@ export const WEATHER_MAX_RAIN_DROPS = 80
 export const WEATHER_MAX_SNOW_FLAKES = 60
 export const WEATHER_MAX_SAND_GRAINS = 70
 export const WEATHER_MAX_SMOG_PUFFS = 40
+/**
+ * Opacidade das gotas (base + variação aleatória). Mantida baixa de propósito:
+ * a chuva cai na vertical como os projéteis e, mais forte que isso, disputa a
+ * leitura do tiroteio com as balas da nave e dos inimigos.
+ */
+export const WEATHER_RAIN_ALPHA_BASE = 0.22
+export const WEATHER_RAIN_ALPHA_VARIATION = 0.23
+
 export const WEATHER_LIGHTNING_FLASH_DURATION = 0.08
 export const WEATHER_LIGHTNING_INTERVAL_MIN = 6.0
 export const WEATHER_LIGHTNING_INTERVAL_MAX = 14.0
@@ -204,6 +212,16 @@ export const LIGHTING_HEADLIGHT_RANGE = 260
 export const LIGHTING_NIGHT_ALPHA = 0.65
 export const LIGHTING_DAWN_ALPHA = 0.35
 export const LIGHTING_SUNSET_ALPHA = 0.20
+// Farol: acende com um warm-up piscante (lâmpada de descarga ganhando carga) e
+// apaga com um fade curto. O flicker é determinístico — nada de RNG aqui, senão
+// o desafio diário deixaria de ser reproduzível.
+export const LIGHTING_HEADLIGHT_WARMUP = 1.1
+export const LIGHTING_HEADLIGHT_FADE_OUT = 0.55
+export const LIGHTING_HEADLIGHT_FLICKER_SPEED = 22
+export const LIGHTING_HEADLIGHT_FLICKER_DEPTH = 0.5
+/** Alcance mínimo do cone durante a transição, como fração do alcance cheio. */
+export const LIGHTING_HEADLIGHT_MIN_REACH = 0.45
+
 export const LIGHTING_BULLET_RADIUS = 32
 export const LIGHTING_EXPLOSION_RADIUS = 80
 
@@ -252,4 +270,48 @@ export const BOSS_DAMAGE_FLASH_TIME = 0.12
 /** River scroll is cut to this fraction (floored) while a boss is fighting. */
 export const BOSS_FIGHT_SCROLL_FACTOR = 0.96
 export const BOSS_FIGHT_MIN_SCROLL_SPEED = 60
+
+// ── Environmental Hazards & River Obstacles (Sprint 03) ───────────────────
+export const MINE_SIZE = 18
+export const MINE_POINTS = 50
+export const MINE_CHAIN_RADIUS = 65
+export const MINE_PULSE_SPEED = 4.0
+export const MINE_CHAIN_DELAY = 0.08
+/** Chance a mine spawn lays a two-mine cluster instead of a single mine. */
+export const MINE_CLUSTER_PAIR_CHANCE = 0.45
+
+export const WHIRLPOOL_RADIUS = 36
+export const WHIRLPOOL_PULL_FORCE = 130
+export const WHIRLPOOL_SPIN_SPEED = 2.5
+
+export const BUNKER_WIDTH = 26
+export const BUNKER_HEIGHT = 26
+export const BUNKER_HP = 3
+export const BUNKER_POINTS = 150
+export const BUNKER_SHOOT_INTERVAL = 3.0
+export const BUNKER_BULLET_SPEED = 180
+export const BUNKER_RANGE = 450
+/** Floor on the downward component of an aimed bunker shot (keeps it recyclable). */
+export const BUNKER_MIN_DOWN_RATIO = 0.35
+
+/**
+ * Chance de o clima de um bioma realmente acontecer naquela passagem, sorteada
+ * uma vez por troca de bioma. A chuva é intencionalmente incerta: as gotas caem
+ * na vertical como os projéteis e poluem a leitura do tiroteio, então o rio
+ * atravessa a selva seco na maior parte das vezes. Os demais climas ocorrem
+ * sempre (1.0) — baixe o valor aqui para rarear qualquer um deles.
+ */
+export const WEATHER_OCCURRENCE_CHANCE: Record<string, number> = {
+  rain: 0.35,
+  sandstorm: 1,
+  smog: 1,
+  snow: 1,
+  clear: 1,
+}
+
+export const HAZARD_SPAWN_INTERVAL_MIN = 3.5
+export const HAZARD_SPAWN_INTERVAL_MAX = 7.0
+export const HAZARD_MAX_MINES = 16
+export const HAZARD_MAX_WHIRLPOOLS = 8
+export const HAZARD_MAX_BUNKERS = 8
 

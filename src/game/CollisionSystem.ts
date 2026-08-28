@@ -10,11 +10,12 @@ import {
   POWERUP_DOUBLE_SHOT_DURATION, POWERUP_SCORE, POWERUP_RAPID_FIRE_DURATION,
   POWERUP_MAGNET_FUEL_DURATION, POWERUP_BOMB_SHOCKWAVE_DURATION, BRIDGE_FUEL_DROP_CHANCE,
   BOSS_TURRET_BULLET_DAMAGE, BOSS_HULL_BULLET_DAMAGE, BOSS_TURRET_SCORE,
-  OVERDRIVE_LASER_DPS, OVERDRIVE_LASER_WIDTH,
+  OVERDRIVE_LASER_DPS, OVERDRIVE_LASER_WIDTH, MINE_CHAIN_RADIUS,
 } from './constants'
 import { SpatialGrid } from './SpatialGrid'
 import type { RandomSource } from './random'
 import type { BossDreadnought } from './BossDreadnought'
+import type { HazardManager } from './HazardManager'
 
 /** Fallback frame step when a caller does not supply one (60 FPS). */
 const DEFAULT_DT = 1 / 60
@@ -29,6 +30,9 @@ const candidates: number[] = []
 // indices the grid handed out would point at the wrong entity (or past the end).
 // Copying once, alongside the grid build, keeps them valid for the whole frame.
 const enemySnapshot: Enemy[] = []
+// Reused by area blasts (mine detonations), which can fire outside the
+// resolution pass and so cannot rely on the snapshot above being current.
+const blastBuffer: Enemy[] = []
 const bulletSnapshot: EnemyBullet[] = []
 
 interface GridItem { x: number; y: number; width: number; height: number; active: boolean }
@@ -58,6 +62,7 @@ export interface CollisionContext {
   onFuelCollected?: (count: number) => void
   onPowerUpCollected?: (type: string) => void
   boss?: BossDreadnought | null
+  hazards?: HazardManager | null
   onOverdriveKill?: () => void
   /** Seconds elapsed this frame; continuous-damage sources scale by it. */
   dt?: number
@@ -94,9 +99,11 @@ export class CollisionSystem {
     if (CollisionSystem.checkPlayerVsEnemies(ctx, playerRect)) return
     if (CollisionSystem.checkPlayerVsEnemyBullets(ctx, playerRect)) return
     if (CollisionSystem.checkPlayerVsBoss(ctx, playerRect)) return
+    if (CollisionSystem.checkPlayerVsHazards(ctx, playerRect)) return
 
     CollisionSystem.checkBulletsVsEnemies(ctx)
     CollisionSystem.checkBulletsVsBoss(ctx)
+    CollisionSystem.checkBulletsVsHazards(ctx)
     CollisionSystem.checkOverdriveLaser(ctx)
     CollisionSystem.checkPlayerVsFuel(ctx, playerRect)
     CollisionSystem.checkPlayerVsPowerUps(ctx, playerRect)
@@ -118,6 +125,40 @@ export class CollisionSystem {
       if (!it.active) continue
       grid.insert(i, it)
     }
+  }
+
+  /**
+   * Destroys every active enemy within `radius` of (x, y) through the shared
+   * `destroyEnemy` path, so an area blast pays out exactly like a direct hit.
+   *
+   * Public because mine cascades detonate inside `HazardManager.update`, outside
+   * the collision-resolution pass — `Game` routes that callback back here so the
+   * chained explosions are not second-class citizens. Returns how many died.
+   */
+  static destroyEnemiesInRadius(
+    ctx: CollisionContext,
+    x: number,
+    y: number,
+    radius: number,
+    explosionColor?: string,
+  ): number {
+    // Copy first: destroyEnemy deactivates entries, and the live getter rebuilds
+    // the pool's shared cache on every read.
+    blastBuffer.length = 0
+    for (const enemy of ctx.enemyManager.enemies) blastBuffer.push(enemy)
+
+    const radiusSq = radius * radius
+    let destroyed = 0
+    for (const enemy of blastBuffer) {
+      if (!enemy.active) continue
+      const dx = enemy.x - x
+      const dy = enemy.y - y
+      if (dx * dx + dy * dy > radiusSq) continue
+      CollisionSystem.destroyEnemy(ctx, enemy, explosionColor)
+      destroyed++
+    }
+    blastBuffer.length = 0
+    return destroyed
   }
 
   /**
@@ -401,6 +442,116 @@ export class CollisionSystem {
     }
   }
 
+  private static checkPlayerVsHazards(ctx: CollisionContext, playerRect: Rect): boolean {
+    if (!ctx.hazards) return false
+    // Same precedence as every other lethal contact: shield first, then the
+    // respawn invincibility window, then death.
+    const isInvincible = ctx.player.invincibilityTimer > 0
+
+    for (const mine of ctx.hazards.mines) {
+      if (!mine.active) continue
+      const mineRect: Rect = { x: mine.x, y: mine.y, width: mine.width, height: mine.height }
+      if (!CollisionSystem.checkAABB(playerRect, mineRect)) continue
+
+      if (ctx.player.shieldActive) {
+        mine.active = false
+        ctx.player.breakShield()
+        ctx.fx.bigExplosion(mine.x, mine.y, '#ff2200')
+        ctx.sound.explosion()
+        continue
+      }
+
+      if (isInvincible) return false
+
+      mine.active = false
+      ctx.fx.bigExplosion(mine.x, mine.y, '#ff2200')
+      CollisionSystem.killPlayer(ctx, mine.x, mine.y, '#ff2200')
+      return true
+    }
+
+    for (const bunker of ctx.hazards.bunkers) {
+      if (!bunker.active) continue
+      const bunkerRect: Rect = { x: bunker.x, y: bunker.y, width: bunker.width, height: bunker.height }
+      if (!CollisionSystem.checkAABB(playerRect, bunkerRect)) continue
+
+      if (ctx.player.shieldActive) {
+        ctx.player.breakShield()
+        ctx.fx.explosion(ctx.player.x, ctx.player.y, '#ffffaa')
+        ctx.sound.enemyHit()
+        continue
+      }
+
+      if (isInvincible) return false
+
+      CollisionSystem.killPlayer(ctx, ctx.player.x, ctx.player.y, '#ff5500')
+      return true
+    }
+    return false
+  }
+
+  private static checkBulletsVsHazards(ctx: CollisionContext): void {
+    if (!ctx.hazards) return
+
+    for (const bullet of ctx.player.bullets) {
+      if (!bullet.active) continue
+      const bRect: Rect = { x: bullet.x, y: bullet.y, width: bullet.width, height: bullet.height }
+
+      // 1. Bullets vs Sea Mines
+      for (let i = 0; i < ctx.hazards.mines.length; i++) {
+        const mine = ctx.hazards.mines[i]
+        if (!mine.active) continue
+        const mRect: Rect = { x: mine.x, y: mine.y, width: mine.width, height: mine.height }
+
+        if (CollisionSystem.checkAABB(bRect, mRect)) {
+          bullet.active = false
+          mine.active = false
+          ctx.fx.bigExplosion(mine.x, mine.y, '#ff4400')
+          ctx.fx.addShake(4, 0.2)
+          ctx.sound.explosion()
+          ctx.registerHit()
+          ctx.addScore(mine.points * ctx.comboMultiplier)
+          ctx.fx.scorePopup(mine.x, mine.y - 10, `+${mine.points * ctx.comboMultiplier}`)
+
+          // Chain reaction to adjacent mines. Score/FX for the chained mines is
+          // awarded by the detonation callback when their fuse actually expires,
+          // so every detonation path (bullet, laser, cascade) pays out once.
+          ctx.hazards.triggerMineChain(i)
+
+          // Enemies caught in the blast — same helper the cascade uses.
+          CollisionSystem.destroyEnemiesInRadius(ctx, mine.x, mine.y, MINE_CHAIN_RADIUS, '#ffaa00')
+          break
+        }
+      }
+
+      if (!bullet.active) continue
+
+      // 2. Bullets vs Shore Bunkers
+      for (const bunker of ctx.hazards.bunkers) {
+        if (!bunker.active) continue
+        const bunkerRect: Rect = { x: bunker.x, y: bunker.y, width: bunker.width, height: bunker.height }
+
+        if (CollisionSystem.checkAABB(bRect, bunkerRect)) {
+          bullet.active = false
+          bunker.hp -= 1
+          bunker.damageFlashTimer = 0.1
+          ctx.fx.bulletSpark(bullet.x, bullet.y, '#ffaa00')
+          ctx.sound.enemyHit()
+          ctx.registerHit()
+
+          if (bunker.hp <= 0) {
+            bunker.active = false
+            ctx.fx.bigExplosion(bunker.x, bunker.y, '#ff5500')
+            ctx.fx.deathSmoke(bunker.x, bunker.y)
+            ctx.sound.explosion()
+            ctx.addScore(bunker.points * ctx.comboMultiplier)
+            ctx.fx.scorePopup(bunker.x, bunker.y - 15, `+${bunker.points * ctx.comboMultiplier}`)
+          }
+          break
+        }
+      }
+    }
+  }
+
   private static checkOverdriveLaser(ctx: CollisionContext): void {
     if (!ctx.player.overdriveActive) return
 
@@ -435,6 +586,42 @@ export class CollisionSystem {
           ctx.sound.explosion()
           ctx.addScore(boss.points * ctx.comboMultiplier)
           ctx.fx.scorePopup(boss.x, boss.y - 20, `+${boss.points * ctx.comboMultiplier}`)
+        }
+      }
+    }
+
+    // 3. Detonate mines & damage bunkers in beam path
+    if (ctx.hazards) {
+      for (let i = 0; i < ctx.hazards.mines.length; i++) {
+        const mine = ctx.hazards.mines[i]
+        if (!mine.active) continue
+        const mRect: Rect = { x: mine.x, y: mine.y, width: mine.width, height: mine.height }
+        if (CollisionSystem.checkAABB(beamRect, mRect)) {
+          mine.active = false
+          ctx.fx.bigExplosion(mine.x, mine.y, '#00ffff')
+          ctx.sound.explosion()
+          ctx.registerHit()
+          ctx.addScore(mine.points * ctx.comboMultiplier)
+          ctx.fx.scorePopup(mine.x, mine.y - 10, `+${mine.points * ctx.comboMultiplier}`)
+          ctx.hazards.triggerMineChain(i)
+          CollisionSystem.destroyEnemiesInRadius(ctx, mine.x, mine.y, MINE_CHAIN_RADIUS, '#00ffff')
+        }
+      }
+
+      for (const bunker of ctx.hazards.bunkers) {
+        if (!bunker.active) continue
+        const bunkerRect: Rect = { x: bunker.x, y: bunker.y, width: bunker.width, height: bunker.height }
+        if (CollisionSystem.checkAABB(beamRect, bunkerRect)) {
+          bunker.hp -= OVERDRIVE_LASER_DPS * (ctx.dt ?? DEFAULT_DT)
+          bunker.damageFlashTimer = 0.08
+          ctx.fx.bulletSpark(bunker.x, bunker.y, '#00ffff')
+          if (bunker.hp <= 0) {
+            bunker.active = false
+            ctx.fx.bigExplosion(bunker.x, bunker.y, '#00ffff')
+            ctx.sound.explosion()
+            ctx.addScore(bunker.points * ctx.comboMultiplier)
+            ctx.fx.scorePopup(bunker.x, bunker.y - 15, `+${bunker.points * ctx.comboMultiplier}`)
+          }
         }
       }
     }

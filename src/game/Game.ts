@@ -17,6 +17,9 @@ import { LightingSystem } from './LightingSystem'
 import { OverdriveSystem } from './OverdriveSystem'
 import { BossDreadnought } from './BossDreadnought'
 import { BossRenderer } from './BossRenderer'
+import { HazardManager } from './HazardManager'
+import type { BunkerBulletSpawn, SeaMine } from './HazardManager'
+import { HazardRenderer } from './HazardRenderer'
 import { readSecureNumber, writeSecureNumber } from './StorageService'
 import { ScoringSystem } from './ScoringSystem'
 import { GameState } from './GameState'
@@ -35,7 +38,8 @@ import {
   SHOCKWAVE_MAX_RADIUS_RATIO, SHOCKWAVE_BASE_ALPHA,
   DISTANCE_PX_PER_METER,
   EXTRA_LIFE_SCORE_INTERVAL, NEAR_MISS_DISTANCE, NEAR_MISS_POINTS, NEAR_MISS_COOLDOWN,
-  BOSS_SPAWN_INTERVAL, BOSS_HEIGHT,
+  BOSS_SPAWN_INTERVAL,
+  MINE_CHAIN_RADIUS, BOSS_HEIGHT,
   BOSS_FIGHT_SCROLL_FACTOR, BOSS_FIGHT_MIN_SCROLL_SPEED,
   DIFFICULTY_PRESETS, type Difficulty, type DifficultyPreset,
 } from './constants'
@@ -72,6 +76,8 @@ export class Game {
   atmosphere: Atmosphere
   weather: WeatherSystem
   lighting: LightingSystem
+  hazards: HazardManager
+  private hazardRenderer = new HazardRenderer()
   overdrive = new OverdriveSystem()
   boss: BossDreadnought | null = null
   private bossRenderer = new BossRenderer()
@@ -79,6 +85,27 @@ export class Game {
   /** Bound once — the boss update runs every frame and must not allocate. */
   private spawnBossBullet = (b: { x: number; y: number; vx: number; speed: number; fromPlane: boolean }): void => {
     this.enemyManager.spawnEnemyBullet(b)
+  }
+  /** Bound once — hazards update every frame and must not allocate. */
+  private spawnHazardBullet = (b: BunkerBulletSpawn): void => {
+    this.enemyManager.spawnEnemyBullet(b)
+  }
+  /**
+   * Every chained mine detonation passes through here — the one place a cascade
+   * pays out, so bullet, laser and cascade all award score once and destroy the
+   * enemies caught in the blast through the same path a direct hit uses.
+   */
+  private detonateChainedMine = (mine: SeaMine): void => {
+    this.fx.bigExplosion(mine.x, mine.y, '#ff4400')
+    this.sound.explosion()
+    const points = mine.points * this.comboMultiplier
+    this.scoring.addScore(points)
+    this.objectives.onScoreGained(points)
+    this.fx.scorePopup(mine.x, mine.y - 10, `+${points}`)
+
+    const ctx = this.getCollisionContext()
+    ctx.comboMultiplier = this.comboMultiplier
+    CollisionSystem.destroyEnemiesInRadius(ctx, mine.x, mine.y, MINE_CHAIN_RADIUS, '#ffaa00')
   }
   // Reused HUD payloads: render() runs 60x/s and must not allocate.
   private bossHud: BossHudData = { healthRatio: 1, phase: 1, isAlive: false }
@@ -151,6 +178,7 @@ export class Game {
     this.atmosphere = new Atmosphere(canvas.width, canvas.height)
     this.weather = new WeatherSystem(canvas.width, canvas.height, this.random)
     this.lighting = new LightingSystem(canvas.width, canvas.height)
+    this.hazards = new HazardManager(canvas.width, canvas.height, this.random)
     this.objectives = new ObjectiveSystem(this.random, (points) => {
       this.scoring.addScore(points)
     }, objectiveProfile)
@@ -330,6 +358,8 @@ export class Game {
     this.scenery.reset(this.canvas.width, this.canvas.height)
     this.atmosphere.reset(this.canvas.width, this.canvas.height)
     this.weather.reset()
+    this.lighting.resetHeadlight()
+    this.hazards.reset(this.canvas.width, this.canvas.height)
     this.overdrive.reset()
     this.boss = null
     this.bossSpawnTimer = BOSS_SPAWN_INTERVAL
@@ -519,9 +549,26 @@ export class Game {
     this.atmosphere.setSnow(snow)
     this.atmosphere.update(dt, this.scrollSpeed, biomeCfg.basePalette)
     this.weather.update(dt, this.scrollSpeed, biomeCfg.weatherType, this.reducedMotion)
+    // Farol só de noite — e a troca é animada (warm-up piscante / fade ao apagar).
+    this.lighting.updateHeadlight(dt, this.atmosphere.isNight(), this.reducedMotion)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
     this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
+
+    // Apply whirlpool physical suction if player flies above a vortex. The vortex
+    // is environmental, so it scales with `envDt`, and the displacement is
+    // re-clamped: `Player.update` already clamped, so an unclamped shove here
+    // could drop the ship into the bank (instant death) or off the travel range.
+    const wpForce = this.hazards.applyWhirlpoolForces(this.player.x, this.player.y)
+    if (wpForce.fx !== 0 || wpForce.fy !== 0) {
+      this.player.x = this.world.clampToRiver(
+        this.player.x + wpForce.fx * envDt,
+        this.player.y,
+        this.player.width / 2,
+      )
+      this.player.y = this.player.clampY(this.player.y + wpForce.fy * envDt)
+    }
+
     const halfWidth = this.player.width / 2
     const isInsideRiver = (this.player.x - halfWidth) >= bounds.left + 4 && (this.player.x + halfWidth) <= bounds.right - 4
     this.objectives.onRiverFrame(dt, isInsideRiver)
@@ -531,6 +578,17 @@ export class Game {
     // Overdrive system update — isActive is already false on the expiring frame.
     this.overdrive.update(envDt)
     this.player.overdriveActive = this.overdrive.isActive
+
+    // Environmental Hazards update (Sea Mines, Whirlpools, Shore Bunkers)
+    this.hazards.update(
+      envDt,
+      this.scrollSpeed,
+      this.world,
+      this.player.x,
+      this.player.y,
+      this.spawnHazardBullet,
+      this.detonateChainedMine,
+    )
 
     // Boss spawn & update cycle
     if (!this.boss) {
@@ -674,6 +732,7 @@ export class Game {
           const desc = this.locale?.powerupDescs[type]
           if (name) this.ui.pushToast(name, desc ?? '')
         },
+        hazards: this.hazards,
         // `boss` and `dt` are refreshed per frame in resolveGameplayCollisions.
         random: this.random,
       }
@@ -685,6 +744,7 @@ export class Game {
     const ctx = this.getCollisionContext()
     ctx.comboMultiplier = this.comboMultiplier
     ctx.boss = this.boss
+    ctx.hazards = this.hazards
     ctx.dt = envDt
     CollisionSystem.resolveCollisions(ctx)
   }
@@ -740,6 +800,8 @@ export class Game {
     this.scenery.render(this.ctx, palette.brightness)
     // Parallax clouds — above scenery, below gameplay entities
     this.atmosphere.renderClouds(this.ctx)
+    // Environmental hazards (Whirlpools, Sea Mines, Shore Bunkers)
+    this.hazardRenderer.render(this.ctx, this.hazards, this.reducedMotion)
     // Gameplay entities always remain bright for readability
     this.fuelSystem.render(this.ctx)
     this.powerUpSystem.render(this.ctx)
