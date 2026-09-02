@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { SoundManager } from './SoundManager'
 import { mockAudioContext } from './test-helpers/audio'
 
@@ -156,6 +156,91 @@ describe('SoundManager', () => {
 
     it('powerUpMagnet nao falha sem ctx', () => {
       expect(() => sm.powerUpMagnet()).not.toThrow()
+    })
+  })
+
+  // Política de autoplay: o contexto nasce suspenso e, no WebKit, só destrava
+  // se `resume()` for chamado dentro do handler do gesto.
+  describe('unlock por gesto do usuario', () => {
+    type FakeCtx = { state: string; resume: ReturnType<typeof vi.fn>; createOscillator: ReturnType<typeof vi.fn> }
+    const ctxOf = (s: SoundManager) => (s as unknown as { ctx: FakeCtx }).ctx
+
+    beforeEach(() => {
+      mockAudioContext()
+      sm = new SoundManager()
+    })
+
+    afterEach(() => {
+      sm.destroy()
+    })
+
+    it('o primeiro gesto retoma um contexto suspenso', () => {
+      sm.init()
+      const ctx = ctxOf(sm)
+      ctx.state = 'suspended'
+      ctx.resume.mockClear()
+
+      window.dispatchEvent(new Event('pointerdown'))
+
+      expect(ctx.resume).toHaveBeenCalled()
+    })
+
+    it('teclado e toque tambem destravam', () => {
+      sm.init()
+      const ctx = ctxOf(sm)
+      ctx.state = 'suspended'
+      ctx.resume.mockClear()
+
+      window.dispatchEvent(new Event('keydown'))
+      window.dispatchEvent(new Event('touchend'))
+
+      expect(ctx.resume).toHaveBeenCalledTimes(2)
+    })
+
+    it('para de escutar assim que o contexto volta a rodar', () => {
+      sm.init()
+      const ctx = ctxOf(sm)
+      window.dispatchEvent(new Event('pointerdown')) // ja running: remove os listeners
+      ctx.state = 'suspended'
+      ctx.resume.mockClear()
+
+      window.dispatchEvent(new Event('pointerdown'))
+
+      expect(ctx.resume).not.toHaveBeenCalled()
+    })
+
+    it('destroy remove os listeners, sem recriar o contexto no gesto seguinte', () => {
+      sm.init()
+      sm.destroy()
+
+      window.dispatchEvent(new Event('pointerdown'))
+
+      expect(ctxOf(sm)).toBeNull()
+    })
+
+    it('nao empilha notas enquanto o contexto esta suspenso', () => {
+      vi.useFakeTimers()
+      try {
+        sm.init()
+        const ctx = ctxOf(sm)
+        ctx.state = 'suspended'
+
+        sm.startMusic('forest')
+        vi.advanceTimersByTime(2000)
+
+        expect(ctx.createOscillator).not.toHaveBeenCalled()
+        // o passo nao avanca: a trilha comeca do inicio quando o audio liberar
+        expect((sm as unknown as { musicStep: number }).musicStep).toBe(0)
+
+        // liberado, o sequenciador ja agendado retoma sozinho
+        ctx.state = 'running'
+        vi.advanceTimersByTime(200)
+        expect(ctx.createOscillator).toHaveBeenCalled()
+
+        sm.stopMusic()
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 
