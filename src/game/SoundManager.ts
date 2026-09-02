@@ -307,6 +307,13 @@ export class SoundManager {
 
   private static readonly STEPS_PER_BAR = 16
   private static readonly VOLUME_RAMP_SEC = 0.05
+  /**
+   * `touchend` além de `pointerdown` porque o WebKit só considera o gesto
+   * concluído no fim do toque; `keydown` cobre quem inicia a partida no teclado.
+   */
+  private static readonly GESTURE_EVENTS = ['pointerdown', 'touchend', 'keydown'] as const
+
+  private gestureUnlockAttached = false
 
   init(): void {
     if (this.ctx && this.ctx.state !== 'closed') return
@@ -358,6 +365,54 @@ export class SoundManager {
     this.speech.setEnabled(this.voiceEnabled)
     this.speech.setVolume(this.voiceVolume)
     this.speech.setMuted(this.muted)
+
+    this.attachGestureUnlock()
+  }
+
+  /**
+   * Política de autoplay: um `AudioContext` criado antes de qualquer interação
+   * nasce `suspended`. O sequenciador chama `resume()` a cada passo, mas isso
+   * roda fora do handler do gesto — o Chrome aceita (basta a página já ter tido
+   * alguma interação), o WebKit não: lá o áudio só destrava se `resume()` for
+   * chamado DENTRO do evento do gesto. Sem isso a partida começava muda e só
+   * um reload (com a página já "engajada") devolvia o som.
+   *
+   * Os listeners ficam em `window` na fase de captura para não dependerem de
+   * `stopPropagation` de nenhum componente, e se removem sozinhos assim que o
+   * contexto chega a `running`.
+   */
+  private attachGestureUnlock(): void {
+    if (this.gestureUnlockAttached || typeof window === 'undefined') return
+    this.gestureUnlockAttached = true
+    for (const type of SoundManager.GESTURE_EVENTS) {
+      window.addEventListener(type, this.handleUserGesture, { capture: true, passive: true })
+    }
+  }
+
+  private detachGestureUnlock(): void {
+    if (!this.gestureUnlockAttached || typeof window === 'undefined') return
+    this.gestureUnlockAttached = false
+    for (const type of SoundManager.GESTURE_EVENTS) {
+      window.removeEventListener(type, this.handleUserGesture, { capture: true })
+    }
+  }
+
+  private handleUserGesture = (): void => {
+    if (!this.ctx || this.ctx.state === 'closed') this.init()
+    const ctx = this.ctx
+    if (!ctx) return
+    if (ctx.state === 'running') {
+      this.detachGestureUnlock()
+      return
+    }
+    // Chamada síncrona dentro do gesto — é o que o WebKit exige.
+    void Promise.resolve(ctx.resume())
+      .then(() => {
+        if (this.ctx?.state === 'running') this.detachGestureUnlock()
+      })
+      .catch(() => {
+        // Gesto recusado; o próximo tenta de novo.
+      })
   }
 
   resume(): void {
@@ -365,7 +420,10 @@ export class SoundManager {
       this.init()
     }
     if (this.ctx && (this.ctx.state === 'suspended' || this.ctx.state === 'interrupted')) {
-      void this.ctx.resume().catch(() => {
+      // Fora de um gesto o navegador pode ignorar o resume; rearma o unlock
+      // para que a próxima interação do jogador destrave o áudio.
+      this.attachGestureUnlock()
+      void Promise.resolve(this.ctx.resume()).catch(() => {
         if (this.ctx?.state === 'closed') this.recreateContext()
       })
     }
@@ -650,6 +708,18 @@ export class SoundManager {
     if (!ctx || !this.masterGain || !this.active) return
 
     const { track, compiled, totalSteps } = this.active
+
+    // Contexto ainda travado pela política de autoplay: `currentTime` está
+    // congelado, então agendar aqui empilharia a trilha inteira no mesmo
+    // instante — ao destravar, tudo tocaria de uma vez e a música entraria
+    // fora de fase. Mantém o passo atual e só reagenda até liberar.
+    if (ctx.state !== 'running') {
+      this.musicTimer = window.setTimeout(() => {
+        this.playMusicStep()
+      }, track.stepMs)
+      return
+    }
+
     const start = ctx.currentTime + 0.02
     const stepSec = track.stepMs / 1000
     const step = this.musicStep % totalSteps
@@ -1062,6 +1132,7 @@ export class SoundManager {
   }
 
   destroy(): void {
+    this.detachGestureUnlock()
     this.stopMusic()
     if (this.crossfadeTimer !== null) {
       window.clearTimeout(this.crossfadeTimer)
