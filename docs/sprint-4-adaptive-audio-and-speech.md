@@ -12,9 +12,9 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ### [x] Task 4.1: Configurações, Persistência e Internacionalização dos Canais de Áudio
 - **Arquivos impactados:**
-  - [SettingsService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.ts)
-  - [SettingsService.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.test.ts)
-  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
+  - [SettingsService.ts](../src/game/SettingsService.ts)
+  - [SettingsService.test.ts](../src/game/SettingsService.test.ts)
+  - [i18n.ts](../src/i18n.ts)
 - **Entregas:**
   - Campos `musicVolume`, `sfxVolume`, `voiceVolume`, `voiceEnabled` adicionados ao modelo `GameSettings`, `DEFAULT_SETTINGS` e métodos `getStoredSettings()` / `saveStoredSettings()`.
   - Chaves de tradução em inglês (`en`) e português (`pt-BR`).
@@ -23,8 +23,8 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ### [x] Task 4.2: Motor de Síntese de Voz Retrô 8-Bit (`SpeechSynth8Bit.ts`)
 - **Arquivos impactados:**
-  - [SpeechSynth8Bit.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpeechSynth8Bit.ts)
-  - [SpeechSynth8Bit.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpeechSynth8Bit.test.ts)
+  - [SpeechSynth8Bit.ts](../src/game/SpeechSynth8Bit.ts)
+  - [SpeechSynth8Bit.test.ts](../src/game/SpeechSynth8Bit.test.ts)
 - **Entregas:**
   - Síntese de formantes procedurais (F1/F2 filtros ressonantes + oscilador glótico em pulso dente de serra + modulação de ruído branco com envelope dedicado).
   - Suporte Bilíngue (`en` e `pt-BR`): Formantes e fonemas em Português (*"Alerta Combustível"*, *"Combo Máximo"*, *"Alerta Chefe"*, *"Sobrecarga Pronta"*, *"Missão Concluída"*) e Inglês.
@@ -34,8 +34,8 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ### [x] Task 4.3: Canais de Áudio, Intensidade Adaptativa e Filtros por Bioma
 - **Arquivos impactados:**
-  - [SoundManager.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.ts)
-  - [SoundManager.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SoundManager.test.ts)
+  - [SoundManager.ts](../src/game/SoundManager.ts)
+  - [SoundManager.test.ts](../src/game/SoundManager.test.ts)
 - **Entregas:**
   - Árvore de canais Web Audio API (`musicGain`, `sfxGain`, `voiceGain`, `musicFilter`, `sfxFilter`).
   - Recuperação robusta de contexto de áudio em `resume()` e `init()` quando o estado estiver em `closed`.
@@ -50,9 +50,9 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ### [x] Task 4.4: Controles de Áudio no Menu React & Opções de Volume
 - **Arquivos impactados:**
-  - [SettingsScreen.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/SettingsScreen.tsx)
-  - [GameCanvas.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/GameCanvas.tsx)
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [SettingsScreen.tsx](../src/components/SettingsScreen.tsx)
+  - [GameCanvas.tsx](../src/components/GameCanvas.tsx)
+  - [Game.ts](../src/game/Game.ts)
 - **Entregas:**
   - Sliders para Volume Master, Volume da Música, Volume de Efeitos (SFX) e Volume da Voz.
   - Checkbox para ativar/desativar Síntese de Voz Retrô 8-Bit.
@@ -62,8 +62,8 @@ Transformar a experiência sonora do jogo em uma trilha viva e imersiva através
 
 ### [x] Task 4.5: Disparadores de Voz e Loop de Jogo
 - **Arquivos impactados:**
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
-  - [Game.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.test.ts)
+  - [Game.ts](../src/game/Game.ts)
+  - [Game.test.ts](../src/game/Game.test.ts)
 - **Entregas:**
   - Disparo de aviso de combustível baixo ao atingir `<= 20%`.
   - Disparo de aviso *"Combo Max"* ao atingir multiplicador 4x.

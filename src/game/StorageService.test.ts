@@ -4,6 +4,7 @@ import {
   writeSecureJSON,
   readSecureNumber,
   writeSecureNumber,
+  removeSecure,
 } from './StorageService'
 
 beforeEach(() => {
@@ -53,5 +54,15 @@ describe('StorageService', () => {
     const envelope = localStorage.getItem('keyA')!
     localStorage.setItem('keyB', envelope)
     expect(readSecureJSON('keyB', 'fallback')).toBe('fallback')
+  })
+
+  it('removeSecure apaga um valor persistido', () => {
+    writeSecureJSON('k', { secret: 1 })
+    expect(localStorage.getItem('k')).not.toBeNull()
+
+    removeSecure('k')
+
+    expect(localStorage.getItem('k')).toBeNull()
+    expect(readSecureJSON('k', 'fallback')).toBe('fallback')
   })
 })

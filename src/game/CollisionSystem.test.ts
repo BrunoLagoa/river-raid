@@ -121,6 +121,49 @@ describe('CollisionSystem', () => {
     expect(ctx.player.explode).not.toHaveBeenCalled()
   })
 
+  it('quebra de escudo protege contra a segunda bala no mesmo frame', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    ctx.player.breakShield = vi.fn(() => {
+      ctx.player.shieldActive = false
+      ctx.player.invincibilityTimer = 1.5
+    })
+
+    const bullet = () => ({
+      x: 100, y: 100, width: 4, height: 8, speed: 220, vx: 0, active: true, fromPlane: false,
+    })
+    ctx.enemyManager.bullets.push(bullet(), bullet())
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.breakShield).toHaveBeenCalledTimes(1)
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).not.toHaveBeenCalled()
+  })
+
+  it('quebra de escudo protege contra a segunda mina no mesmo frame', () => {
+    const ctx = makeCtx()
+    ctx.player.shieldActive = true
+    ctx.player.breakShield = vi.fn(() => {
+      ctx.player.shieldActive = false
+      ctx.player.invincibilityTimer = 1.5
+    })
+
+    ctx.hazards = {
+      mines: [
+        { x: 100, y: 100, width: 16, height: 16, active: true, points: 50 },
+        { x: 100, y: 100, width: 16, height: 16, active: true, points: 50 },
+      ],
+      bunkers: [],
+    } as unknown as HazardManager
+
+    CollisionSystem.resolveCollisions(ctx)
+
+    expect(ctx.player.breakShield).toHaveBeenCalledTimes(1)
+    expect(ctx.player.explode).not.toHaveBeenCalled()
+    expect(ctx.handlePlayerDeath).not.toHaveBeenCalled()
+  })
+
   it('coleta power-up de slow motion e registra score', () => {
     const ctx = makeCtx()
     ctx.powerUpSystem.powerUps.push({ type: 'slow_motion', x: 100, y: 100, width: 16, height: 16, active: true })

@@ -125,4 +125,14 @@ describe('SpeechSynth8Bit', () => {
     synth.reset()
     expect(synth.playMissionComplete()).toBe(true)
   })
+
+  it('anuncia o início da missão nos dois idiomas, com cooldown próprio', () => {
+    synth.init(mockAudio.ctx, mockAudio.destination)
+    expect(synth.playMissionStart()).toBe(true)
+    expect(synth.playMissionStart()).toBe(false)
+
+    synth.setLanguage('pt-BR')
+    synth.reset()
+    expect(synth.playMissionStart()).toBe(true)
+  })
 })

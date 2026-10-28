@@ -66,8 +66,7 @@ describe('World', () => {
     expect(state.targetRight - state.targetLeft).toBeGreaterThanOrEqual(90)
   })
 
-  it('recicla waterline para topo com novo x aleatorio', () => {
-    const w = new World(800, 600, () => 0.25)
+  it('recicla waterline para topo com novo x aleatorio', () => {    const w = new World(800, 600, () => 0.25)
 
     const state = w as unknown as {
       waterLines: Array<{ x: number; y: number; length: number; speedRatio: number }>
@@ -132,6 +131,47 @@ describe('World', () => {
 
     expect(ctx.fillRect).toHaveBeenCalled()
     expect(addColorStop).toHaveBeenCalled()
+  })
+
+  it('render recria o gradiente quando a paleta de profundidade muda', () => {
+    const w = new World(800, 600)
+    const addColorStop = vi.fn()
+    const createLinearGradient = vi.fn(() => ({ addColorStop }))
+    const ctx = {
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      fillRect: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      createLinearGradient,
+    } as unknown as CanvasRenderingContext2D
+
+    const palette = (waterDepth: string) => ({
+      landBase: '#1',
+      landEdgeDark: '#2',
+      landEdgeBright: '#3',
+      waterBase: '#4',
+      waterFlow: '#5',
+      waterWave: '#6',
+      waterDepth,
+      shimmer: '#8',
+      brightness: 1,
+    })
+
+    w.render(ctx, palette('rgba(0, 10, 40, 0.15)'))
+    w.render(ctx, palette('rgba(40, 0, 10, 0.3)'))
+
+    // One build on the first frame, one after the palette changed. The bug was
+    // that lastPaletteDepth was assigned before the cache check, freezing the
+    // gradient on the first palette forever.
+    expect(createLinearGradient).toHaveBeenCalledTimes(2)
   })
 
   it('update gera segmentos quando lista esta vazia', () => {
@@ -214,6 +254,23 @@ describe('World', () => {
     } as unknown as CanvasRenderingContext2D
 
     expect(() => w.render(ctx)).not.toThrow()
+  })
+
+  it('holdCourse segura o traçado pelos próximos pixels e depois devolve as curvas', () => {
+    const w = new World(800, 600, createSeededRandom(7))
+    // Sai do trecho reto inicial e entra no regime de curvas sorteadas.
+    for (let i = 0; i < 200; i++) w.update(0.05, 200)
+
+    w.holdCourse(1000)
+    // 800 px gerados: todo o trecho novo mantém centro e largura.
+    for (let i = 0; i < 80; i++) w.update(0.05, 200)
+    const held = w.segments.slice(-350)
+    expect(held.every((s) => s.centerX === held[0].centerX && s.width === held[0].width)).toBe(true)
+
+    // Passado o trecho segurado, a geração volta a sortear curvas.
+    for (let i = 0; i < 400; i++) w.update(0.05, 200)
+    const shapes = new Set(w.segments.map((s) => `${s.centerX}:${s.width}`))
+    expect(shapes.size).toBeGreaterThan(1)
   })
 
 })

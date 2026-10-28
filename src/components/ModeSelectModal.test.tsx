@@ -19,6 +19,10 @@ describe('ModeSelectModal', () => {
     render(<ModeSelectModal isOpen={true} onClose={onClose} onSelectMode={onSelectMode} locale={t} />)
 
     expect(screen.getByText(t.modeSelectTitle)).toBeDefined()
+    expect(screen.getByRole('dialog', { name: t.modeSelectTitle })).toBeTruthy()
+    expect(screen.getByText(t.modeSelected)).toBeDefined()
+    expect(screen.getByText(t.modeTag3Lives)).toBeDefined()
+    expect(screen.getByText(t.modeTagRadar)).toBeDefined()
     expect(screen.getByText(t.modeClassicName)).toBeDefined()
     expect(screen.getByText(t.modeHardcoreName)).toBeDefined()
     expect(screen.getByText(t.modeBossRushName)).toBeDefined()

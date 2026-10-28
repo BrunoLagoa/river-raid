@@ -8,6 +8,7 @@
 //   • desert     — miragem exótica, cadência andaluza + cor frígia-dom., 150 BPM
 //   • industrial — céu de ferro, Mi frígio sombrio, four-on-the-floor, 167 BPM
 //   • menu        — synthwave neon, Lá menor sonhador, 100 BPM
+//   • intro       — tema da cinemática, Ré menor em meio-tempo, 80 BPM
 // Apenas o som de fundo usa estes dados; os demais SFX permanecem como antes.
 // ---------------------------------------------------------------------------
 
@@ -271,6 +272,49 @@ const MENU_TRACK: MusicTrack = {
   ],
 }
 
+// --- Tema da cinemática de abertura: Ré menor em meio-tempo (80 BPM) ---------
+// Mesmo tom da floresta (Ré menor/dórico, 160 BPM) na metade do andamento: a
+// percussão pesada do clímax cai exatamente no pulso da trilha de jogo, e a
+// troca para a floresta na transição soa como entrada, não como corte. Sem
+// bateria própria — o roteiro liga as camadas adaptativas (filtro abafado na
+// ameaça, percussão pesada e arpejos no clímax) e o "modo noturno" suaviza o
+// timbre enquanto é noite.
+// i – VI – III – VII | i – VI – iv – V   (Dm | Bb | F | C | Dm | Bb | Gm | A)
+const INTRO_TRACK: MusicTrack = {
+  stepMs: 188,
+  leadType: 'square',
+  drums: 'none',
+  lead: [
+    // 1 · Dm — chamado longo, quase uma sirene distante
+    'D4', '.', '.', '.', '.', '.', '.', '.', 'A4', '.', '.', '.', 'F4', '.', 'E4', '.',
+    // 2 · Bb — sustenta e deixa o silêncio respirar
+    'D4', '.', '.', '.', '.', '.', '.', '.', '-', '.', '.', '.', '.', '.', '.', '.',
+    // 3 · F — primeira luz
+    'C5', '.', '.', '.', '.', '.', '.', '.', 'A4', '.', '.', '.', 'F4', '.', 'G4', '.',
+    // 4 · C — pergunta suspensa
+    'E4', '.', '.', '.', '.', '.', '.', '.', '-', '.', '.', '.', 'G4', '.', '.', '.',
+    // 5 · Dm — o tema sobe uma oitava
+    'A4', '.', '.', '.', '.', '.', '.', '.', 'D5', '.', '.', '.', 'C5', '.', 'A4', '.',
+    // 6 · Bb — resposta heroica
+    'Bb4', '.', '.', '.', '.', '.', '.', '.', 'F4', '.', '.', '.', 'D5', '.', '.', '.',
+    // 7 · Gm — escalada em arpejo
+    'G4', '.', '.', '.', 'Bb4', '.', '.', '.', 'D5', '.', '.', '.', 'G5', '.', '.', '.',
+    // 8 · A — dominante maior (Dó#) que pede o recomeço
+    'E5', '.', '.', '.', '.', '.', '.', '.', 'Db5', '.', '.', '.', 'A4', '.', '.', '.',
+  ],
+  bassRoots: ['D2', 'Bb1', 'F2', 'C2', 'D2', 'Bb1', 'G2', 'A1'],
+  padChords: [
+    ['D3', 'F3', 'A3'],   // Dm
+    ['D3', 'F3', 'Bb3'],  // Bb
+    ['F3', 'A3', 'C4'],   // F
+    ['E3', 'G3', 'C4'],   // C
+    ['D3', 'F3', 'A3'],   // Dm
+    ['D3', 'F3', 'Bb3'],  // Bb
+    ['D3', 'G3', 'Bb3'],  // Gm
+    ['A3', 'Db4', 'E4'],  // A
+  ],
+}
+
 import { SpeechSynth8Bit } from './SpeechSynth8Bit'
 import type { BiomeId } from './BiomeSystem'
 
@@ -312,6 +356,8 @@ export class SoundManager {
    * concluído no fim do toque; `keydown` cobre quem inicia a partida no teclado.
    */
   private static readonly GESTURE_EVENTS = ['pointerdown', 'touchend', 'keydown'] as const
+  /** Sirene de alerta: dois tons alternados. */
+  private static readonly ALARM_TONES: readonly number[] = [440, 620, 440, 620]
 
   private gestureUnlockAttached = false
 
@@ -536,9 +582,15 @@ export class SoundManager {
   setDynamicIntensity(intensity: { comboMax: boolean; lowFuel: boolean; inBossFight: boolean }): void {
     // Chamado a cada frame pelo loop do jogo: ignora chamadas redundantes, senão o
     // AudioParam receberia automações agendadas à toa 60x/s.
-    const prev = this.dynamicIntensity
-    if (prev.comboMax === intensity.comboMax && prev.lowFuel === intensity.lowFuel && prev.inBossFight === intensity.inBossFight) return
-    this.dynamicIntensity = intensity
+    const current = this.dynamicIntensity
+    if (current.comboMax === intensity.comboMax && current.lowFuel === intensity.lowFuel && current.inBossFight === intensity.inBossFight) return
+    // Copia os valores em vez de guardar a referência: o Game reaproveita o mesmo
+    // objeto a cada frame, e guardá-lo fazia a comparação acima enxergar "sem
+    // mudança" para sempre depois da primeira troca — o filtro de combustível
+    // baixo ficava preso em 650 Hz pelo resto da partida.
+    current.comboMax = intensity.comboMax
+    current.lowFuel = intensity.lowFuel
+    current.inBossFight = intensity.inBossFight
     if (this.ctx && this.musicFilter?.frequency) {
       const now = this.ctx.currentTime
       const targetFreq = intensity.lowFuel ? 650 : 20000
@@ -632,6 +684,11 @@ export class SoundManager {
   // Trilha de menu — synthwave neon, sonhador.
   startMenuMusic(): void {
     this.playTrack(MENU_TRACK)
+  }
+
+  // Tema da cinemática de abertura — Ré menor em meio-tempo.
+  startIntroMusic(): void {
+    this.playTrack(INTRO_TRACK)
   }
 
   private playTrack(track: MusicTrack): void {
@@ -1105,6 +1162,117 @@ export class SoundManager {
       osc.start(start)
       osc.stop(start + 0.1)
     })
+  }
+
+  /** Estalo de rádio (squelch) + bipe de canal aberto — abre cada transmissão do QG. */
+  radioClick(): void {
+    const ctx = this.ensureCtx()
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
+
+    const dur = 0.09
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / data.length)
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.setValueAtTime(1900, ctx.currentTime)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.16, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+    noise.connect(filter)
+    filter.connect(gain)
+    gain.connect(output)
+    noise.start(ctx.currentTime)
+    noise.stop(ctx.currentTime + dur)
+
+    const beepAt = ctx.currentTime + 0.07
+    const osc = ctx.createOscillator()
+    const beep = ctx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(1250, beepAt)
+    beep.gain.setValueAtTime(0.05, beepAt)
+    beep.gain.exponentialRampToValueAtTime(0.001, beepAt + 0.06)
+    osc.connect(beep)
+    beep.connect(output)
+    osc.start(beepAt)
+    osc.stop(beepAt + 0.06)
+  }
+
+  /** Bipe duplo de radar ao travar a mira num contato. */
+  radarPing(): void {
+    const ctx = this.ensureCtx()
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
+
+    for (let i = 0; i < 2; i++) {
+      const start = ctx.currentTime + i * 0.13
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(1320, start)
+      osc.frequency.exponentialRampToValueAtTime(990, start + 0.16)
+      gain.gain.setValueAtTime(i === 0 ? 0.12 : 0.05, start)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2)
+      osc.connect(gain)
+      gain.connect(output)
+      osc.start(start)
+      osc.stop(start + 0.2)
+    }
+  }
+
+  /** Rasante de jato: ruído varrido por um passa-banda que sobe e desce. */
+  jetFlyby(intensity = 1): void {
+    const ctx = this.ensureCtx()
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
+
+    const dur = 1.5
+    const now = ctx.currentTime
+    const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.setValueAtTime(260, now)
+    filter.frequency.exponentialRampToValueAtTime(2600, now + dur * 0.55)
+    filter.frequency.exponentialRampToValueAtTime(700, now + dur)
+    const gain = ctx.createGain()
+    const peak = Math.max(0.002, 0.3 * Math.max(0, Math.min(1, intensity)))
+    gain.gain.setValueAtTime(0.001, now)
+    gain.gain.exponentialRampToValueAtTime(peak, now + dur * 0.5)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + dur)
+    noise.connect(filter)
+    filter.connect(gain)
+    gain.connect(output)
+    noise.start(now)
+    noise.stop(now + dur)
+  }
+
+  /** Sirene de dois tons — alerta de contato desconhecido. */
+  alarm(): void {
+    const ctx = this.ensureCtx()
+    const output = this.getSfxOutput()
+    if (!ctx || !output) return
+
+    const tones = SoundManager.ALARM_TONES
+    for (let i = 0; i < tones.length; i++) {
+      const start = ctx.currentTime + i * 0.17
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(tones[i], start)
+      gain.gain.setValueAtTime(0.06, start)
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.16)
+      osc.connect(gain)
+      gain.connect(output)
+      osc.start(start)
+      osc.stop(start + 0.16)
+    }
   }
 
   gameOver(): void {

@@ -5,6 +5,11 @@ import path from 'path'
 
 export default defineConfig({
   base: '/river-raid/',
+  // Stamped into the service-worker registration URL and the precache name, so
+  // every deploy gets a fresh cache instead of serving the previous build.
+  define: {
+    __BUILD_VERSION__: JSON.stringify(Date.now().toString(36)),
+  },
   plugins: [react()],
   resolve: {
     alias: {
@@ -27,6 +32,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    setupFiles: ['./src/test/setup.ts'],
     coverage: {
       reporter: ['text', 'html'],
       // Measure the whole source tree (previously only 7 files were counted,
@@ -36,8 +42,9 @@ export default defineConfig({
         'src/**/*.test.ts',
         'src/**/*.test.tsx',
         'src/game/test-helpers/**',
+        'src/test/**',
         'src/main.tsx',
-        'src/vite-env.d.ts',
+        'src/globals.d.ts',
         'src/i18n.ts',
       ],
       // Baselined against actual measured coverage of the full tree, with a

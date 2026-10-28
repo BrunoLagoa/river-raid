@@ -244,6 +244,90 @@ describe('SoundManager', () => {
     })
   })
 
+  describe('camadas adaptativas', () => {
+    type FakeFilter = { frequency: { setTargetAtTime: ReturnType<typeof vi.fn> } }
+
+    beforeEach(() => {
+      mockAudioContext()
+      sm = new SoundManager()
+      sm.init()
+    })
+
+    afterEach(() => {
+      sm.destroy()
+    })
+
+    // Regressão: o Game reaproveita o mesmo objeto a cada frame. Guardar a
+    // referência fazia a troca seguinte parecer "sem mudança" e o filtro de
+    // combustível baixo ficava preso em 650 Hz pelo resto da partida.
+    it('reage a mudanças num objeto reaproveitado', () => {
+      const filter = (sm as unknown as { musicFilter: FakeFilter }).musicFilter
+      const shared = { comboMax: false, lowFuel: true, inBossFight: false }
+
+      sm.setDynamicIntensity(shared)
+      shared.lowFuel = false
+      sm.setDynamicIntensity(shared)
+      sm.setDynamicIntensity(shared)
+
+      const targets = filter.frequency.setTargetAtTime.mock.calls.map((call) => call[0] as number)
+      expect(targets).toEqual([650, 20000])
+    })
+  })
+
+  describe('cinematica de abertura', () => {
+    type FakeCtx = {
+      createOscillator: ReturnType<typeof vi.fn>
+      createBufferSource: ReturnType<typeof vi.fn>
+    }
+    const ctxOf = (s: SoundManager) => (s as unknown as { ctx: FakeCtx }).ctx
+
+    beforeEach(() => {
+      mockAudioContext()
+      sm = new SoundManager()
+      sm.init()
+    })
+
+    afterEach(() => {
+      sm.destroy()
+    })
+
+    it('startIntroMusic toca o tema da abertura', () => {
+      vi.useFakeTimers()
+      try {
+        sm.startIntroMusic()
+        expect(ctxOf(sm).createOscillator).toHaveBeenCalled()
+        const active = (sm as unknown as { active: { track: { stepMs: number } } | null }).active
+        expect(active?.track.stepMs).toBe(188)
+        sm.stopMusic()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('SFX da cinemática agendam seus nós de áudio', () => {
+      const ctx = ctxOf(sm)
+      sm.radioClick()
+      sm.radarPing()
+      sm.jetFlyby(0.5)
+      sm.alarm()
+      // Ruído: estalo do rádio + rasante do jato.
+      expect(ctx.createBufferSource).toHaveBeenCalledTimes(2)
+      // Bipe do rádio + 2 bipes de radar + 4 tons da sirene.
+      expect(ctx.createOscillator).toHaveBeenCalledTimes(7)
+    })
+
+    it('SFX da cinemática não falham sem Web Audio', () => {
+      const silent = new SoundManager()
+      vi.unstubAllGlobals()
+      expect(() => {
+        silent.radioClick()
+        silent.radarPing()
+        silent.jetFlyby()
+        silent.alarm()
+      }).not.toThrow()
+    })
+  })
+
   describe('destroy', () => {
     it('destroy nao falha sem init', () => {
       expect(() => sm.destroy()).not.toThrow()

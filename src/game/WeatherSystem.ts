@@ -116,6 +116,24 @@ export class WeatherSystem {
   }
 
   /**
+   * Fixa o clima pedido sem passar pelo sorteio de ocorrência (cinemática de
+   * abertura). A próxima troca de clima volta ao sorteio normal.
+   */
+  forceWeather(type: WeatherType): void {
+    this.requestedWeather = type
+    this.weatherOccurs = true
+  }
+
+  /**
+   * Relâmpago roteirizado. Só aparece durante chuva e sem `reducedMotion`, como
+   * os aleatórios; não consome o RNG — apenas empurra o próximo raio sorteado.
+   */
+  triggerLightning(duration = WEATHER_LIGHTNING_FLASH_DURATION): void {
+    this.lightningFlashTimer = Math.max(0, duration)
+    this.lightningTimer = Math.max(this.lightningTimer, WEATHER_LIGHTNING_INTERVAL_MIN)
+  }
+
+  /**
    * Resets particle state for a specific weather type.
    */
   private spawnParticle(p: WeatherParticle, kind: WeatherType, fromTop = false): void {

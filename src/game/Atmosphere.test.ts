@@ -184,4 +184,31 @@ describe('ColorPalette interface', () => {
     expect(palette.landBase).toBe('#1a5c1a')
     expect(palette.brightness).toBe(1.0)
   })
+
+  describe('setCycleTime (cinematica de abertura)', () => {
+    let atmosphere: Atmosphere
+
+    beforeEach(() => {
+      atmosphere = new Atmosphere(800, 600)
+    })
+
+    it('posiciona o ciclo e a fase segue no proximo update', () => {
+      atmosphere.setCycleTime(63)
+      atmosphere.update(0, 100)
+      expect(atmosphere.isNight()).toBe(true)
+
+      // Modulo o ciclo: 120 s e o comeco do dia.
+      atmosphere.setCycleTime(120)
+      atmosphere.update(0, 100)
+      expect(atmosphere.getPhaseIndex()).toBe(0)
+      expect(atmosphere['cycleTime']).toBe(0)
+    })
+
+    it('normaliza valores negativos e ignora nao finitos', () => {
+      atmosphere.setCycleTime(-30)
+      expect(atmosphere['cycleTime']).toBe(90)
+      atmosphere.setCycleTime(Number.NaN)
+      expect(atmosphere['cycleTime']).toBe(90)
+    })
+  })
 })

@@ -14,7 +14,7 @@ Aumentar o valor de replay e a sensação de conquista a longo prazo através de
 - **Arquivos impactados:**
   - `src/game/SkinService.ts` [NEW]
   - `src/game/SkinService.test.ts` [NEW]
-  - [StorageService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/StorageService.ts)
+  - [StorageService.ts](../src/game/StorageService.ts)
 - **Sub-etapas:**
   1. Definir catálogo de skins:
      - `classic`: Caça amarelo clássico Atari (Desbloqueado por padrão).
@@ -33,7 +33,7 @@ Aumentar o valor de replay e a sensação de conquista a longo prazo através de
 - **Arquivos impactados:**
   - `src/game/PlayerSkinRenderer.ts` [NEW]
   - `src/game/PlayerSkinRenderer.test.ts` [NEW]
-  - [Player.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Player.ts)
+  - [Player.ts](../src/game/Player.ts)
 - **Sub-etapas:**
   1. Criar desenhadores pixel-art dedicados para cada fuselagem:
      - Asas, cockpits, turbinas e efeito de inclinação lateral (*banking animation*).
@@ -48,7 +48,7 @@ Aumentar o valor de replay e a sensação de conquista a longo prazo através de
 - **Arquivos impactados:**
   - `src/game/CareerStatsService.ts` [NEW]
   - `src/game/CareerStatsService.test.ts` [NEW]
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [Game.ts](../src/game/Game.ts)
 - **Sub-etapas:**
   1. Criar estrutura de dados de carreira:
      ```ts
@@ -83,9 +83,9 @@ Aumentar o valor de replay e a sensação de conquista a longo prazo através de
 - **Arquivos impactados:**
   - `src/components/HangarScreen.tsx` [NEW]
   - `src/components/CareerStatsModal.tsx` [NEW]
-  - [App.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/App.tsx)
-  - [MenuScreen.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/MenuScreen.tsx)
-  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
+  - [App.tsx](../src/App.tsx)
+  - [MenuScreen.tsx](../src/components/MenuScreen.tsx)
+  - [i18n.ts](../src/i18n.ts)
 - **Sub-etapas:**
   1. Criar tela `HangarScreen`:
      - Carrossel de seleção de aeronaves com mini-canvas interativo para inspecionar a skin e animação do caça.

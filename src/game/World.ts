@@ -211,6 +211,19 @@ export class World {
   // Chooses a new random river "section": different width and/or position.
   // Banks are allowed to move independently (asymmetric transitions).
 
+  /**
+   * Segura o traçado atual (sem curvas nem mudança de largura) pelos próximos
+   * `pixels` de rio gerado. A cinemática de abertura usa para o clímax cair num
+   * trecho reto; depois disso a geração volta ao sorteio normal. Não consome RNG.
+   */
+  holdCourse(pixels: number): void {
+    this.targetLeft = this.genLeft
+    this.targetRight = this.genRight
+    this.genPhase = 'hold'
+    this.genRemaining = Math.max(this.genRemaining, pixels)
+    this.stepAccum = 0
+  }
+
   /** Called each frame with the current EffectiveBiomeConfig values. */
   setBiomeWidths(minWidth: number, maxWidthRatio: number): void {
     this.biomeMinWidth    = minWidth
@@ -350,9 +363,6 @@ export class World {
     const wave       = palette?.waterWave      ?? 'rgba(120, 180, 255, 0.08)'
     const depth      = palette?.waterDepth     ?? 'rgba(0, 10, 40, 0.15)'
     const shimmerC   = palette?.shimmer        ?? 'rgba(100, 160, 255, 0.08)'
-
-    // Invalidate cached gradient when palette changes
-    this.lastPaletteDepth = depth
 
     // Background land
     ctx.fillStyle = land

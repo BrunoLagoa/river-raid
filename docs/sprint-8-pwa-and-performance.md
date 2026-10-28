@@ -15,13 +15,13 @@ Garantir máxima performance de renderização, suporte offline e integridade do
 - **Arquivos impactados:**
   - `public/manifest.json` [NEW]
   - `public/sw.js` [NEW]
-  - `public/icons/` [NEW]
-  - [index.html](file:///Users/bruno/Dev/pocs/river-raid/index.html)
-  - [main.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/main.tsx)
+  - `public/icon-192.png`, `public/icon-512.png` [NEW]
+  - [index.html](../index.html)
+  - [main.tsx](../src/main.tsx)
 - **Sub-etapas:**
-  1. Criar `manifest.json` com `name: "River Raid"`, `short_name: "RiverRaid"`, `display: "standalone"`, `orientation: "portrait-primary"`, tema `#0d1b2a` e ícones retro (192x192 e 512x512).
-  2. Implementar `sw.js` com estratégia *Cache-First* para assets estáticos e fallback seguro para SPA (`base: '/river-raid/'`).
-  3. Registrar o Service Worker em `main.tsx` apenas em ambiente de produção.
+  1. Criar `manifest.json` com `name: "River Raid"`, `short_name: "RiverRaid"`, `display: "standalone"`, `orientation: "portrait-primary"`, tema `#050a14` e ícones PNG 192x192/512x512 (normal e maskable).
+  2. Implementar `sw.js` versionado por build: navegação *network-first* (para pegar o `index.html` novo) e assets *cache-first*, removendo caches antigos na ativação.
+  3. Registrar o Service Worker em `main.tsx` apenas em produção, com `?v=__BUILD_VERSION__` na URL para forçar a troca de cache a cada deploy.
   4. Adicionar meta tags em `index.html` (apple-touch-icon, theme-color, viewport-fit=cover).
 - **Critérios de Aceite:**
   - O aplicativo pode ser instalado no celular/desktop e abre sem internet.
@@ -32,8 +32,8 @@ Garantir máxima performance de renderização, suporte offline e integridade do
 - **Arquivos impactados:**
   - `src/game/SpriteCache.ts` [NEW]
   - `src/game/SpriteCache.test.ts` [NEW]
-  - [EnemyRenderer.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/EnemyRenderer.ts)
-  - [HazardRenderer.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/HazardRenderer.ts)
+  - [EnemyRenderer.ts](../src/game/EnemyRenderer.ts)
+  - [HazardRenderer.ts](../src/game/HazardRenderer.ts)
 - **Sub-etapas:**
   1. Criar gerenciador `SpriteCache` que desenha previamente cada variante de inimigo (helicóptero com pás em rotação, caças, barcos e tanques) em um canvas pequeno isolado na memória.
   2. Substituir no `EnemyRenderer` o desenho por primitivas geométricas por chamadas ultra-rápidas `ctx.drawImage(cachedCanvas, x, y)`.
@@ -46,8 +46,8 @@ Garantir máxima performance de renderização, suporte offline e integridade do
 
 ### Task 8.3: Suporte a Monitores Retina e HiDPI Dinâmico
 - **Arquivos impactados:**
-  - [GameCanvas.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/GameCanvas.tsx)
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [GameCanvas.tsx](../src/components/GameCanvas.tsx)
+  - [Game.ts](../src/game/Game.ts)
 - **Sub-etapas:**
   1. Ajustar o tamanho interno do canvas (`canvas.width = cssWidth * dpr`, `canvas.height = cssHeight * dpr`) respeitando um teto máximo de DPR = 2 para preservar bateria em celulares 3x/4x.
   2. Aplicar `ctx.scale(dpr, dpr)` no início de cada frame e ajustar a amostragem de toques mobile.
@@ -89,8 +89,8 @@ Garantir máxima performance de renderização, suporte offline e integridade do
    - `npm run build`: Bundle de produção gerado com sucesso em **92ms**.
 
 2. **Entregas Validadas:**
-   - Suporte a **Progressive Web App (PWA)** com `public/manifest.json`, `public/sw.js` (Cache-First offline strategy) e meta tags para Safari iOS e Android (`theme-color: #050a14`, `viewport-fit=cover`).
-   - Módulo de cache de renderização de alto desempenho em [SpriteCache.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SpriteCache.ts) e integração com [EnemyRenderer.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/EnemyRenderer.ts).
+   - Suporte a **Progressive Web App (PWA)** com `public/manifest.json`, `public/sw.js` (navegação network-first, assets cache-first e cache versionado por build) e meta tags para Safari iOS e Android (`theme-color: #050a14`, `viewport-fit=cover`).
+   - Módulo de cache de renderização de alto desempenho em [SpriteCache.ts](../src/game/SpriteCache.ts) e integração com [EnemyRenderer.ts](../src/game/EnemyRenderer.ts).
    - Escalonamento **HiDPI / Retina dinâmico** com `dpr = Math.min(window.devicePixelRatio, 2)` mantendo nitidez em telas 2K/4K e celulares modernos.
 
 ---

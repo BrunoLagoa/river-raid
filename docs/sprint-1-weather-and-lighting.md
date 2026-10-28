@@ -12,9 +12,9 @@ Elevar a imersão visual e fidelidade atmosférica do jogo, introduzindo:
 
 ### ✅ Task 1.1: Definições de Tipos e Constantes de Clima e Luz [CONCLUÍDA]
 - **Arquivos impactados:**
-  - [constants.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/constants.ts)
-  - [BiomeSystem.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/BiomeSystem.ts)
-  - [BiomeSystem.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/BiomeSystem.test.ts)
+  - [constants.ts](../src/game/constants.ts)
+  - [BiomeSystem.ts](../src/game/BiomeSystem.ts)
+  - [BiomeSystem.test.ts](../src/game/BiomeSystem.test.ts)
 - **Sub-etapas:**
   1. [x] Adicionar constantes de densidade, velocidade e cores de partículas climáticas em `constants.ts`.
   2. [x] Adicionar propriedade `weatherType: 'rain' | 'snow' | 'sandstorm' | 'smog' | 'clear'` no tipo `EffectiveBiomeConfig` e nas definições de `BIOMES` em `BiomeSystem.ts`.
@@ -27,9 +27,9 @@ Elevar a imersão visual e fidelidade atmosférica do jogo, introduzindo:
 
 ### ✅ Task 1.2: Motor de Partículas Climáticas (`WeatherSystem.ts`) [CONCLUÍDA]
 - **Arquivos impactados:**
-  - [WeatherSystem.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/WeatherSystem.ts) [NEW]
-  - [WeatherSystem.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/WeatherSystem.test.ts) [NEW]
-  - [ObjectPool.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/ObjectPool.ts)
+  - [WeatherSystem.ts](../src/game/WeatherSystem.ts) [NEW]
+  - [WeatherSystem.test.ts](../src/game/WeatherSystem.test.ts) [NEW]
+  - [ObjectPool.ts](../src/game/ObjectPool.ts)
 - **Sub-etapas:**
   1. [x] Criar a classe `WeatherSystem` com pooling pré-alocado de partículas para evitar *garbage collection* a 60 FPS.
   2. [x] Implementar lógica de atualização de partículas:
@@ -47,9 +47,9 @@ Elevar a imersão visual e fidelidade atmosférica do jogo, introduzindo:
 
 ### ✅ Task 1.3: Sistema de Iluminação Dinâmica (`LightingSystem.ts`) [CONCLUÍDA]
 - **Arquivos impactados:**
-  - [LightingSystem.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/LightingSystem.ts) [NEW]
-  - [LightingSystem.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/LightingSystem.test.ts) [NEW]
-  - [Atmosphere.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Atmosphere.ts)
+  - [LightingSystem.ts](../src/game/LightingSystem.ts) [NEW]
+  - [LightingSystem.test.ts](../src/game/LightingSystem.test.ts) [NEW]
+  - [Atmosphere.ts](../src/game/Atmosphere.ts)
 - **Sub-etapas:**
   1. [x] Criar `LightingSystem` para gerenciar fontes pontuais de luz e a máscara de escuridão noturna:
      - **Farol do Avião (Cone Light)**: Projetado a partir do nariz da aeronave apontando para frente com gradiente radial cônico.
@@ -65,9 +65,9 @@ Elevar a imersão visual e fidelidade atmosférica do jogo, introduzindo:
 
 ### ✅ Task 1.4: Integração no Loop Principal (`Game.ts`) [CONCLUÍDA]
 - **Arquivos impactados:**
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
-  - [Game.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.test.ts)
-  - [Fx.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Fx.ts)
+  - [Game.ts](../src/game/Game.ts)
+  - [Game.test.ts](../src/game/Game.test.ts)
+  - [Fx.ts](../src/game/Fx.ts)
 - **Sub-etapas:**
   1. [x] Instanciar `WeatherSystem` e `LightingSystem` no construtor de `Game.ts`.
   2. [x] Atualizar clima conforme o `effectiveBiome` retornado pelo `BiomeSystem`.
@@ -83,11 +83,11 @@ Elevar a imersão visual e fidelidade atmosférica do jogo, introduzindo:
 
 ### ✅ Task 1.5: Configurações de Acessibilidade no Menu React [CONCLUÍDA]
 - **Arquivos impactados:**
-  - [SettingsService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.ts)
-  - [SettingsScreen.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/SettingsScreen.tsx)
-  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
-  - [GameCanvas.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/GameCanvas.tsx)
-  - [SettingsService.test.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/SettingsService.test.ts)
+  - [SettingsService.ts](../src/game/SettingsService.ts)
+  - [SettingsScreen.tsx](../src/components/SettingsScreen.tsx)
+  - [i18n.ts](../src/i18n.ts)
+  - [GameCanvas.tsx](../src/components/GameCanvas.tsx)
+  - [SettingsService.test.ts](../src/game/SettingsService.test.ts)
 - **Sub-etapas:**
   1. [x] Adicionar chave `weatherEffects: boolean` e `dynamicLighting: boolean` em `GameSettings` (ambos `true` por padrão).
   2. [x] Adicionar toggles na tela `SettingsScreen.tsx` com suporte a internacionalização em `i18n.ts` (PT e EN).

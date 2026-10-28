@@ -1,5 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react'
-import { Game } from '@/game/Game'
+import { useEffect, useRef, useCallback, useState } from 'react'
+import type { Game as GameInstance } from '@/game/Game'
+import type { IntroStage } from '@/game/IntroCinematic'
 import SwipeControls from './SwipeControls'
 import TouchControls from './TouchControls'
 import { FloatingJoystick } from './FloatingJoystick'
@@ -17,13 +18,49 @@ interface GameCanvasProps {
   mode?: GameModeId
   /** When set, the run is deterministic (daily challenge); otherwise Math.random. */
   seed?: number
+  /** Abre a partida com a cinemática de abertura (lido só na criação do jogo). */
+  intro?: boolean
 }
 
-export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings, mode = 'classic', seed }: GameCanvasProps) {
+/** Push every persisted preference into a freshly created engine instance. */
+function applyGameSettings(game: GameInstance, settings: GameSettings): void {
+  game.setReducedMotion(settings.reducedMotion)
+  game.setWeatherEnabled(settings.weatherEffects)
+  game.setLightingEnabled(settings.dynamicLighting)
+  game.setGhostReplayEnabled(settings.ghostReplay)
+  game.setMasterVolume(settings.masterVolume)
+  game.setMusicVolume(settings.musicVolume)
+  game.setSfxVolume(settings.sfxVolume)
+  game.setVoiceVolume(settings.voiceVolume)
+  game.setVoiceEnabled(settings.voiceEnabled)
+  game.setGamepadEnabled(settings.gamepadEnabled)
+  game.setHapticsEnabled(settings.hapticsEnabled)
+  game.setKeybindings(settings.keybindings)
+  game.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)
+  game.setDifficulty(settings.difficulty)
+  game.setColorblind(settings.colorblindMode)
+  game.setLocale(getStrings(settings.language))
+  game.setLanguage(settings.language)
+  const isMuted = game.sound.isMuted()
+  if (settings.muted !== isMuted) {
+    game.sound.toggleMute()
+  }
+}
+
+export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings, mode = 'classic', seed, intro = false }: GameCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const gameRef = useRef<Game | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const gameRef = useRef<GameInstance | null>(null)
   const initialObjectiveProfileRef = useRef(settings.objectiveBalanceProfile)
   const seedRef = useRef(seed)
+  // A cena rola o rio e consome o RNG do mundo: nunca numa partida com seed.
+  const introRef = useRef(intro && seed == null)
+  const [introStage, setIntroStage] = useState<IntroStage | null>(null)
+  // Latest settings without forcing the engine to be recreated on every change.
+  const settingsRef = useRef(settings)
+  useEffect(() => {
+    settingsRef.current = settings
+  })
 
   const handleSwipePosition = useCallback((x: number | null, y: number | null) => {
     gameRef.current?.setTouchPosition(x, y)
@@ -49,9 +86,16 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
     gameRef.current?.activateOverdrive()
   }, [])
 
+  const handleSkipIntro = useCallback(() => {
+    gameRef.current?.skipIntro()
+  }, [])
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
+
+    let cancelled = false
+    let game: GameInstance | null = null
 
     const resize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -70,52 +114,56 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
 
     resize()
 
-    const rng = seedRef.current != null ? createSeededRandom(seedRef.current) : Math.random
-    const game = new Game(canvas, rng, initialObjectiveProfileRef.current)
-    game.setGameMode(mode)
-    game.setGhostReplayEnabled(settings.ghostReplay)
-    gameRef.current = game
-    resize()
-    game.setOnGameOver((score, highScore) => {
-      onGameOver(score, highScore)
-    })
-    if (onAchievementUnlocked) {
-      game.setOnAchievementUnlocked(onAchievementUnlocked)
-    }
-    game.start()
+    // O engine sai do chunk inicial do menu: só carrega quando uma partida
+    // começa. A Promise também cobre o StrictMode, que monta/desmonta efeitos
+    // duas vezes em desenvolvimento.
+    const boot = async () => {
+      const { Game } = await import('@/game/Game')
+      if (cancelled) return
 
-    window.addEventListener('resize', resize)
+      const rng = seedRef.current != null ? createSeededRandom(seedRef.current) : Math.random
+      const instance = new Game(canvas, rng, initialObjectiveProfileRef.current)
+      game = instance
+      instance.setGameMode(mode)
+      gameRef.current = instance
+      resize()
+      applyGameSettings(instance, settingsRef.current)
+      instance.setOnGameOver((score, highScore) => {
+        onGameOver(score, highScore)
+      })
+      if (onAchievementUnlocked) {
+        instance.setOnAchievementUnlocked(onAchievementUnlocked)
+      }
+      // O estágio da cinemática vira um atributo no container; o CSS esconde os
+      // controles touch e o botão de pular só existe durante a cena.
+      instance.setOnIntroStageChange((stage) => {
+        // Depois que o jogador assume, recriar o jogo não repete a cena.
+        if (stage !== 'cinematic') introRef.current = false
+        setIntroStage(stage)
+        const root = rootRef.current
+        if (!root) return
+        if (stage === 'done') delete root.dataset.intro
+        else root.dataset.intro = stage
+      })
+      if (introRef.current) instance.playIntro()
+      instance.start()
+
+      window.addEventListener('resize', resize)
+    }
+
+    void boot()
 
     return () => {
+      cancelled = true
       window.removeEventListener('resize', resize)
-      game.destroy()
-      gameRef.current = null
+      game?.destroy()
+      if (gameRef.current === game) gameRef.current = null
     }
   }, [onGameOver, onAchievementUnlocked, mode, settings.ghostReplay])
 
   useEffect(() => {
     if (!gameRef.current) return
-    gameRef.current.setReducedMotion(settings.reducedMotion)
-    gameRef.current.setWeatherEnabled(settings.weatherEffects)
-    gameRef.current.setLightingEnabled(settings.dynamicLighting)
-    gameRef.current.setGhostReplayEnabled(settings.ghostReplay)
-    gameRef.current.setMasterVolume(settings.masterVolume)
-    gameRef.current.setMusicVolume(settings.musicVolume)
-    gameRef.current.setSfxVolume(settings.sfxVolume)
-    gameRef.current.setVoiceVolume(settings.voiceVolume)
-    gameRef.current.setVoiceEnabled(settings.voiceEnabled)
-    gameRef.current.setGamepadEnabled(settings.gamepadEnabled)
-    gameRef.current.setHapticsEnabled(settings.hapticsEnabled)
-    gameRef.current.setKeybindings(settings.keybindings)
-    gameRef.current.setObjectiveBalanceProfile(settings.objectiveBalanceProfile)
-    gameRef.current.setDifficulty(settings.difficulty)
-    gameRef.current.setColorblind(settings.colorblindMode)
-    gameRef.current.setLocale(getStrings(settings.language))
-    gameRef.current.setLanguage(settings.language)
-    const isMuted = gameRef.current.sound.isMuted()
-    if (settings.muted !== isMuted) {
-      gameRef.current.sound.toggleMute()
-    }
+    applyGameSettings(gameRef.current, settings)
   }, [settings])
 
   // Mesmo critério do CSS dos controles touch: sem teclado, o HUD não desenha
@@ -165,12 +213,19 @@ export default function GameCanvas({ onGameOver, onAchievementUnlocked, settings
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={rootRef} className="game-root" style={{ position: 'relative', width: '100%', height: '100%' }}>
       <canvas
         ref={canvasRef}
         style={{ display: 'block', width: '100%', height: '100%' }}
       />
-      {renderMobileControls()}
+      <div className="game-controls-layer">{renderMobileControls()}</div>
+      {introStage === 'cinematic' && (
+        <button type="button" className="intro-skip" onClick={handleSkipIntro}>
+          <span className="key-badge intro-skip-key">ENTER</span>
+          {getStrings(settings.language).introSkip}
+          <span className="intro-skip-arrows" aria-hidden="true">▸▸</span>
+        </button>
+      )}
     </div>
   )
 }

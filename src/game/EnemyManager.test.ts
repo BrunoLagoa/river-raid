@@ -516,9 +516,14 @@ describe('EnemyManager', () => {
     const enemy = em.enemies.find(e => e.active)
     if (!enemy) return // skip if no enemy spawned
 
-    // Force reposition state with tiny timer
+    // Force reposition state with tiny timer. Lane/bank timers are parked so
+    // the same frame cannot legitimately start a new reposition and mask the
+    // transition this test is about (the manager uses Math.random by default).
     enemy.aiState = 'reposition'
     enemy.stateTimer = 0.001
+    enemy.laneCooldown = 999
+    enemy.bankRecoverCooldown = 999
+    enemy.bankRecoverTimer = 0
 
     em.update(0.016, world, segments, 120)
 

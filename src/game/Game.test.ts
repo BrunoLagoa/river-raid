@@ -8,6 +8,9 @@ import { createSeededRandom } from './random'
 import { createMockCanvas } from './test-helpers/canvas'
 import { mockAnimationFrame } from './test-helpers/time'
 import { mockAudioContext } from './test-helpers/audio'
+import { INTRO_CINEMATIC_DURATION, INTRO_HANDOVER_DURATION, type IntroCinematic } from './IntroCinematic'
+import { NEAR_MISS_COOLDOWN } from './constants'
+import { getStrings } from '../i18n'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -348,6 +351,54 @@ describe('Game update paths', () => {
     game.stop()
 
     expect(deathSpy).toHaveBeenCalled()
+  })
+
+  it('colisao letal e combustivel zerado no mesmo frame perdem apenas uma vida', () => {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    const deathSpy = vi.spyOn(game, 'handlePlayerDeath')
+
+    const pool = (game.enemyManager as unknown as { enemyPool: { acquire: () => Record<string, unknown> } }).enemyPool
+    const e = pool.acquire()
+    Object.assign(e, {
+      type: 'helicopter',
+      aiTier: 'basic',
+      x: game.player.x,
+      y: game.player.y,
+      width: 28,
+      height: 20,
+      points: 60,
+      speed: 100,
+      active: true,
+      originX: game.player.x,
+      phase: 0,
+      phaseSpeed: 1,
+      amplitude: 30,
+    })
+
+    game.fuelSystem.fuel = 0
+    game.world.isOutOfBounds = () => false
+    game.start()
+    raf.flush(50)
+    game.stop()
+
+    expect(deathSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('checkNearMisses escala o cooldown pelo dt do frame', () => {
+    const canvas = createMockCanvas()
+    const game = new Game(canvas)
+    const state = game as unknown as {
+      nearMissCooldown: number
+      checkNearMisses: (dt: number) => void
+    }
+    state.nearMissCooldown = NEAR_MISS_COOLDOWN
+
+    state.checkNearMisses(0.1)
+
+    expect(state.nearMissCooldown).toBeCloseTo(NEAR_MISS_COOLDOWN - 0.1)
+    game.destroy()
   })
 
   it('bala atingindo inimigo durante loop chama addScore', () => {
@@ -1781,6 +1832,170 @@ describe('Game achievement system', () => {
 
     expect(game.lives).toBe(1)
     game.stop()
+    game.destroy()
+  })
+})
+
+describe('Game intro cinematic', () => {
+  function setup() {
+    const canvas = createMockCanvas()
+    const raf = mockAnimationFrame()
+    const game = new Game(canvas)
+    game.setLocale(getStrings('en'))
+    const stages: string[] = []
+    game.setOnIntroStageChange((stage) => stages.push(stage))
+    return { game, raf, stages }
+  }
+
+  /** Avança o loop em frames de 50 ms (o dt máximo do loop). Devolve o último timestamp. */
+  function advance(raf: ReturnType<typeof mockAnimationFrame>, from: number, seconds: number): number {
+    let t = from
+    const frames = Math.ceil(seconds / 0.05)
+    for (let i = 0; i < frames; i++) {
+      t += 50
+      raf.flush(t)
+    }
+    return t
+  }
+
+  it('sem playIntro, start segue direto para o gameplay', () => {
+    const { game, raf, stages } = setup()
+    const introMusic = vi.spyOn(game.sound, 'startIntroMusic')
+    const biomeMusic = vi.spyOn(game.sound, 'startMusic')
+
+    game.start()
+    advance(raf, 0, 0.5)
+
+    expect(introMusic).not.toHaveBeenCalled()
+    expect(biomeMusic).toHaveBeenCalledWith('forest')
+    expect(stages).toEqual([])
+    expect(game.isIntroPlaying()).toBe(false)
+    game.destroy()
+  })
+
+  it('com playIntro, a cena toca o tema e segura controles, HUD e timers de gameplay', () => {
+    const { game, raf, stages } = setup()
+    const introMusic = vi.spyOn(game.sound, 'startIntroMusic')
+    const biomeMusic = vi.spyOn(game.sound, 'startMusic')
+    const attach = vi.spyOn(game.player, 'attachInput')
+    const hud = vi.spyOn(game.ui, 'render')
+    const enemies = vi.spyOn(game.enemyManager, 'update')
+    const fuel = game.fuelSystem.fuel
+
+    game.playIntro()
+    game.start()
+    advance(raf, 0, 5)
+
+    expect(stages).toEqual(['cinematic'])
+    expect(game.isIntroPlaying()).toBe(true)
+    expect(introMusic).toHaveBeenCalledTimes(1)
+    expect(biomeMusic).not.toHaveBeenCalled()
+    expect(attach).not.toHaveBeenCalled()
+    expect(hud).not.toHaveBeenCalled()
+    expect(enemies).not.toHaveBeenCalled()
+    expect(game.gameTime).toBe(0)
+    expect(game.fuelSystem.fuel).toBe(fuel)
+    // O rio rola no ritmo do roteiro e as margens já nascem povoadas.
+    expect(game.scrollSpeed).toBe(58)
+    expect(game.scenery.objects.length).toBeGreaterThan(0)
+    game.destroy()
+  })
+
+  it('Enter pula para a transição: trilha do bioma, voz e controles; depois o HUD entra', () => {
+    const { game, raf, stages } = setup()
+    const biomeMusic = vi.spyOn(game.sound, 'startMusic')
+    const speech = vi.spyOn(game.sound.speech, 'playMissionStart')
+    const attach = vi.spyOn(game.player, 'attachInput')
+    const hud = vi.spyOn(game.ui, 'render')
+    game.playIntro()
+    game.start()
+    let t = advance(raf, 0, 3)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+
+    expect(stages).toEqual(['cinematic', 'handover'])
+    expect(game.isIntroPlaying()).toBe(false)
+    expect(biomeMusic).toHaveBeenCalledWith('forest')
+    expect(speech).toHaveBeenCalledTimes(1)
+    expect(attach).toHaveBeenCalledTimes(1)
+
+    t = advance(raf, t, 0.5)
+    // Na transição o gameplay já roda e o HUD entra.
+    expect(hud).toHaveBeenCalled()
+    expect(game.gameTime).toBeGreaterThan(0)
+
+    advance(raf, t, INTRO_HANDOVER_DURATION)
+    expect(stages).toEqual(['cinematic', 'handover', 'done'])
+    game.destroy()
+  })
+
+  it('na cena, pausa, overdrive e toques ficam travados; Esc pula e depois volta a pausar', () => {
+    const { game, raf, stages } = setup()
+    game.playIntro()
+    game.start()
+    advance(raf, 0, 1)
+
+    game.togglePause()
+    expect((game as unknown as { paused: boolean }).paused).toBe(false)
+    expect(game.activateOverdrive()).toBe(false)
+    game.setTouchShoot(true)
+    game.setTouchPosition(120, 200)
+    game.setAnalogVector(1, 1)
+    game.simulateKey(' ', true)
+    expect(game.player.isShooting).toBe(false)
+    expect(game.player.keys.has(' ')).toBe(false)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', repeat: true }))
+    expect(stages).toEqual(['cinematic'])
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+    expect(stages).toEqual(['cinematic', 'handover'])
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape' }))
+    expect((game as unknown as { paused: boolean }).paused).toBe(true)
+    game.destroy()
+  })
+
+  it('a cena completa entrega o controle sozinha, já de dia e sem pontuar', () => {
+    const { game, raf, stages } = setup()
+    game.playIntro()
+    game.start()
+
+    const t = advance(raf, 0, INTRO_CINEMATIC_DURATION + 0.1)
+    expect(stages).toEqual(['cinematic', 'handover'])
+    expect(game.score).toBe(0)
+    expect(game.atmosphere.isNight()).toBe(false)
+    expect(game.player.state).toBe('alive')
+
+    advance(raf, t, INTRO_HANDOVER_DURATION + 0.1)
+    expect(stages).toEqual(['cinematic', 'handover', 'done'])
+    game.destroy()
+  })
+
+  it('restart descarta uma cena em curso; playIntro com o jogo rodando é ignorado', () => {
+    const { game, raf, stages } = setup()
+    game.playIntro()
+    game.start()
+    advance(raf, 0, 1)
+
+    game.restart()
+    expect(stages).toEqual(['cinematic', 'done'])
+    expect(game.isIntroPlaying()).toBe(false)
+
+    game.playIntro()
+    expect(game.isIntroPlaying()).toBe(false)
+    expect(() => game.skipIntro()).not.toThrow()
+    game.destroy()
+  })
+
+  it('setLocale repassa os rótulos à cena, com o nome da aeronave equipada', () => {
+    const game = new Game(createMockCanvas())
+    game.playIntro()
+    game.setLocale(getStrings('pt-BR'))
+
+    const intro = (game as unknown as { intro: IntroCinematic }).intro
+    expect(intro.labels.missionStart).toBe('MISSÃO INICIADA')
+    expect(intro.labels.pilot).toBe('CLÁSSICO 2600')
+    expect(intro.labels.lines).toHaveLength(5)
     game.destroy()
   })
 })

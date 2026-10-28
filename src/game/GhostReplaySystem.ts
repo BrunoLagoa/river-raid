@@ -1,4 +1,4 @@
-import { readSecureJSON, writeSecureJSON } from './StorageService'
+import { readSecureJSON, removeSecure, writeSecureJSON } from './StorageService'
 import type { GameModeId } from './GameMode'
 
 export interface GhostSample {
@@ -109,11 +109,7 @@ export class GhostReplaySystem {
 
   clearGhost(mode: GameModeId): void {
     const key = `${GHOST_STORAGE_KEY_PREFIX}${mode}`
-    try {
-      localStorage.removeItem(key)
-    } catch {
-      // ignore
-    }
+    removeSecure(key)
     if (this.currentMode === mode) {
       this.activeGhost = null
     }

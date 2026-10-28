@@ -1404,3 +1404,85 @@ h1.gameover-title {
   border-top: 1px solid #1a2d44;
   background: var(--color-bg-panel);
 }
+
+/* ============================================================
+   CINEMÁTICA DE ABERTURA
+   ============================================================ */
+
+/* Durante a cinemática o jogo ainda não é do jogador: os controles touch somem.
+   O atributo é escrito pela engine (via GameCanvas), sem re-render do React. */
+.game-root[data-intro] .game-controls-layer {
+  display: none;
+}
+
+/* PULAR fica centralizado na faixa superior de cinema, que mede
+   clamp(64px, 12% da altura, 104px) — a mesma conta do IntroRenderer. */
+.intro-skip {
+  display: none;
+  position: absolute;
+  z-index: 120;
+  right: 16px;
+  top: calc(clamp(64px, 12vh, 104px) / 2 - 17px);
+  top: calc(clamp(64px, 12dvh, 104px) / 2 - 17px);
+  height: 34px;
+  padding: 0 12px;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #88aacc;
+  background: rgba(20, 35, 55, 0.6);
+  border: 1px solid #334466;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.game-root[data-intro='cinematic'] .intro-skip {
+  display: inline-flex;
+  animation: intro-skip-in 0.6s ease-out 1.2s both;
+}
+
+.intro-skip:hover {
+  color: #aaccee;
+  border-color: #446688;
+  background: rgba(40, 65, 100, 0.6);
+}
+
+.intro-skip:focus-visible {
+  outline: 2px solid #9ecbff;
+  outline-offset: 3px;
+}
+
+.intro-skip-key {
+  font-size: 10px;
+  padding: 1px 6px;
+}
+
+.intro-skip-arrows {
+  font-size: 10px;
+  color: var(--color-primary);
+}
+
+@keyframes intro-skip-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Sem teclado, a tecla não diz nada. */
+@media (pointer: coarse), (hover: none) {
+  .intro-skip-key {
+    display: none;
+  }
+}
+
+.reduced-motion .intro-skip {
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro-skip {
+    animation: none !important;
+  }
+}

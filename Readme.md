@@ -72,7 +72,7 @@ O jogo possui **8 conquistas persistentes** salvas via `localStorage`. Ao desblo
 
 ### 🏆 Ranking Top 10
 - Sistema de ranking local com persistência via `localStorage`.
-- Armazenamento seguro com ofuscação XOR e verificação de integridade via checksum FNV-1a para prevenir manipulação de scores.
+- Armazenamento local versionado com ofuscação XOR e checksum FNV-1a. É uma proteção de integridade para evitar edição acidental, não criptografia nem anti-cheat robusto (o código roda no cliente).
 - Entrada de nome do jogador na tela de Game Over quando o score qualifica para o Top 10.
 
 ### ✨ Polimento Visual
@@ -106,6 +106,14 @@ O jogo conta com camadas avançadas de feedback visual para uma experiência mai
     - *"Zone Cleared"*
 - **Efeitos Sonoros:** Tiros, explosões ricas com camadas de ruído e sub-grave, coleta de combustível, laser contínuo, ondas de choque e game over.
 
+### 🎬 Cinemática de Abertura
+A Patrulha Clássica abre com uma introdução cinematográfica de ~37 s que roda **dentro da própria engine**, sobre o mesmo rio do gameplay:
+- **Noite de chuva no delta:** o monitor liga como um CRT, o QG narra pelo rádio e a mira trava nas patrulhas e pontes inimigas.
+- **A ameaça:** o rio quase para e uma silhueta imensa desce no escuro — um vislumbre do Dreadnought, marcado como *contato desconhecido*.
+- **O piloto:** corte seco, amanhecer, e o seu caça (a skin equipada no Hangar) sobe do fundo com o farol aceso.
+- **Clímax e transição:** a primeira ponte cai, o título entra, e as faixas de cinema recolhem virando o HUD — o controle já é seu.
+- Pulável com `Enter`/`Esc` ou o botão **PULAR**; não roda em retry nem no desafio diário; pode ser desligada em Opções.
+
 ### ⚙️ Configurações e Acessibilidade
 O jogo permite personalizar a experiência através de um menu de configurações persistente:
 - **Mixer de Áudio de 4 Canais:** Sliders independentes para **Volume Master**, **Música**, **Efeitos Sonoros (SFX)** e **Voz**.
@@ -123,7 +131,7 @@ O jogo permite personalizar a experiência através de um menu de configuraçõe
   - 🛩️ **Biplano Vintage:** Caça histórico com asas duplas e hélice frontal giratória animada (desbloqueado com a conquista *Quebra-Pontes*).
   - 🟢 **Cyber-Viper Neon:** Aeronave futurista ciano/magenta com asas invertidas e propulsão de plasma (desbloqueado ao atingir 25.000 pontos).
   - **Rastros de Fumaça Cromáticos:** Cada aeronave equipada possui cores personalizadas de exaustão de turbina para aceleração normal, turbo (↑) e frenagem (↓).
-- **Diário de Bordo do Piloto (Career Stats Tracker):** Registro cumulativo persistente de carreira com proteção contra manipulação via checksum FNV-1a:
+- **Diário de Bordo do Piloto (Career Stats Tracker):** Registro cumulativo persistente de carreira com envelope versionado e checksum FNV-1a para detectar dados corrompidos:
   - Tempo total de voo formatado (horas/minutos/segundos) e missões concluídas.
   - Pontuação acumulada vitalícia e contagem de depósitos de combustível capturados.
   - Taxa de precisão balística em tempo real (`%`), disparos totais e acertos confirmados.
@@ -148,8 +156,8 @@ O jogo permite personalizar a experiência através de um menu de configuraçõe
 
 ### ⚡ PWA Offline, Cache de Sprites & Escalonamento HiDPI
 - **Progressive Web App (PWA) & Modo Offline:**
-  - Suporte completo a instalação local no Chrome, Edge, Safari iOS e Android.
-  - Service Worker (`sw.js`) com estratégia *Cache-First* para execução 100% offline sem depender de conexão à internet.
+  - Suporte completo a instalação local no Chrome, Edge, Safari iOS e Android, com ícones PNG normais e maskable.
+  - Service Worker (`sw.js`) versionado por build: navegação *network-first* para pegar o `index.html` novo e assets em *cache-first*; o cache antigo é removido na ativação do novo worker.
   - Manifesto de aplicativo com tema imersivo retrô (`#050a14`) e display standalone em tela cheia.
 - **Cache de Sprites em Offscreen Canvas (`SpriteCache.ts`):**
   - Pré-renderização em memória de fuselagens inimigas e depósitos de combustível, eliminando chamadas repetitivas de desenho vetorial no loop a 60 FPS.
@@ -235,16 +243,20 @@ src/
   │   ├── SettingsService.ts # Preferências e Configurações (Volume, Movimento)
   │   ├── ScoringSystem.ts   # Lógica dedicada de Combo e Pontuação
   │   ├── RankingService.ts  # Sistema de Ranking Top 10
-  │   ├── StorageService.ts  # Armazenamento Seguro (XOR/Checksum)
+  │   ├── StorageService.ts  # Armazenamento versionado (XOR/Checksum)
   │   ├── GameState.ts       # Máquina de Estados do Jogo
+  │   ├── GameTimers.ts      # Timers de respawn/game over cientes da pausa
   │   ├── ObjectPool.ts      # Otimização de Memória (Pooling de Entidades)
   │   ├── SpatialGrid.ts     # Otimização de Colisões
   │   ├── DebugPanel.ts      # Painel de Debug (FPS, estado interno)
+  │   ├── IntroCinematic.ts  # Diretor da Cinemática de Abertura (roteiro, câmera, atores)
+  │   ├── IntroRenderer.ts   # Camada de cinema (letterbox, rádio, marcações, título)
   │   ├── random.ts          # Gerador de Números Aleatórios Seedável
   │   ├── constants.ts       # Parâmetros de Balanceamento e Configuração
   │   └── utils.ts           # Funções Utilitárias e Math
   ├── components/            # Componentes React
-  │   ├── GameCanvas.tsx     # Ponte React ↔ Canvas
+  │   ├── GameCanvas.tsx     # Ponte React ↔ Canvas (engine lazy-loaded)
+  │   ├── Modal.tsx          # Modal acessível compartilhado (dialog/foco/Escape)
   │   ├── TouchControls.tsx  # Interface Mobile (D-Pad)
   │   └── SwipeControls.tsx  # Interface Mobile (Swipe)
   └── App.tsx                # Shell e Gestão de Telas
@@ -254,11 +266,11 @@ src/
 
 ## 📈 Roadmap e Documentação
 Para detalhes técnicos mais profundos e planos de futuras versões, consulte:
-- `spec.md`: Roadmap de evolução detalhado.
-- `prd.md`: Documento de Requisitos de Produto.
-- `introducion.md`: Glossário técnico e especificações da engine.
-- `AGENTS.md`: Guia de arquitetura para agentes de IA.
-- `.agents/skills/create-readme/SKILL.md`: Skill oficial para criação/manutenção deste README.
+- [`docs/README.md`](docs/README.md): índice e status das sprints 1–9.
+- [`docs/sprint-*.md`](docs/): detalhamento técnico de cada sprint.
+- [`AGENTS.md`](AGENTS.md): guia de arquitetura e comandos para agentes de IA.
+- [`CLAUDE.md`](CLAUDE.md): resumo operacional para agentes.
+- [`.agents/skills/create-readme/SKILL.md`](.agents/skills/create-readme/SKILL.md): skill oficial para criação/manutenção deste README.
 
 ---
 *Construído com ❤️ por Bruno Lagoa e assistentes IA.*

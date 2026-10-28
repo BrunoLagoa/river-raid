@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { CareerStatsService, type CareerStats } from '../game/CareerStatsService'
 import type { Strings } from '../i18n'
+import Modal from './Modal'
 
 interface CareerStatsModalProps {
   isOpen: boolean
@@ -52,149 +53,15 @@ const CareerStatsModalContent: React.FC<Omit<CareerStatsModalProps, 'isOpen'>> =
   ]
 
   return (
-    <div
-      data-testid="career-stats-backdrop"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(5, 10, 20, 0.88)',
-        backdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '20px',
-      }}
-    >
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '560px',
-          backgroundColor: '#0c1424',
-          border: '2px solid #00e5ff',
-          borderRadius: '12px',
-          boxShadow: '0 0 30px rgba(0, 229, 255, 0.25)',
-          color: '#e2f1ff',
-          fontFamily: "'Courier New', Courier, monospace",
-          overflow: 'hidden',
-          display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh',
-        }}
-      >
-        {/* Header */}
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid rgba(0, 229, 255, 0.2)', textAlign: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '20px', letterSpacing: '2px', color: '#00e5ff', textShadow: '0 0 10px rgba(0,229,255,0.5)' }}>
-            {locale.statsTitle}
-          </h2>
-          <div style={{ fontSize: '11px', color: '#7ba0c0', letterSpacing: '1px', marginTop: '4px' }}>
-            {locale.statsSubtitle}
-          </div>
-        </div>
-
-        {/* Scrollable Content */}
-        <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Main Highlights Grid */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '10px',
-            }}
-          >
-            {mainStats.map((item) => (
-              <div
-                key={item.label}
-                style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.03)',
-                  border: '1px solid rgba(0, 229, 255, 0.1)',
-                  borderRadius: '8px',
-                  padding: '10px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '4px',
-                }}
-              >
-                <span style={{ fontSize: '11px', color: '#94a3b8', letterSpacing: '0.5px' }}>{item.label}</span>
-                <span style={{ fontSize: '18px', fontWeight: 'bold', color: item.color }}>{item.value}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Enemies Destroyed Breakdown */}
-          <div
-            style={{
-              backgroundColor: 'rgba(0, 15, 30, 0.5)',
-              border: '1px solid rgba(0, 229, 255, 0.15)',
-              borderRadius: '8px',
-              padding: '12px',
-            }}
-          >
-            <div
-              style={{
-                fontSize: '12px',
-                fontWeight: 'bold',
-                color: '#00e5ff',
-                letterSpacing: '1px',
-                marginBottom: '10px',
-                display: 'flex',
-                justifyContent: 'space-between',
-              }}
-            >
-              <span>{locale.statsTotalKills}</span>
-              <span style={{ color: '#f87171' }}>{totalKills.toLocaleString()}</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
-              {killsBreakdown.map((k) => (
-                <div
-                  key={k.label}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '12px',
-                    color: '#cbd5e1',
-                    padding: '4px 8px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                    borderRadius: '4px',
-                  }}
-                >
-                  <span>{k.icon} {k.label}</span>
-                  <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{k.count.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Confirm Reset Alert */}
-          {confirmReset && (
-            <div
-              style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid #ef4444',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontSize: '12px',
-                color: '#fca5a5',
-                textAlign: 'center',
-              }}
-            >
-              {locale.statsResetConfirm}
-            </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div
-          style={{
-            padding: '14px 20px',
-            borderTop: '1px solid rgba(0, 229, 255, 0.2)',
-            display: 'flex',
-            justifyContent: 'space-between',
-            gap: '12px',
-          }}
-        >
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={locale.statsTitle}
+      subtitle={locale.statsSubtitle}
+      testId="career-stats-backdrop"
+      bodyStyle={{ gap: '16px' }}
+      footer={
+        <>
           <button
             type="button"
             data-testid="stats-reset-btn"
@@ -213,7 +80,7 @@ const CareerStatsModalContent: React.FC<Omit<CareerStatsModalProps, 'isOpen'>> =
               transition: 'all 0.15s ease',
             }}
           >
-            {confirmReset ? 'CONFIRM RESET' : locale.statsBtnReset}
+            {confirmReset ? locale.statsBtnConfirmReset : locale.statsBtnReset}
           </button>
 
           <button
@@ -236,9 +103,100 @@ const CareerStatsModalContent: React.FC<Omit<CareerStatsModalProps, 'isOpen'>> =
           >
             {locale.statsBtnClose}
           </button>
+        </>
+      }
+    >
+      {/* Main Highlights Grid */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(2, 1fr)',
+          gap: '10px',
+        }}
+      >
+        {mainStats.map((item) => (
+          <div
+            key={item.label}
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid rgba(0, 229, 255, 0.1)',
+              borderRadius: '8px',
+              padding: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '4px',
+            }}
+          >
+            <span style={{ fontSize: '11px', color: '#94a3b8', letterSpacing: '0.5px' }}>{item.label}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold', color: item.color }}>{item.value}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Enemies Destroyed Breakdown */}
+      <div
+        style={{
+          backgroundColor: 'rgba(0, 15, 30, 0.5)',
+          border: '1px solid rgba(0, 229, 255, 0.15)',
+          borderRadius: '8px',
+          padding: '12px',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '12px',
+            fontWeight: 'bold',
+            color: '#00e5ff',
+            letterSpacing: '1px',
+            marginBottom: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{locale.statsTotalKills}</span>
+          <span style={{ color: '#f87171' }}>{totalKills.toLocaleString()}</span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px' }}>
+          {killsBreakdown.map((k) => (
+            <div
+              key={k.label}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '12px',
+                color: '#cbd5e1',
+                padding: '4px 8px',
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                borderRadius: '4px',
+              }}
+            >
+              <span>{k.icon} {k.label}</span>
+              <span style={{ fontWeight: 'bold', color: '#ffffff' }}>{k.count.toLocaleString()}</span>
+            </div>
+          ))}
         </div>
       </div>
-    </div>
+
+      {/* Confirm Reset Alert */}
+      {confirmReset && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid #ef4444',
+            borderRadius: '8px',
+            padding: '10px 14px',
+            fontSize: '12px',
+            color: '#fca5a5',
+            textAlign: 'center',
+          }}
+        >
+          {locale.statsResetConfirm}
+        </div>
+      )}
+    </Modal>
   )
 }
 

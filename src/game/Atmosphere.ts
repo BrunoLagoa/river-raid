@@ -271,8 +271,8 @@ function makeSnowflake(canvasWidth: number, canvasHeight: number, randomY = true
 
 // ─── Atmosphere class ─────────────────────────────────────────────────────────
 
-const CYCLE_DURATION = 120   // 2 minutes total
-const PHASE_DURATION = 30    // 30 seconds per phase
+export const CYCLE_DURATION = 120   // 2 minutes total
+export const PHASE_DURATION = 30    // 30 seconds per phase
 const HOLD_FRACTION  = 0.35  // 35% of each phase holds the colour steady
 
 export class Atmosphere {
@@ -311,6 +311,16 @@ export class Atmosphere {
   /** Intensidade da nevasca (0-1). Definida pelo Game conforme o bioma de neve. */
   setSnow(intensity: number): void {
     this.snowIntensity = Math.max(0, Math.min(1, intensity))
+  }
+
+  /**
+   * Posiciona o ciclo dia/noite (segundos, módulo o ciclo). Usado pela
+   * cinemática de abertura para ir da noite ao dia no ritmo do roteiro; a
+   * paleta é recalculada no próximo `update`.
+   */
+  setCycleTime(seconds: number): void {
+    if (!Number.isFinite(seconds)) return
+    this.cycleTime = ((seconds % CYCLE_DURATION) + CYCLE_DURATION) % CYCLE_DURATION
   }
 
   // ── Update ───────────────────────────────────────────────────────────────────

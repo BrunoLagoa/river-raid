@@ -2,8 +2,11 @@ import { readSecureJSON, writeSecureJSON } from './StorageService'
 import { isObjectiveBalanceProfile, type ObjectiveBalanceProfile } from './ObjectiveSystem'
 import { isDifficulty, type Difficulty } from './constants'
 import { DEFAULT_KEYBINDINGS, type Keybindings } from './KeybindingService'
+import type { Language } from '../i18n'
 
-export type Language = 'en' | 'pt-BR'
+// Re-exported so settings consumers keep importing the type from here while
+// the single source of truth lives in i18n.ts next to the translations.
+export type { Language }
 
 export function isLanguage(v: unknown): v is Language {
   return v === 'en' || v === 'pt-BR'
@@ -36,6 +39,8 @@ export interface GameSettings {
   gamepadEnabled: boolean
   hapticsEnabled: boolean
   ghostReplay: boolean
+  /** Abre a Patrulha Clássica (partida sem seed) com a cinemática de abertura. */
+  introCinematic: boolean
   mobileControlMode: MobileControlMode
   keybindings: Keybindings
   objectiveBalanceProfile: ObjectiveBalanceProfile
@@ -59,6 +64,7 @@ const DEFAULT_SETTINGS: GameSettings = {
   gamepadEnabled: true,
   hapticsEnabled: true,
   ghostReplay: true,
+  introCinematic: true,
   mobileControlMode: 'joystick',
   keybindings: DEFAULT_KEYBINDINGS,
   objectiveBalanceProfile: 'conservative',
@@ -83,6 +89,7 @@ export function getStoredSettings(): GameSettings {
     gamepadEnabled: typeof raw.gamepadEnabled === 'boolean' ? raw.gamepadEnabled : DEFAULT_SETTINGS.gamepadEnabled,
     hapticsEnabled: typeof raw.hapticsEnabled === 'boolean' ? raw.hapticsEnabled : DEFAULT_SETTINGS.hapticsEnabled,
     ghostReplay: typeof raw.ghostReplay === 'boolean' ? raw.ghostReplay : DEFAULT_SETTINGS.ghostReplay,
+    introCinematic: typeof raw.introCinematic === 'boolean' ? raw.introCinematic : DEFAULT_SETTINGS.introCinematic,
     mobileControlMode: isMobileControlMode(raw.mobileControlMode) ? raw.mobileControlMode : DEFAULT_SETTINGS.mobileControlMode,
     keybindings: raw.keybindings && typeof raw.keybindings === 'object' ? { ...DEFAULT_KEYBINDINGS, ...raw.keybindings } : DEFAULT_SETTINGS.keybindings,
     objectiveBalanceProfile: isObjectiveBalanceProfile(raw.objectiveBalanceProfile)
@@ -108,6 +115,7 @@ export function saveStoredSettings(next: GameSettings): GameSettings {
     gamepadEnabled: !!next.gamepadEnabled,
     hapticsEnabled: typeof next.hapticsEnabled === 'boolean' ? next.hapticsEnabled : DEFAULT_SETTINGS.hapticsEnabled,
     ghostReplay: typeof next.ghostReplay === 'boolean' ? next.ghostReplay : DEFAULT_SETTINGS.ghostReplay,
+    introCinematic: typeof next.introCinematic === 'boolean' ? next.introCinematic : DEFAULT_SETTINGS.introCinematic,
     mobileControlMode: isMobileControlMode(next.mobileControlMode) ? next.mobileControlMode : DEFAULT_SETTINGS.mobileControlMode,
     keybindings: next.keybindings ? { ...DEFAULT_KEYBINDINGS, ...next.keybindings } : DEFAULT_SETTINGS.keybindings,
     objectiveBalanceProfile: isObjectiveBalanceProfile(next.objectiveBalanceProfile)

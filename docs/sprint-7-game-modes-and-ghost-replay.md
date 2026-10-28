@@ -16,8 +16,8 @@ Expandir as formas de jogar e enriquecer a competição pessoal através de:
 - **Arquivos impactados:**
   - `src/game/GameMode.ts` [NEW]
   - `src/game/GameMode.test.ts` [NEW]
-  - [constants.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/constants.ts)
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [constants.ts](../src/game/constants.ts)
+  - [Game.ts](../src/game/Game.ts)
 - **Sub-etapas:**
   1. Definir tipo `export type GameModeId = 'classic' | 'daily' | 'boss_rush' | 'hardcore' | 'zen'`.
   2. Implementar perfis de configuração por modo:
@@ -37,7 +37,7 @@ Expandir as formas de jogar e enriquecer a competição pessoal através de:
 - **Arquivos impactados:**
   - `src/game/GhostReplaySystem.ts` [NEW]
   - `src/game/GhostReplaySystem.test.ts` [NEW]
-  - [StorageService.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/StorageService.ts)
+  - [StorageService.ts](../src/game/StorageService.ts)
 - **Sub-etapas:**
   1. Criar gravador leve com amostragem a 10 Hz (uma amostra a cada 100ms) com interpolação cúbica/linear no playback:
      ```ts
@@ -61,7 +61,7 @@ Expandir as formas de jogar e enriquecer a competição pessoal através de:
 - **Arquivos impactados:**
   - `src/game/GhostRenderer.ts` [NEW]
   - `src/game/GhostRenderer.test.ts` [NEW]
-  - [Game.ts](file:///Users/bruno/Dev/pocs/river-raid/src/game/Game.ts)
+  - [Game.ts](../src/game/Game.ts)
 - **Sub-etapas:**
   1. Renderizar o avião fantasma no canvas com efeito holográfico:
      - `ctx.globalAlpha = 0.35`.
@@ -76,9 +76,9 @@ Expandir as formas de jogar e enriquecer a competição pessoal através de:
 
 ### Task 7.4: Seleção de Modos no Menu React & Game Over
 - **Arquivos impactados:**
-  - [MenuScreen.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/components/MenuScreen.tsx)
-  - [App.tsx](file:///Users/bruno/Dev/pocs/river-raid/src/App.tsx)
-  - [i18n.ts](file:///Users/bruno/Dev/pocs/river-raid/src/i18n.ts)
+  - [MenuScreen.tsx](../src/components/MenuScreen.tsx)
+  - [App.tsx](../src/App.tsx)
+  - [i18n.ts](../src/i18n.ts)
 - **Sub-etapas:**
   1. Adicionar seletor de modo no menu principal com badges distintos (ex: "👑 DIÁRIO", "⚡ BOSS RUSH", "💀 HARDCORE").
   2. Ajustar a tela de Game Over para exibir o recorde específico de cada modo.

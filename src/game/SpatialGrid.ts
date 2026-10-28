@@ -19,7 +19,10 @@ export class SpatialGrid {
   }
 
   clear(): void {
-    this.buckets.clear()
+    // Reuse the bucket arrays instead of dropping the Map every frame: clearing
+    // them in place avoids a burst of array allocations during GC pressure.
+    for (const bucket of this.buckets.values()) bucket.length = 0
+    this.marks.clear()
   }
 
   insert(index: number, rect: Rect): void {
@@ -28,15 +31,12 @@ export class SpatialGrid {
     const minY = Math.floor((rect.y - rect.height / 2) / this.cellSize)
     const maxY = Math.floor((rect.y + rect.height / 2) / this.cellSize)
 
-    for (let gy = minY; gy <= maxY; gy++) {
-      for (let gx = minX; gx <= maxX; gx++) {
+    for (let gx = minX; gx <= maxX; gx++) {
+      for (let gy = minY; gy <= maxY; gy++) {
         const key = SpatialGrid.key(gx, gy)
-        let bucket = this.buckets.get(key)
-        if (!bucket) {
-          bucket = []
-          this.buckets.set(key, bucket)
-        }
-        bucket.push(index)
+        const bucket = this.buckets.get(key)
+        if (bucket) bucket.push(index)
+        else this.buckets.set(key, [index])
       }
     }
   }
@@ -44,21 +44,22 @@ export class SpatialGrid {
   query(rect: Rect, out: number[]): number[] {
     out.length = 0
     this.queryStamp += 1
+    const stamp = this.queryStamp
 
     const minX = Math.floor((rect.x - rect.width / 2) / this.cellSize)
     const maxX = Math.floor((rect.x + rect.width / 2) / this.cellSize)
     const minY = Math.floor((rect.y - rect.height / 2) / this.cellSize)
     const maxY = Math.floor((rect.y + rect.height / 2) / this.cellSize)
 
-    for (let gy = minY; gy <= maxY; gy++) {
-      for (let gx = minX; gx <= maxX; gx++) {
+    for (let gx = minX; gx <= maxX; gx++) {
+      for (let gy = minY; gy <= maxY; gy++) {
         const key = SpatialGrid.key(gx, gy)
         const bucket = this.buckets.get(key)
         if (!bucket) continue
 
         for (const index of bucket) {
-          if (this.marks.get(index) === this.queryStamp) continue
-          this.marks.set(index, this.queryStamp)
+          if (this.marks.get(index) === stamp) continue
+          this.marks.set(index, stamp)
           out.push(index)
         }
       }

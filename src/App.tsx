@@ -42,6 +42,8 @@ export default function App() {
   const [currentMode, setCurrentMode] = useState<GameModeId>('classic')
   const [isModeSelectOpen, setIsModeSelectOpen] = useState(false)
   const [isStatsOpen, setIsStatsOpen] = useState(false)
+  // Cinemática de abertura na próxima partida (só Patrulha Clássica, sem seed).
+  const [introPending, setIntroPending] = useState(false)
   const menuSoundRef = useRef<SoundManager | null>(null)
 
   // Daily challenge — deterministic seed from today's date + per-day best score.
@@ -52,6 +54,12 @@ export default function App() {
   const [dailyBest, setDailyBest] = useState(() => getDailyBest())
 
   const t = useMemo(() => getStrings(settings.language), [settings.language])
+
+  // Keep the document language in sync with the selected locale so screen
+  // readers and browser translation use the right language in menus/HUD.
+  useEffect(() => {
+    document.documentElement.lang = settings.language
+  }, [settings.language])
 
   const toggleMute = useCallback(() => {
     setSettings((prev) => saveStoredSettings({ ...prev, muted: !prev.muted }))
@@ -94,8 +102,11 @@ export default function App() {
     dailyModeRef.current = daily || mode === 'daily'
     setDailyMode(daily || mode === 'daily')
     setNewlyUnlocked([])
+    // A cinemática abre a Patrulha Clássica; desafio diário e demais modos vão
+    // direto para a ação (o diário é determinístico e a cena rola o rio).
+    setIntroPending(settings.introCinematic && mode === 'classic' && !daily)
     setScreen('playing')
-  }, [])
+  }, [settings.introCinematic])
 
   const handleGameOver = useCallback((score: number, hs: number) => {
     setFinalScore(score)
@@ -146,6 +157,8 @@ export default function App() {
       } else {
         // Retry preserves the current mode (normal or daily or selected).
         setNewlyUnlocked([])
+        // Tentar de novo vai direto para a ação.
+        setIntroPending(false)
         setScreen('playing')
       }
     }
@@ -242,6 +255,7 @@ export default function App() {
           settings={settings}
           mode={currentMode}
           seed={dailyMode ? dailySeed : undefined}
+          intro={introPending}
         />
       )}
 

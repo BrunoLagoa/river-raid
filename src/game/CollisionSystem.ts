@@ -22,6 +22,14 @@ import type { HazardManager } from './HazardManager'
 /** Fallback frame step when a caller does not supply one (60 FPS). */
 const DEFAULT_DT = 1 / 60
 
+// Scratch workspace shared by every Game instance.
+//
+// This is deliberately module-level: the engine is single-threaded, and
+// `resolveCollisions` never yields or re-enters itself, so one frame owns these
+// buffers from start to finish. Area blasts (`destroyEnemiesInRadius`) use a
+// separate `blastBuffer` because they can run outside the resolution pass.
+// Do not call `resolveCollisions` recursively from inside a collision callback:
+// that would overwrite the enemy/bullet snapshots mid-iteration.
 const enemyGrid = new SpatialGrid(64)
 const bulletGrid = new SpatialGrid(64)
 // Reused across queries to avoid per-frame array allocation in hot paths.
@@ -208,8 +216,6 @@ export class CollisionSystem {
   }
 
   private static checkPlayerVsEnemies(ctx: CollisionContext, playerRect: Rect): boolean {
-    const isInvincible = ctx.player.invincibilityTimer > 0
-
     enemyGrid.query(playerRect, candidates)
 
     for (const idx of candidates) {
@@ -226,7 +232,10 @@ export class CollisionSystem {
         continue
       }
 
-      if (isInvincible) return false
+      // Read the timer after the shield branch: breaking a shield grants
+      // invincibility immediately, and a second collider in this same frame
+      // must honour it instead of using a value cached before the loop.
+      if (ctx.player.invincibilityTimer > 0) return false
 
       CollisionSystem.killPlayer(ctx, enemy.x, enemy.y, ENEMY_COLORS[enemy.type] || '#ffffff')
       enemy.active = false
@@ -236,8 +245,6 @@ export class CollisionSystem {
   }
 
   private static checkPlayerVsEnemyBullets(ctx: CollisionContext, playerRect: Rect): boolean {
-    const isInvincible = ctx.player.invincibilityTimer > 0
-
     CollisionSystem.buildGrid(ctx.enemyManager.bullets, bulletGrid, bulletSnapshot)
     bulletGrid.query(playerRect, candidates)
 
@@ -256,7 +263,8 @@ export class CollisionSystem {
         continue
       }
 
-      if (isInvincible) {
+      // Same-frame shield break: re-read instead of using a pre-loop value.
+      if (ctx.player.invincibilityTimer > 0) {
         bullet.active = false
         continue
       }
@@ -441,9 +449,8 @@ export class CollisionSystem {
   private static checkPlayerVsHazards(ctx: CollisionContext, playerRect: Rect): boolean {
     if (!ctx.hazards) return false
     // Same precedence as every other lethal contact: shield first, then the
-    // respawn invincibility window, then death.
-    const isInvincible = ctx.player.invincibilityTimer > 0
-
+    // respawn invincibility window, then death. The timer is re-read per
+    // contact because a shield break earlier in this loop grants it.
     for (const mine of ctx.hazards.mines) {
       if (!mine.active) continue
       const mineRect: Rect = { x: mine.x, y: mine.y, width: mine.width, height: mine.height }
@@ -457,7 +464,7 @@ export class CollisionSystem {
         continue
       }
 
-      if (isInvincible) return false
+      if (ctx.player.invincibilityTimer > 0) return false
 
       mine.active = false
       ctx.fx.bigExplosion(mine.x, mine.y, '#ff2200')
@@ -477,7 +484,7 @@ export class CollisionSystem {
         continue
       }
 
-      if (isInvincible) return false
+      if (ctx.player.invincibilityTimer > 0) return false
 
       CollisionSystem.killPlayer(ctx, ctx.player.x, ctx.player.y, '#ff5500')
       return true

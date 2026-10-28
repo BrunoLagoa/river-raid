@@ -49,6 +49,16 @@ describe('SettingsScreen', () => {
     expect(onUpdate).toHaveBeenCalledWith({ hapticsEnabled: false })
   })
 
+  it('alterna a cinemática de abertura', () => {
+    const { onUpdate } = renderSettings({ introCinematic: true })
+    const label = screen.getByText(t.settingsLabelIntro)
+    const checkbox = label.closest('label')?.querySelector('input[type="checkbox"]') as HTMLInputElement
+    expect(checkbox.checked).toBe(true)
+
+    fireEvent.click(checkbox)
+    expect(onUpdate).toHaveBeenCalledWith({ introCinematic: false })
+  })
+
   it('abre a modal de remapeamento de teclado', () => {
     renderSettings()
     const configBtn = screen.getByText(`⌨ ${t.settingsBtnConfigureKeys}`)
@@ -65,6 +75,15 @@ describe('SettingsScreen', () => {
 
     fireEvent.change(mobileSelect, { target: { value: 'dpad' } })
     expect(onUpdate).toHaveBeenCalledWith({ mobileControlMode: 'dpad' })
+  })
+
+  it('associa labels acessíveis aos sliders e selects', () => {
+    renderSettings()
+
+    expect(screen.getByLabelText(new RegExp(t.settingsLabelVolume)).getAttribute('type')).toBe('range')
+    expect(screen.getByLabelText(new RegExp(t.settingsLabelMusicVolume))).toBeTruthy()
+    expect(screen.getByLabelText(t.settingsLabelMobileControl)).toBeTruthy()
+    expect(screen.getByLabelText(t.settingsLabelLanguage)).toBeTruthy()
   })
 
   it('dispara onBack e onPlay', () => {

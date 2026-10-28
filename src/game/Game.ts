@@ -30,7 +30,7 @@ import {
   SLOW_MOTION_DURATION,
   GAME_OVER_DELAY, RESPAWN_DELAY, HIGH_SCORE_KEY,
   POWERUP_MAGNET_FUEL_SPEED,
-  DT_CLAMP_MAX,
+  DT_CLAMP_MAX, BASE_SCROLL_SPEED,
   SMOKE_TRAIL_SPAWN_CHANCE, SMOKE_TRAIL_FAST_SPEED_MOD, SMOKE_TRAIL_SLOW_SPEED_MOD,
   SHOCKWAVE_MAX_RADIUS_RATIO, SHOCKWAVE_BASE_ALPHA,
   DISTANCE_PX_PER_METER,
@@ -54,9 +54,18 @@ import { SkinService, type SkinId } from './SkinService'
 import { type GameModeId, type GameModeConfig, getGameModeConfig } from './GameMode'
 import { GhostReplaySystem } from './GhostReplaySystem'
 import { GhostRenderer } from './GhostRenderer'
+import { IntroCinematic, INTRO_PREWARM_SECONDS, type IntroContext, type IntroLabels, type IntroStage } from './IntroCinematic'
+import { GameTimers } from './GameTimers'
+import { IntroRenderer } from './IntroRenderer'
 
 export type GameCallback = (score: number, highScore: number) => void
 export type AchievementCallback = (id: AchievementId, title: string, description: string) => void
+export type IntroStageCallback = (stage: IntroStage) => void
+
+/** Passo da simulação que adianta rio e cenário antes da cinemática (s). */
+const INTRO_PREWARM_DT = 1 / 20
+/** Quanto o HUD desce ao entrar junto com a faixa de cinema que recolhe (px). */
+const HUD_REVEAL_SLIDE = 24
 
 export class Game {
   private static readonly HIGH_SCORE_KEY_STATIC = HIGH_SCORE_KEY
@@ -144,10 +153,7 @@ export class Game {
   private difficulty: DifficultyPreset = DIFFICULTY_PRESETS.normal
   private locale: Strings | null = null
 
-  // Tracked so stop()/destroy() can cancel them — prevents respawn or the
-  // game-over callback from firing after the game has been torn down.
-  private respawnTimeoutId: ReturnType<typeof setTimeout> | null = null
-  private gameOverTimeoutId: ReturnType<typeof setTimeout> | null = null
+  private readonly timers = new GameTimers()
 
   private scoring = new ScoringSystem()
   private state = new GameState()
@@ -157,6 +163,26 @@ export class Game {
   private readonly minimapEnemies: Array<{ x: number; y: number; active: boolean }> = []
   private readonly minimapFuelTanks: Array<{ x: number; y: number; active: boolean }> = []
   private readonly minimapPowerUps: Array<{ x: number; y: number; active: boolean }> = []
+  // Reused HUD payloads: these were rebuilt every frame even though only the
+  // values change. UI.render reads them synchronously and does not retain them.
+  private readonly minimapData = {
+    player: { x: 0, y: 0 },
+    segments: [] as Array<{ y: number; centerX: number; width: number }>,
+    enemies: this.minimapEnemies,
+    fuelTanks: this.minimapFuelTanks,
+    powerUps: this.minimapPowerUps,
+  }
+  private readonly comboHud = { multiplier: 1, timer: 0, maxTimer: 0 }
+  /** Stable callback so Player.update does not allocate a closure every frame. */
+  private readonly onMiss = (): void => this.registerMiss()
+  /** Reused aim target for enemy steering. */
+  private readonly aimTarget = { x: 0, y: 0 }
+
+  /** Cinemática de abertura armada por `playIntro()`; volta a null quando termina. */
+  private intro: IntroCinematic | null = null
+  private introRenderer: IntroRenderer | null = null
+  private introCtx: IntroContext | null = null
+  private onIntroStageChange: IntroStageCallback | null = null
 
   get score(): number { return this.scoring.score }
   set score(value: number) { this.scoring.score = value }
@@ -212,7 +238,12 @@ export class Game {
     // serviço já mapeia `KeyX` ↔ `'x'` e `KeyP` ↔ `'p'`, então o rebind segue
     // honrado e eventos sem `code` (testes, síntese) continuam funcionando.
     const action = this.keybindings.getActionForKey(e.code) ?? this.keybindings.getActionForKey(e.key)
-    if (action === 'pause') {
+    if (this.isIntroPlaying()) {
+      // Na cinemática, Enter/Esc (ou a tecla de pausa) pulam; mudo e debug seguem valendo.
+      if (!e.repeat && (e.key === 'Enter' || e.key === 'Escape' || action === 'pause')) {
+        this.skipIntro()
+      }
+    } else if (action === 'pause') {
       this.togglePause()
     }
     if (e.key === 'm' || e.key === 'M') {
@@ -236,6 +267,35 @@ export class Game {
     this.onAchievementUnlocked = cb
   }
 
+  /** Avisado a cada troca de estágio da cinemática ('cinematic' → 'handover' → 'done'). */
+  setOnIntroStageChange(cb: IntroStageCallback): void {
+    this.onIntroStageChange = cb
+  }
+
+  /**
+   * Arma a cinemática de abertura para o próximo `start()`. Só em partidas sem
+   * seed: o rio segue rolando durante a cena e consome o RNG do mundo.
+   */
+  playIntro(): void {
+    if (this.running || this.intro) return
+    this.intro = new IntroCinematic()
+    this.introRenderer ??= new IntroRenderer()
+    this.intro.setOnStageChange(this.handleIntroStage)
+    if (this.locale) this.intro.setLabels(this.buildIntroLabels(this.locale))
+  }
+
+  /** Pula a cinemática direto para a transição (Enter/Esc, botão PULAR). */
+  skipIntro(): void {
+    const intro = this.intro
+    if (!intro || intro.stage !== 'cinematic') return
+    intro.skip(this.getIntroContext())
+  }
+
+  /** True enquanto a cena está no ar e o jogador ainda não tem o controle. */
+  isIntroPlaying(): boolean {
+    return this.intro?.stage === 'cinematic'
+  }
+
   private tryUnlockAchievement(id: AchievementId): void {
     if (isAchievementUnlocked(id)) return
     const updated = unlockAchievement(id)
@@ -255,9 +315,17 @@ export class Game {
     this.paused = false
     this.sound.init()
     this.sound.resume()
-    this.sound.startMusic(this.biomeSystem.getCurrentBiomeId())
+    const intro = this.intro
+    if (intro?.stage === 'cinematic') {
+      // A cena assume a trilha e segura os controles até a transição.
+      this.prewarmIntroScene()
+      intro.begin(this.getIntroContext())
+      this.sound.startIntroMusic()
+    } else {
+      this.sound.startMusic(this.biomeSystem.getCurrentBiomeId())
+      this.player.attachInput()
+    }
     this.sound.startEngine()
-    this.player.attachInput()
     this.lastTime = performance.now()
     this.loop(this.lastTime)
   }
@@ -275,19 +343,13 @@ export class Game {
   }
 
   private clearPendingTimers(): void {
-    if (this.respawnTimeoutId !== null) {
-      clearTimeout(this.respawnTimeoutId)
-      this.respawnTimeoutId = null
-    }
-    if (this.gameOverTimeoutId !== null) {
-      clearTimeout(this.gameOverTimeoutId)
-      this.gameOverTimeoutId = null
-    }
+    this.timers.clear()
   }
 
   public togglePause(): void {
-    if (!this.running || this.gameOverTriggered) return
+    if (!this.running || this.gameOverTriggered || this.isIntroPlaying()) return
     this.paused = !this.paused
+    this.timers.setPaused(this.paused)
     if (this.paused) {
       this.sound.stopMusic()
     } else {
@@ -297,6 +359,7 @@ export class Game {
   }
 
   public simulateKey(key: string, isDown: boolean): void {
+    if (this.isIntroPlaying()) return
     if (isDown) {
       this.player.keys.add(key)
     } else {
@@ -305,7 +368,7 @@ export class Game {
   }
 
   public activateOverdrive(): boolean {
-    if (!this.running || this.paused || this.player.state !== 'alive') return false
+    if (!this.running || this.paused || this.player.state !== 'alive' || this.isIntroPlaying()) return false
     const activated = this.overdrive.activate()
     if (activated) {
       this.player.overdriveActive = true
@@ -319,15 +382,19 @@ export class Game {
     return activated
   }
 
+  // Durante a cinemática quem pilota é o autopiloto: entradas touch são ignoradas.
   setTouchPosition(screenX: number | null, screenY: number | null = null): void {
+    if (this.isIntroPlaying()) return
     this.player.setTouchTarget(screenX, screenY)
   }
 
   setAnalogVector(x: number, y: number): void {
+    if (this.isIntroPlaying()) return
     this.player.setAnalogVector(x, y)
   }
 
   setTouchShoot(shooting: boolean): void {
+    if (this.isIntroPlaying()) return
     this.player.setTouchShoot(shooting)
   }
 
@@ -406,6 +473,11 @@ export class Game {
 
   restart(): void {
     this.stop()
+    // Recomeço vai direto para a ação: uma cinemática em curso é descartada.
+    if (this.intro) {
+      this.intro = null
+      this.onIntroStageChange?.('done')
+    }
     this.state.reset()
     // `state.reset()` zera para `DEFAULT_LIVES`; reaplica o modo (hardcore=1,
     // zen=infinidade) ou o restart devolveria 3 vidas em qualquer modo.
@@ -482,6 +554,7 @@ export class Game {
     this.ui.setShortcutLabels(strings.hudPauseLabel, strings.hudMuteLabel)
     this.ui.setBossLabels(strings.hudBossName, strings.hudBossPhase)
     this.ui.setOverdriveLabels(strings.hudOverdriveActive, strings.hudOverdriveReady)
+    this.intro?.setLabels(this.buildIntroLabels(strings))
   }
 
   setLanguage(language: 'en' | 'pt-BR'): void {
@@ -579,6 +652,15 @@ export class Game {
   }
 
   private update(dt: number): void {
+    const intro = this.intro
+    if (intro) {
+      if (intro.stage === 'cinematic') {
+        this.updateIntro(intro, dt)
+        return
+      }
+      // Transição: o gameplay já roda; aqui só corre o relógio das faixas e do HUD.
+      intro.updateHandover(dt)
+    }
     if (this.updateNonInteractiveStates(dt)) return
 
     const speedMod = this.updateFrameState(dt)
@@ -594,6 +676,101 @@ export class Game {
     this.fx.update(dt)
     this.ui.updateToasts(dt)
     this.updateDebugMetrics()
+  }
+
+  /** Frame da cinemática: o roteiro dita velocidade do rio, hora do dia, clima e farol. */
+  private updateIntro(intro: IntroCinematic, dt: number): void {
+    intro.update(dt, this.getIntroContext())
+    // O roteiro pode ter terminado neste frame: o próximo já é gameplay.
+    if (intro.stage !== 'cinematic') return
+
+    const speed = intro.scrollSpeed
+    this.scrollSpeed = speed
+    const biomeCfg = this.biomeSystem.getConfig()
+    this.world.update(dt, speed)
+    this.scenery.update(dt, speed, this.world, this.logicalWidth)
+    this.atmosphere.setCycleTime(intro.cycleTime)
+    this.atmosphere.update(dt, speed, biomeCfg.basePalette)
+    // Mesmo "modo noturno" do gameplay: a trilha acompanha a noite → dia da cena.
+    this.sound.setMusicPhase(this.atmosphere.getPhaseIndex())
+    this.weather.update(dt, speed, intro.weatherType, this.reducedMotion)
+    this.lighting.update(dt, intro.headlightOn, this.reducedMotion)
+    if (intro.jetVisible) this.renderSmokeTrail(intro.jetSpeedMod)
+    this.fx.update(dt)
+  }
+
+  /**
+   * Adianta rio e cenário antes do 1º frame da cinemática — sem isso as margens
+   * nasceriam vazias e a abertura mostraria um campo liso até a 1ª árvore descer.
+   */
+  private prewarmIntroScene(): void {
+    const cfg = this.biomeSystem.getConfig()
+    this.world.setBiomeWidths(cfg.riverMinWidth, cfg.riverMaxWidthRatio)
+    this.scenery.setSceneryWeights(cfg.sceneryWeights)
+    const steps = Math.round(INTRO_PREWARM_SECONDS / INTRO_PREWARM_DT)
+    for (let i = 0; i < steps; i++) {
+      this.world.update(INTRO_PREWARM_DT, BASE_SCROLL_SPEED)
+      this.scenery.update(INTRO_PREWARM_DT, BASE_SCROLL_SPEED, this.world, this.logicalWidth)
+    }
+  }
+
+  private getIntroContext(): IntroContext {
+    if (!this.introCtx) {
+      this.introCtx = {
+        world: this.world,
+        player: this.player,
+        fx: this.fx,
+        sound: this.sound,
+        weather: this.weather,
+        haptics: this.haptics,
+        width: 0,
+        height: 0,
+        reducedMotion: false,
+      }
+    }
+    const ctx = this.introCtx
+    ctx.width = this.logicalWidth
+    ctx.height = this.logicalHeight
+    ctx.reducedMotion = this.reducedMotion
+    return ctx
+  }
+
+  private handleIntroStage = (stage: IntroStage): void => {
+    if (stage === 'handover') this.beginGameplayAfterIntro()
+    if (stage === 'done') this.intro = null
+    this.onIntroStageChange?.(stage)
+  }
+
+  /** A cena entrega o controle: daqui em diante o loop é o do gameplay. */
+  private beginGameplayAfterIntro(): void {
+    // Pular pode cair em plena noite de chuva: o gameplay começa sempre no dia e
+    // sorteia o clima do bioma, como qualquer partida nova.
+    this.atmosphere.setCycleTime(0)
+    this.weather.reset()
+    this.sound.setDynamicIntensity(this.dynamicIntensity)
+    this.sound.stopMusic()
+    this.sound.startMusic(this.biomeSystem.getCurrentBiomeId())
+    this.sound.speech.playMissionStart()
+    this.player.attachInput()
+  }
+
+  private buildIntroLabels(s: Strings): IntroLabels {
+    const skinName = s[this.skinService.getSkinDef(this.player.skinId).nameKey as keyof Strings]
+    return {
+      stampNight: s.introStampNight,
+      stampDawn: s.introStampDawn,
+      speaker: s.introSpeaker,
+      lines: s.introLines,
+      contactHostile: s.introContactHostile,
+      contactBridge: s.introContactBridge,
+      contactUnknown: s.introContactUnknown,
+      pilot: typeof skinName === 'string' ? skinName.toUpperCase() : '',
+      callsign: s.introCallsign,
+      subtitle: s.menuSubtitle,
+      title: s.introTitle,
+      tagline: s.menuTagline,
+      missionStart: s.introMissionStart,
+    }
   }
 
   private updateNonInteractiveStates(dt: number): boolean {
@@ -660,7 +837,7 @@ export class Game {
     this.lighting.update(dt, this.atmosphere.isNight(), this.reducedMotion)
 
     const bounds = this.world.getBoundsAtY(this.player.y)
-    this.player.update(dt, bounds.left, bounds.right, () => this.registerMiss())
+    this.player.update(dt, bounds.left, bounds.right, this.onMiss)
 
     // Apply whirlpool physical suction if player flies above a vortex. The vortex
     // is environmental, so it scales with `envDt`, and the displacement is
@@ -740,9 +917,12 @@ export class Game {
     }
 
     // Smart/elite enemies aim at the live ship; don't feed them a dying target.
-    const aimTarget = this.player.state === 'alive'
-      ? { x: this.player.x, y: this.player.y }
-      : undefined
+    let aimTarget: { x: number; y: number } | undefined
+    if (this.player.state === 'alive') {
+      this.aimTarget.x = this.player.x
+      this.aimTarget.y = this.player.y
+      aimTarget = this.aimTarget
+    }
     // Elite enemies read live player bullets to juke out of the line of fire.
     const incomingBullets = this.player.state === 'alive' ? this.player.bullets : undefined
     this.enemyManager.update(envDt, this.world, this.world.segments, this.scrollSpeed, aimTarget, incomingBullets)
@@ -774,7 +954,11 @@ export class Game {
 
     this.renderSmokeTrail(speedMod)
     this.resolveGameplayCollisions(envDt)
-    this.checkNearMisses()
+    // A lethal collision may have started the explosion. Bail out before the
+    // fuel-out check below: it also calls handlePlayerDeath and would cost a
+    // second life, duplicate the explosion and schedule two respawns.
+    if (this.player.state !== 'alive') return true
+    this.checkNearMisses(dt)
 
     this.achievements.updateFuel(dt, this.fuelSystem.fuel)
 
@@ -967,11 +1151,16 @@ export class Game {
     this.ctx.clearRect(0, 0, width, height)
 
     const palette = this.atmosphere.getPalette()
+    const intro = this.intro
+    // Na cinemática a câmera enquadra o mundo, os atores do roteiro ocupam o lugar
+    // das entidades de gameplay e o HUD só entra na transição.
+    const cinematic = intro !== null && intro.stage === 'cinematic'
 
     this.ctx.save()
     if (this.fx.shakeX !== 0 || this.fx.shakeY !== 0) {
       this.ctx.translate(this.fx.shakeX, this.fx.shakeY)
     }
+    if (cinematic) intro.applyCamera(this.ctx)
 
     // World terrain + water (palette-driven colours for day/night)
     this.world.render(this.ctx, palette)
@@ -979,9 +1168,60 @@ export class Game {
     this.scenery.render(this.ctx, palette.brightness)
     // Parallax clouds — above scenery, below gameplay entities
     this.atmosphere.renderClouds(this.ctx)
+    if (cinematic) {
+      this.introRenderer?.renderProps(this.ctx, intro, this.colorblind)
+    } else {
+      this.renderGameplayEntities()
+    }
+    this.player.render(this.ctx)
+    this.fx.render(this.ctx)
+    this.renderShockwave(this.ctx)
+
+    if (cinematic) {
+      // Dentro da câmera: com zoom ≥ 1 a máscara segue cobrindo a tela, e o farol
+      // e as luzes dos atores acompanham o enquadramento.
+      this.lighting.render(this.ctx, this.player, this.player.bullets, intro.lights, intro.darkness, this.lightingEnabled)
+    }
+
+    this.ctx.restore()
+
+    if (!cinematic) {
+      // Dynamic 2D Lighting mask (carves headlight & point lights during sunset, night & dawn)
+      const darknessAlpha = this.lighting.getDarknessAlpha(
+        this.atmosphere.getPhaseIndex(),
+        this.atmosphere.getPhaseProgress(),
+        this.atmosphere.isNight()
+      )
+      this.lighting.render(
+        this.ctx,
+        this.player,
+        this.player.bullets,
+        this.fx.getActiveExplosionCenters(),
+        darknessAlpha,
+        this.lightingEnabled
+      )
+    }
+
+    // Procedural Weather particles (Rain with lightning, Sandstorm, Smog, Snow)
+    this.weather.render(
+      this.ctx,
+      width,
+      height,
+      this.weatherEnabled,
+      this.reducedMotion
+    )
+
+    if (!cinematic) this.renderHud(width, intro ? intro.hudReveal : 1)
+    if (intro) this.introRenderer?.renderOverlay(this.ctx, intro, width, height)
+
+    // CRT scanlines — screen-space overlay applied last, over everything including HUD
+    this.atmosphere.renderScanlines(this.ctx, width, height)
+  }
+
+  /** Gameplay entities always remain bright for readability. */
+  private renderGameplayEntities(): void {
     // Environmental hazards (Whirlpools, Sea Mines, Shore Bunkers)
     this.hazardRenderer.render(this.ctx, this.hazards, this.reducedMotion)
-    // Gameplay entities always remain bright for readability
     this.fuelSystem.render(this.ctx)
     this.powerUpSystem.render(this.ctx)
     this.enemyManager.render(this.ctx, this.colorblind)
@@ -994,36 +1234,10 @@ export class Game {
         this.ghostRenderer.render(this.ctx, ghost, this.player.animFrame)
       }
     }
-    this.player.render(this.ctx)
-    this.fx.render(this.ctx)
-    this.renderShockwave(this.ctx)
+  }
 
-    this.ctx.restore()
-
-    // Dynamic 2D Lighting mask (carves headlight & point lights during sunset, night & dawn)
-    const darknessAlpha = this.lighting.getDarknessAlpha(
-      this.atmosphere.getPhaseIndex(),
-      this.atmosphere.getPhaseProgress(),
-      this.atmosphere.isNight()
-    )
-    this.lighting.render(
-      this.ctx,
-      this.player,
-      this.player.bullets,
-      this.fx.getActiveExplosionCenters(),
-      darknessAlpha,
-      this.lightingEnabled
-    )
-
-    // Procedural Weather particles (Rain with lightning, Sandstorm, Smog, Snow)
-    this.weather.render(
-      this.ctx,
-      width,
-      height,
-      this.weatherEnabled,
-      this.reducedMotion
-    )
-
+  /** HUD — na transição da cinemática entra junto com a faixa de cinema que recolhe. */
+  private renderHud(width: number, reveal: number): void {
     let bossData: BossHudData | null = null
     if (this.boss && this.boss.isAlive) {
       this.bossHud.healthRatio = this.boss.healthRatio
@@ -1039,23 +1253,34 @@ export class Game {
     overdriveData.remainingTimer = this.overdrive.remainingTimer
     overdriveData.activeRatio = this.overdrive.activeRatio
 
-    const minimapData = this.gameModeConfig.minimapEnabled
-      ? {
-          player: { x: this.player.x, y: this.player.y },
-          segments: this.world.segments,
-          enemies: this.collectActiveEntities(this.enemyManager.enemies, this.minimapEnemies),
-          fuelTanks: this.collectActiveEntities(this.fuelSystem.tanks, this.minimapFuelTanks),
-          powerUps: this.collectActiveEntities(this.powerUpSystem.powerUps, this.minimapPowerUps),
-        }
-      : undefined
+    let minimapData: typeof this.minimapData | undefined
+    if (this.gameModeConfig.minimapEnabled) {
+      this.minimapData.player.x = this.player.x
+      this.minimapData.player.y = this.player.y
+      this.minimapData.segments = this.world.segments
+      this.collectActiveEntities(this.enemyManager.enemies, this.minimapData.enemies)
+      this.collectActiveEntities(this.fuelSystem.tanks, this.minimapData.fuelTanks)
+      this.collectActiveEntities(this.powerUpSystem.powerUps, this.minimapData.powerUps)
+      minimapData = this.minimapData
+    }
 
+    this.comboHud.multiplier = this.comboMultiplier
+    this.comboHud.timer = this.comboAnimTimer
+    this.comboHud.maxTimer = this.comboLevelTimer
+
+    const easing = reveal < 1
+    if (easing) {
+      this.ctx.save()
+      this.ctx.globalAlpha = reveal
+      this.ctx.translate(0, -(1 - reveal) * HUD_REVEAL_SLIDE)
+    }
     this.ui.render(
       this.ctx, this.score, this.fuelSystem.fuel, width,
       this.sound.isMuted(), this.paused,
       minimapData,
       this.player.doubleShotTimer,
       this.slowMotionTimer,
-      { multiplier: this.comboMultiplier, timer: this.comboAnimTimer, maxTimer: this.comboLevelTimer },
+      this.comboHud,
       this.objectives.getHudData(),
       this.lives,
       this.player.rapidFireTimer,
@@ -1063,11 +1288,9 @@ export class Game {
       bossData,
       overdriveData,
     )
+    if (easing) this.ctx.restore()
 
     this.debugPanel.render(this.ctx, width)
-
-    // CRT scanlines — screen-space overlay applied last, over everything including HUD
-    this.atmosphere.renderScanlines(this.ctx, width, height)
   }
 
   private checkExtraLife(): void {
@@ -1079,8 +1302,10 @@ export class Game {
     }
   }
 
-  private checkNearMisses(): void {
-    this.nearMissCooldown = Math.max(0, this.nearMissCooldown - 1 / 60)
+  private checkNearMisses(dt: number): void {
+    // Scale by the real frame step: a fixed 1/60 made the reward cooldown
+    // twice as long at 30 FPS and half as long at 120 Hz.
+    this.nearMissCooldown = Math.max(0, this.nearMissCooldown - dt)
     if (this.nearMissCooldown > 0) return
 
     for (const bullet of this.enemyManager.bullets) {
@@ -1111,12 +1336,11 @@ export class Game {
 
     if (this.gameModeConfig.infiniteLives) {
       this.registerMiss()
-      this.respawnTimeoutId = setTimeout(() => {
-        this.respawnTimeoutId = null
+      this.timers.scheduleRespawn(RESPAWN_DELAY, () => {
         if (!this.running || this.gameOverTriggered) return
         this.fuelSystem.fuel = 100
         this.player.respawn(this.logicalWidth, this.logicalHeight)
-      }, RESPAWN_DELAY)
+      })
       return
     }
 
@@ -1125,15 +1349,14 @@ export class Game {
 
     if (this.lives > 0) {
       // Still has lives — respawn after the explosion animation (~1.2s)
-      this.respawnTimeoutId = setTimeout(() => {
-        this.respawnTimeoutId = null
+      this.timers.scheduleRespawn(RESPAWN_DELAY, () => {
         if (!this.running || this.gameOverTriggered) return
         // Give minimum fuel on respawn so player isn't stuck in a fuel-out loop
         if (this.fuelSystem.fuel < FUEL_RESPAWN_MIN) {
           this.fuelSystem.fuel = FUEL_RESPAWN_MIN
         }
         this.player.respawn(this.logicalWidth, this.logicalHeight)
-      }, RESPAWN_DELAY)
+      })
     } else {
       // No more lives — real game over
       this.triggerGameOver()
@@ -1168,10 +1391,9 @@ export class Game {
     if (isNewBest && this.gameModeConfig.trackLeaderboard) {
       this.saveHighScore()
     }
-    this.gameOverTimeoutId = setTimeout(() => {
-      this.gameOverTimeoutId = null
+    this.timers.scheduleGameOver(GAME_OVER_DELAY, () => {
       this.onGameOver?.(this.score, this.getHighScore())
-    }, GAME_OVER_DELAY)
+    })
   }
 
   getHighScore(): number {

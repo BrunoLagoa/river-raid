@@ -150,6 +150,15 @@ export function writeSecureJSON<T>(key: string, data: T): void {
   }
 }
 
+/** Removes a persisted value, tolerating unavailable storage (private mode). */
+export function removeSecure(key: string): void {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // ignore
+  }
+}
+
 export function readSecureNumber(key: string, fallback = 0): number {
   const value = readSecureJSON<number | null>(key, null)
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback

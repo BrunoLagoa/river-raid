@@ -5,7 +5,7 @@
 // and noise modulators without external audio samples.
 // ---------------------------------------------------------------------------
 
-export type SpeechCue = 'warning_low_fuel' | 'combo_max' | 'boss_alert' | 'overdrive_ready' | 'mission_complete'
+export type SpeechCue = 'warning_low_fuel' | 'combo_max' | 'boss_alert' | 'overdrive_ready' | 'mission_complete' | 'mission_start'
 
 interface FormantFrame {
   /** Fundamental frequency (pitch in Hz) */
@@ -109,6 +109,20 @@ const CUE_PHONEMES_EN: Record<SpeechCue, FormantFrame[]> = {
     // PLETE
     { pitch: 210, pitchEnd: 240, f1: 320, f2: 2250, duration: 0.24, gain: 1.0, noise: 0.2 },
   ],
+
+  // "MIS - SION START" — fim da cinemática, o jogador assume
+  mission_start: [
+    // MIS
+    { pitch: 150, pitchEnd: 160, f1: 380, f2: 2000, duration: 0.12, gain: 0.8, noise: 0.25 },
+    // SION
+    { pitch: 165, pitchEnd: 155, f1: 500, f2: 1700, duration: 0.14, gain: 0.85, noise: 0.3 },
+    // pause
+    { pitch: 100, f1: 500, f2: 1000, duration: 0.05, gain: 0 },
+    // STAR
+    { pitch: 190, pitchEnd: 215, f1: 700, f2: 1150, duration: 0.2, gain: 1.0, noise: 0.3 },
+    // T
+    { pitch: 215, pitchEnd: 200, f1: 400, f2: 1800, duration: 0.06, gain: 0.5, noise: 0.6 },
+  ],
 }
 
 const CUE_PHONEMES_PT: Record<SpeechCue, FormantFrame[]> = {
@@ -199,6 +213,26 @@ const CUE_PHONEMES_PT: Record<SpeechCue, FormantFrame[]> = {
     // DA
     { pitch: 210, pitchEnd: 180, f1: 680, f2: 1180, duration: 0.18, gain: 0.85 },
   ],
+
+  // "MIS - SÃO I - NI - CI - A - DA"
+  mission_start: [
+    // MIS
+    { pitch: 150, pitchEnd: 160, f1: 380, f2: 2000, duration: 0.11, gain: 0.8, noise: 0.25 },
+    // SAO
+    { pitch: 170, pitchEnd: 160, f1: 620, f2: 1100, duration: 0.15, gain: 0.9, noise: 0.2 },
+    // pause
+    { pitch: 100, f1: 500, f2: 1000, duration: 0.04, gain: 0 },
+    // I
+    { pitch: 175, pitchEnd: 180, f1: 270, f2: 2290, duration: 0.08, gain: 0.8 },
+    // NI
+    { pitch: 185, pitchEnd: 190, f1: 300, f2: 2200, duration: 0.09, gain: 0.85 },
+    // CI
+    { pitch: 195, pitchEnd: 205, f1: 280, f2: 2250, duration: 0.09, gain: 0.85, noise: 0.35 },
+    // A
+    { pitch: 215, pitchEnd: 230, f1: 720, f2: 1180, duration: 0.11, gain: 0.95 },
+    // DA
+    { pitch: 220, pitchEnd: 190, f1: 680, f2: 1180, duration: 0.16, gain: 0.9 },
+  ],
 }
 
 export class SpeechSynth8Bit {
@@ -214,6 +248,7 @@ export class SpeechSynth8Bit {
     boss_alert: 0,
     overdrive_ready: 0,
     mission_complete: 0,
+    mission_start: 0,
   }
 
   // Minimum interval in seconds between same speech cue
@@ -223,6 +258,7 @@ export class SpeechSynth8Bit {
     boss_alert: 10.0,
     overdrive_ready: 8.0,
     mission_complete: 10.0,
+    mission_start: 10.0,
   }
 
   init(ctx: AudioContext, outputNode: AudioNode): void {
@@ -304,6 +340,10 @@ export class SpeechSynth8Bit {
 
   playMissionComplete(): boolean {
     return this.play('mission_complete')
+  }
+
+  playMissionStart(): boolean {
+    return this.play('mission_start')
   }
 
   private renderPhonemeSequence(frames: FormantFrame[]): void {

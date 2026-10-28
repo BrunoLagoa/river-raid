@@ -56,6 +56,7 @@ export interface Strings {
   settingsLabelGamepad: string
   settingsLabelHaptics: string
   settingsLabelGhostReplay: string
+  settingsLabelIntro: string
   settingsLabelControls: string
   settingsBtnConfigureKeys: string
   settingsSectionAudio: string
@@ -118,6 +119,9 @@ export interface Strings {
   modeTagNoFuelDrain: string
   modeTagRapidBosses: string
   modeTagDeterministic: string
+  modeTag3Lives: string
+  modeTagRadar: string
+  modeSelected: string
   menuBtnModes: string
 
   // Hangar & Skins
@@ -163,6 +167,7 @@ export interface Strings {
   statsBossesKilled: string
   statsBtnClose: string
   statsBtnReset: string
+  statsBtnConfirmReset: string
   statsResetConfirm: string
 
   // Game Over
@@ -177,6 +182,20 @@ export interface Strings {
   gameoverBtnSave: string
   gameoverPressEnter: string
   gameoverAchievementsHeader: string
+
+  // Intro cinematic
+  introStampNight: string
+  introStampDawn: string
+  introSpeaker: string
+  /** Transmissões do QG, na ordem do roteiro da cinemática. */
+  introLines: readonly [string, string, string, string, string]
+  introContactHostile: string
+  introContactBridge: string
+  introContactUnknown: string
+  introCallsign: string
+  introTitle: string
+  introMissionStart: string
+  introSkip: string
 
   // HUD
   hudPaused: string
@@ -249,6 +268,7 @@ const en: Strings = {
   settingsLabelGamepad: 'Enable gamepad',
   settingsLabelHaptics: 'Tactile Haptic Feedback',
   settingsLabelGhostReplay: 'Ghost Aircraft Replay',
+  settingsLabelIntro: 'Opening cinematic',
   settingsLabelControls: 'Controls',
   settingsBtnConfigureKeys: 'Configure Keyboard...',
   settingsSectionAudio: 'Audio',
@@ -320,6 +340,9 @@ const en: Strings = {
   modeTagNoFuelDrain: 'No Fuel Drain',
   modeTagRapidBosses: 'Bosses Every 35s',
   modeTagDeterministic: 'Daily Seed',
+  modeTag3Lives: '3 Lives',
+  modeTagRadar: 'Radar',
+  modeSelected: '● SELECTED',
   menuBtnModes: 'MODES',
 
   // Hangar & Skins
@@ -365,6 +388,7 @@ const en: Strings = {
   statsBossesKilled: 'Dreadnought Bosses Defeated',
   statsBtnClose: 'CLOSE',
   statsBtnReset: 'RESET LOGBOOK',
+  statsBtnConfirmReset: 'CONFIRM RESET',
   statsResetConfirm: 'Are you sure you want to reset all lifetime career stats?',
 
   gameoverTitle: 'GAME OVER',
@@ -378,6 +402,24 @@ const en: Strings = {
   gameoverBtnSave: 'SAVE',
   gameoverPressEnter: '> TAP OR PRESS ENTER TO RETRY <',
   gameoverAchievementsHeader: 'ACHIEVEMENTS UNLOCKED',
+
+  introStampNight: 'SECTOR 07 · RIVER DELTA · 04:52',
+  introStampDawn: 'SECTOR 07 · RIVER DELTA · 05:30',
+  introSpeaker: 'HQ',
+  introLines: [
+    'They took the river overnight.',
+    'Every bridge is a supply line. Every patrol, a wall.',
+    'And something much bigger is coming down the river.',
+    'One pilot. One jet. One tank of fuel.',
+    "You're all we have left, pilot. Take back the river.",
+  ],
+  introContactHostile: 'HOSTILE',
+  introContactBridge: 'SUPPLY BRIDGE',
+  introContactUnknown: 'UNKNOWN CONTACT',
+  introCallsign: 'CALLSIGN · ACE',
+  introTitle: 'RIVER RAID',
+  introMissionStart: 'MISSION START',
+  introSkip: 'SKIP',
 
   hudPaused: 'PAUSED',
   hudPauseHint: 'Press P or ESC to resume',
@@ -469,6 +511,7 @@ const ptBR: Strings = {
   settingsLabelGamepad: 'Ativar gamepad',
   settingsLabelHaptics: 'Feedback Tátil / Vibração',
   settingsLabelGhostReplay: 'Avião Fantasma (Replay)',
+  settingsLabelIntro: 'Cinemática de abertura',
   settingsLabelControls: 'Controles',
   settingsBtnConfigureKeys: 'Configurar Teclado...',
   settingsSectionAudio: 'Áudio',
@@ -540,6 +583,9 @@ const ptBR: Strings = {
   modeTagNoFuelDrain: 'Sem Drenagem de Fuel',
   modeTagRapidBosses: 'Chefes a cada 35s',
   modeTagDeterministic: 'Semente do Dia',
+  modeTag3Lives: '3 Vidas',
+  modeTagRadar: 'Radar',
+  modeSelected: '● SELECIONADO',
   menuBtnModes: 'MODOS',
 
   // Hangar & Skins
@@ -585,6 +631,7 @@ const ptBR: Strings = {
   statsBossesKilled: 'Encouraçados Dreadnought',
   statsBtnClose: 'FECHAR',
   statsBtnReset: 'ZERAR DIÁRIO',
+  statsBtnConfirmReset: 'CONFIRMAR',
   statsResetConfirm: 'Tem certeza que deseja zerar todas as estatísticas acumuladas de carreira?',
 
   gameoverTitle: 'FIM DE JOGO',
@@ -598,6 +645,24 @@ const ptBR: Strings = {
   gameoverBtnSave: 'SALVAR',
   gameoverPressEnter: '> TOQUE OU PRESSIONE ENTER PARA TENTAR NOVAMENTE <',
   gameoverAchievementsHeader: 'CONQUISTAS DESBLOQUEADAS',
+
+  introStampNight: 'SETOR 07 · DELTA DO RIO · 04:52',
+  introStampDawn: 'SETOR 07 · DELTA DO RIO · 05:30',
+  introSpeaker: 'QG',
+  introLines: [
+    'Eles tomaram o rio durante a noite.',
+    'Cada ponte é uma linha de suprimento. Cada patrulha, uma muralha.',
+    'E algo muito maior está descendo o rio.',
+    'Um piloto. Um caça. Um tanque de combustível.',
+    'Você é tudo o que nos resta, piloto. Retome o rio.',
+  ],
+  introContactHostile: 'HOSTIL',
+  introContactBridge: 'PONTE DE SUPRIMENTOS',
+  introContactUnknown: 'CONTATO DESCONHECIDO',
+  introCallsign: 'CODINOME · ACE',
+  introTitle: 'RIVER RAID',
+  introMissionStart: 'MISSÃO INICIADA',
+  introSkip: 'PULAR',
 
   hudPaused: 'PAUSADO',
   hudPauseHint: 'Pressione P ou ESC para continuar',

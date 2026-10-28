@@ -1,6 +1,8 @@
 export class ObjectPool<T extends { active: boolean }> {
   private items: T[] = []
   private activeCache: T[] = []
+  /** Position of each active item in `activeCache` for O(1) removal. */
+  private activeIndex = new Map<T, number>()
   private factory: () => T
   private resetFn: (item: T) => void
   private readonly maxSize: number
@@ -19,7 +21,7 @@ export class ObjectPool<T extends { active: boolean }> {
     this.resetFn = resetFn
     this.maxSize = Math.max(size, maxSize)
     for (let i = 0; i < size; i++) {
-      this.items.push(factory())
+      this.items.push(this.instrument(factory()))
     }
   }
 
@@ -32,7 +34,7 @@ export class ObjectPool<T extends { active: boolean }> {
     }
 
     if (this.items.length < this.maxSize) {
-      const item = this.factory()
+      const item = this.instrument(this.factory())
       this.resetFn(item)
       this.items.push(item)
       return item
@@ -46,11 +48,13 @@ export class ObjectPool<T extends { active: boolean }> {
     return item
   }
 
+  /**
+   * The list is maintained by the `active` accessor installed on every pooled
+   * object, so this getter is O(1) instead of rescanning the whole pool on
+   * every read. Callers assign `item.active = false` directly all over the
+   * engine; the accessor is what keeps that pattern cheap and correct.
+   */
   get activeItems(): T[] {
-    this.activeCache.length = 0
-    for (const item of this.items) {
-      if (item.active) this.activeCache.push(item)
-    }
     return this.activeCache
   }
 
@@ -67,6 +71,44 @@ export class ObjectPool<T extends { active: boolean }> {
     for (const item of this.items) {
       item.active = false
     }
+    this.activeCache.length = 0
+    this.activeIndex.clear()
     this.recycleCursor = 0
+  }
+
+  private instrument(item: T): T {
+    let active = false
+    Object.defineProperty(item, 'active', {
+      configurable: true,
+      enumerable: true,
+      get: () => active,
+      set: (next: boolean) => {
+        const value = !!next
+        if (value === active) return
+        active = value
+        if (value) this.activate(item)
+        else this.deactivate(item)
+      },
+    })
+    return item
+  }
+
+  private activate(item: T): void {
+    this.activeIndex.set(item, this.activeCache.length)
+    this.activeCache.push(item)
+  }
+
+  private deactivate(item: T): void {
+    const index = this.activeIndex.get(item)
+    if (index === undefined) return
+
+    const last = this.activeCache.length - 1
+    if (index !== last) {
+      const moved = this.activeCache[last]
+      this.activeCache[index] = moved
+      this.activeIndex.set(moved, index)
+    }
+    this.activeCache.pop()
+    this.activeIndex.delete(item)
   }
 }

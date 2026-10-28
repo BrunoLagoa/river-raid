@@ -13,6 +13,40 @@ interface SettingsScreenProps {
   onPlay: () => void
 }
 
+interface SettingsSliderProps {
+  id: string
+  label: string
+  value: number
+  onChange: (value: number) => void
+}
+
+/**
+ * Slider row with a real `<label for>` association. The percentage used to be
+ * a plain sibling div, so assistive tech announced four anonymous sliders.
+ */
+function SettingsSlider({ id, label, value, onChange }: SettingsSliderProps) {
+  const percent = Math.round(value * 100)
+
+  return (
+    <div className="settings-row settings-row--slider">
+      <label className="settings-row-label" htmlFor={id}>
+        {label}
+        <span className="settings-value">{percent}%</span>
+      </label>
+      <input
+        id={id}
+        type="range"
+        min={0}
+        max={100}
+        value={percent}
+        onChange={(e) => onChange(Number(e.target.value) / 100)}
+        className="settings-slider"
+        style={{ '--val': `${percent}` } as React.CSSProperties}
+      />
+    </div>
+  )
+}
+
 export default function SettingsScreen({ settings, achievements, t, onUpdate, onBack, onPlay }: SettingsScreenProps) {
   const [isKeybindOpen, setIsKeybindOpen] = useState(false)
 
@@ -31,69 +65,33 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
         <div className="settings-body">
           <section className="settings-section">
             <h2 className="settings-section-title">{t.settingsSectionAudio}</h2>
-          <div className="settings-row settings-row--slider">
-            <div className="settings-row-label">
-              {t.settingsLabelVolume}
-              <span className="settings-value">{Math.round(settings.masterVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(settings.masterVolume * 100)}
-              onChange={(e) => onUpdate({ masterVolume: Number(e.target.value) / 100 })}
-              className="settings-slider"
-              style={{ '--val': `${Math.round(settings.masterVolume * 100)}` } as React.CSSProperties}
-            />
-          </div>
+          <SettingsSlider
+            id="settings-master-volume"
+            label={t.settingsLabelVolume}
+            value={settings.masterVolume}
+            onChange={(masterVolume) => onUpdate({ masterVolume })}
+          />
 
-          <div className="settings-row settings-row--slider">
-            <div className="settings-row-label">
-              {t.settingsLabelMusicVolume}
-              <span className="settings-value">{Math.round(settings.musicVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(settings.musicVolume * 100)}
-              onChange={(e) => onUpdate({ musicVolume: Number(e.target.value) / 100 })}
-              className="settings-slider"
-              style={{ '--val': `${Math.round(settings.musicVolume * 100)}` } as React.CSSProperties}
-            />
-          </div>
+          <SettingsSlider
+            id="settings-music-volume"
+            label={t.settingsLabelMusicVolume}
+            value={settings.musicVolume}
+            onChange={(musicVolume) => onUpdate({ musicVolume })}
+          />
 
-          <div className="settings-row settings-row--slider">
-            <div className="settings-row-label">
-              {t.settingsLabelSfxVolume}
-              <span className="settings-value">{Math.round(settings.sfxVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(settings.sfxVolume * 100)}
-              onChange={(e) => onUpdate({ sfxVolume: Number(e.target.value) / 100 })}
-              className="settings-slider"
-              style={{ '--val': `${Math.round(settings.sfxVolume * 100)}` } as React.CSSProperties}
-            />
-          </div>
+          <SettingsSlider
+            id="settings-sfx-volume"
+            label={t.settingsLabelSfxVolume}
+            value={settings.sfxVolume}
+            onChange={(sfxVolume) => onUpdate({ sfxVolume })}
+          />
 
-          <div className="settings-row settings-row--slider">
-            <div className="settings-row-label">
-              {t.settingsLabelVoiceVolume}
-              <span className="settings-value">{Math.round(settings.voiceVolume * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={Math.round(settings.voiceVolume * 100)}
-              onChange={(e) => onUpdate({ voiceVolume: Number(e.target.value) / 100 })}
-              className="settings-slider"
-              style={{ '--val': `${Math.round(settings.voiceVolume * 100)}` } as React.CSSProperties}
-            />
-          </div>
+          <SettingsSlider
+            id="settings-voice-volume"
+            label={t.settingsLabelVoiceVolume}
+            value={settings.voiceVolume}
+            onChange={(voiceVolume) => onUpdate({ voiceVolume })}
+          />
 
           </section>
 
@@ -198,6 +196,17 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
               <span className="settings-toggle-track" />
               <span className="settings-toggle-label">{t.settingsLabelGhostReplay}</span>
             </label>
+
+            <label className="settings-toggle">
+              <input
+                type="checkbox"
+                checked={settings.introCinematic}
+                onChange={(e) => onUpdate({ introCinematic: e.target.checked })}
+                className="settings-checkbox"
+              />
+              <span className="settings-toggle-track" />
+              <span className="settings-toggle-label">{t.settingsLabelIntro}</span>
+            </label>
           </div>
 
           </section>
@@ -218,8 +227,9 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
 
           <div className="settings-selects">
             <div className="settings-select-group">
-              <div className="settings-select-label">{t.settingsLabelMobileControl}</div>
+              <label className="settings-select-label" htmlFor="settings-mobile-control">{t.settingsLabelMobileControl}</label>
               <select
+                id="settings-mobile-control"
                 value={settings.mobileControlMode}
                 onChange={(e) => onUpdate({ mobileControlMode: e.target.value as GameSettings['mobileControlMode'] })}
                 className="settings-select"
@@ -231,8 +241,9 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             </div>
 
             <div className="settings-select-group">
-              <div className="settings-select-label">{t.settingsLabelDifficulty}</div>
+              <label className="settings-select-label" htmlFor="settings-difficulty">{t.settingsLabelDifficulty}</label>
               <select
+                id="settings-difficulty"
                 value={settings.difficulty}
                 onChange={(e) => onUpdate({ difficulty: e.target.value as GameSettings['difficulty'] })}
                 className="settings-select"
@@ -244,8 +255,9 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             </div>
 
             <div className="settings-select-group">
-              <div className="settings-select-label">{t.settingsLabelObjectiveProfile}</div>
+              <label className="settings-select-label" htmlFor="settings-objective-profile">{t.settingsLabelObjectiveProfile}</label>
               <select
+                id="settings-objective-profile"
                 value={settings.objectiveBalanceProfile}
                 onChange={(e) => onUpdate({ objectiveBalanceProfile: e.target.value as GameSettings['objectiveBalanceProfile'] })}
                 className="settings-select"
@@ -256,8 +268,9 @@ export default function SettingsScreen({ settings, achievements, t, onUpdate, on
             </div>
 
             <div className="settings-select-group">
-              <div className="settings-select-label">{t.settingsLabelLanguage}</div>
+              <label className="settings-select-label" htmlFor="settings-language">{t.settingsLabelLanguage}</label>
               <select
+                id="settings-language"
                 value={settings.language}
                 onChange={(e) => onUpdate({ language: e.target.value as GameSettings['language'] })}
                 className="settings-select"

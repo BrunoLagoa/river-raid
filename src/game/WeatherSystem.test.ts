@@ -198,4 +198,29 @@ describe('WeatherSystem', () => {
       expect(drop.alpha).toBeLessThan(0.5)
     }
   })
+
+  it('forceWeather garante a chuva sem passar pelo sorteio de ocorrencia', () => {
+    // 0.99 perderia o sorteio de 35% da chuva.
+    const unlucky = new WeatherSystem(CANVAS_WIDTH, CANVAS_HEIGHT, () => 0.99)
+    unlucky.forceWeather('rain')
+    unlucky.update(0.1, 100, 'rain')
+    expect(unlucky.getCurrentWeather()).toBe('rain')
+
+    // A troca seguinte volta ao sorteio normal.
+    unlucky.update(0.1, 100, 'clear')
+    unlucky.update(0.1, 100, 'rain')
+    expect(unlucky.getCurrentWeather()).toBe('clear')
+  })
+
+  it('triggerLightning acende um relampago roteirizado so durante a chuva', () => {
+    ws.update(0.016, 100, 'rain')
+    ws.triggerLightning(0.12)
+    expect(ws.isLightningActive()).toBe(true)
+    ws.update(0.2, 100, 'rain')
+    expect(ws.isLightningActive()).toBe(false)
+
+    ws.triggerLightning()
+    ws.update(0.016, 100, 'sandstorm')
+    expect(ws.isLightningActive()).toBe(false)
+  })
 })

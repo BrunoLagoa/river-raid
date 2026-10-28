@@ -69,6 +69,7 @@ describe('SettingsService', () => {
         voiceEnabled: true,
         muted: false,
         ghostReplay: true,
+        introCinematic: true,
         reducedMotion: false,
         weatherEffects: true,
         dynamicLighting: true,
@@ -85,6 +86,22 @@ describe('SettingsService', () => {
       expect(StorageService.writeSecureJSON).toHaveBeenCalledWith(
         'river-raid-settings',
         expect.objectContaining({ objectiveBalanceProfile: 'conservative' })
+      )
+    })
+
+    it('cinematica de abertura: padrao ligado, preserva boolean e normaliza invalido', () => {
+      expect(getDefaultSettings().introCinematic).toBe(true)
+
+      vi.mocked(StorageService.readSecureJSON).mockReturnValue({ introCinematic: false })
+      expect(getStoredSettings().introCinematic).toBe(false)
+
+      vi.mocked(StorageService.readSecureJSON).mockReturnValue({ introCinematic: 'yes' })
+      expect(getStoredSettings().introCinematic).toBe(true)
+
+      saveStoredSettings({ ...getDefaultSettings(), introCinematic: 'nope' as never })
+      expect(StorageService.writeSecureJSON).toHaveBeenCalledWith(
+        'river-raid-settings',
+        expect.objectContaining({ introCinematic: true }),
       )
     })
 
@@ -115,6 +132,7 @@ describe('SettingsService', () => {
         voiceEnabled: true,
         muted: false,
         ghostReplay: true,
+        introCinematic: true,
         reducedMotion: false,
         weatherEffects: true,
         dynamicLighting: true,
@@ -143,6 +161,7 @@ describe('SettingsService', () => {
         voiceEnabled: true,
         muted: false,
         ghostReplay: true,
+        introCinematic: true,
         reducedMotion: false,
         weatherEffects: false,
         dynamicLighting: false,
