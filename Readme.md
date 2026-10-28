@@ -271,6 +271,3 @@ Para detalhes técnicos mais profundos e planos de futuras versões, consulte:
 - [`AGENTS.md`](AGENTS.md): guia de arquitetura e comandos para agentes de IA.
 - [`CLAUDE.md`](CLAUDE.md): resumo operacional para agentes.
 - [`.agents/skills/create-readme/SKILL.md`](.agents/skills/create-readme/SKILL.md): skill oficial para criação/manutenção deste README.
-
----
-*Construído com ❤️ por Bruno Lagoa e assistentes IA.*
